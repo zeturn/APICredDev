@@ -1,0 +1,21 @@
+@import "@zeturn/watercolor-react/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ink-50 text-slate-900;
+  }
+}
+
+@layer components {
+  .wc-card {
+    @apply rounded-2xl border border-white/60 bg-white/80 shadow-watercolor backdrop-blur;
+  }
+
+  .wc-soft {
+    @apply rounded-3xl border border-white/50 bg-white/70 shadow-watercolor backdrop-blur;
+  }
+}

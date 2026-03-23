@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "metadata_type": "project_meta",
+  "source_of_truth": "/workspaces/WorkPlace/PORT_CONVENTION.md",
+  "project": {
+    "number": "03",
+    "name": "APICred",
+    "root_path": "/workspaces/WorkPlace/APICred"
+  },
+  "service_ports": [
+    {
+      "service": "backend_api",
+      "port": 8103,
+      "protocol": "http"
+    },
+    {
+      "service": "frontend_dev",
+      "port": 5106,
+      "protocol": "http"
+    },
+    {
+      "service": "postgresql",
+      "port": 5403,
+      "protocol": "tcp"
+    },
+    {
+      "service": "redis",
+      "port": 6303,
+      "protocol": "tcp"
+    }
+  ]
+}
