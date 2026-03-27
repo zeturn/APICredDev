@@ -89,6 +89,9 @@ async def test_api_smoke(db_session):
         admin_headers = {"X-Admin-Token": settings.admin_token}
         admin_models = await client.get("/v1/admin/models", headers=admin_headers)
         assert admin_models.status_code == 200
+        admin_presets = await client.get("/v1/admin/provider-presets", headers=admin_headers)
+        assert admin_presets.status_code == 200
+        assert any(item["provider"] == "openai" for item in admin_presets.json())
         admin_users = await client.get("/v1/admin/users", headers=admin_headers)
         assert admin_users.status_code == 200
 

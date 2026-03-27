@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.deps import get_db
 from app.core.errors import AppError
 from app.schemas.admin import ModelUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
+from app.services.providers.presets import list_provider_presets
 from app.services.admin_service import (
     list_models,
     upsert_model,
@@ -56,6 +57,12 @@ async def admin_provider_keys_list(request: Request, x_admin_token: str | None =
     _check_admin(x_admin_token, request.state.request_id)
     keys = await list_provider_keys(db)
     return [_to_dict(k) for k in keys]
+
+
+@router.get("/provider-presets")
+async def admin_provider_presets(request: Request, x_admin_token: str | None = Header(default=None)) -> list[dict]:
+    _check_admin(x_admin_token, request.state.request_id)
+    return list_provider_presets()
 
 
 @router.post("/provider-keys")

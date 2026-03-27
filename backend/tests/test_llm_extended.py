@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from types import SimpleNamespace
 
 import httpx
@@ -29,6 +30,41 @@ def _mk_candidate(provider_key):
         provider_key=provider_key,
         mpk=SimpleNamespace(quota_unit="requests", quota_rules={"minute": 100}),
     )
+
+
+class _Adapter:
+    def __init__(self, chat_impl=None, normalize_impl=None):
+        self._chat_impl = chat_impl
+        self._normalize_impl = normalize_impl or (lambda exc: {"code": "upstream_error", "retryable": True, "cooldown_seconds": 1})
+
+    async def chat_completions(self, payload, api_key, base_url):
+        return await self._chat_impl(payload, api_key, base_url)
+
+    async def stream_chat_completions(self, payload, api_key, base_url):
+        raw, usage = await self._chat_impl(payload, api_key, base_url)
+
+        async def _iterator():
+            first_chunk = {
+                "id": raw["id"],
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"role": "assistant", "content": raw["choices"][0]["message"]["content"]}, "finish_reason": None}],
+            }
+            final_chunk = {
+                "id": raw["id"],
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": raw["choices"][0].get("finish_reason")}],
+            }
+            yield f"data: {json.dumps(first_chunk)}\n\n"
+            yield f"data: {json.dumps(final_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        async def _finalize():
+            return raw, usage
+
+        return SimpleNamespace(iterator=_iterator(), finalize=_finalize)
+
+    def normalize_error(self, exc):
+        return self._normalize_impl(exc)
 
 
 @pytest.mark.asyncio
@@ -140,14 +176,14 @@ async def test_llm_success_and_upstream_failures(db_session, monkeypatch):
 
     monkeypatch.setattr("app.api.v1.llm.get_candidates", _candidates)
 
-    async def _chat_ok(self, payload, api_key, base_url):
+    async def _chat_ok(payload, api_key, base_url):
         assert base_url == "http://upstream"
         return (
             {"id": "cmpl-1", "choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}]},
             {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
         )
 
-    monkeypatch.setattr("app.api.v1.llm.OpenAICompatAdapter.chat_completions", _chat_ok)
+    monkeypatch.setattr("app.api.v1.llm.get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_ok))
     os.environ["OPENAI_TEST_KEY"] = "sk-test"
 
     transport = ASGITransport(app=app)
@@ -159,18 +195,31 @@ async def test_llm_success_and_upstream_failures(db_session, monkeypatch):
         assert success.status_code == 200
         assert success.json()["usage"]["total_tokens"] == 2
 
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with client.stream(
+            "POST",
+            "/v1/chat/completions",
+            json={"model": "llm-m2", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+        ) as streamed:
+            body = await streamed.aread()
+            text = body.decode("utf-8")
+            assert streamed.status_code == 200
+            assert "text/event-stream" in streamed.headers["content-type"]
+            assert '"chat.completion.chunk"' in text
+            assert "ok" in text
+            assert "[DONE]" in text
+
     req = httpx.Request("POST", "http://test")
     resp = httpx.Response(401, request=req)
     status_exc = httpx.HTTPStatusError("boom", request=req, response=resp)
 
-    async def _chat_status_error(self, payload, api_key, base_url):
+    async def _chat_status_error(payload, api_key, base_url):
         raise status_exc
 
-    def _normalize_non_retry(self, exc):
+    def _normalize_non_retry(exc):
         return {"code": "auth_failed", "retryable": False, "cooldown_seconds": 1}
 
-    monkeypatch.setattr("app.api.v1.llm.OpenAICompatAdapter.chat_completions", _chat_status_error)
-    monkeypatch.setattr("app.api.v1.llm.OpenAICompatAdapter.normalize_error", _normalize_non_retry)
+    monkeypatch.setattr("app.api.v1.llm.get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_status_error, normalize_impl=_normalize_non_retry))
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         failed = await client.post(
             "/v1/chat/completions",
@@ -178,14 +227,13 @@ async def test_llm_success_and_upstream_failures(db_session, monkeypatch):
         )
         assert failed.status_code == 502
 
-    async def _chat_exception(self, payload, api_key, base_url):
+    async def _chat_exception(payload, api_key, base_url):
         raise RuntimeError("network")
 
-    def _normalize_retry(self, exc):
+    def _normalize_retry(exc):
         return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 1}
 
-    monkeypatch.setattr("app.api.v1.llm.OpenAICompatAdapter.chat_completions", _chat_exception)
-    monkeypatch.setattr("app.api.v1.llm.OpenAICompatAdapter.normalize_error", _normalize_retry)
+    monkeypatch.setattr("app.api.v1.llm.get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_exception, normalize_impl=_normalize_retry))
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         failed2 = await client.post(
             "/v1/chat/completions",

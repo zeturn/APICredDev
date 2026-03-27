@@ -23,6 +23,18 @@ class _FakeRedis:
         self.closed = True
 
 
+class _Adapter:
+    def __init__(self, chat_impl=None, normalize_impl=None):
+        self._chat_impl = chat_impl
+        self._normalize_impl = normalize_impl or (lambda exc: {"code": "upstream_error", "retryable": True, "cooldown_seconds": 1})
+
+    async def chat_completions(self, payload, api_key, base_url):
+        return await self._chat_impl(payload, api_key, base_url)
+
+    def normalize_error(self, exc):
+        return self._normalize_impl(exc)
+
+
 def _req():
     return SimpleNamespace(state=SimpleNamespace(request_id=uuid4()))
 
@@ -119,7 +131,7 @@ async def test_llm_unit_success_and_reserve_continue(db_session, monkeypatch):
         reserve_calls["count"] += 1
         return reserve_calls["count"] >= 1
 
-    async def _chat(self, payload, api_key, base_url):
+    async def _chat(payload, api_key, base_url):
         return (
             {"id": "cmpl-unit", "choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}]},
             {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
@@ -131,7 +143,7 @@ async def test_llm_unit_success_and_reserve_continue(db_session, monkeypatch):
     monkeypatch.setattr(llm_module, "get_candidates", _candidates)
     monkeypatch.setattr(llm_module, "try_reserve", _reserve)
     monkeypatch.setattr(llm_module, "get_redis", lambda: fake_redis)
-    monkeypatch.setattr(llm_module.OpenAICompatAdapter, "chat_completions", _chat)
+    monkeypatch.setattr(llm_module, "get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat))
 
     payload = ChatCompletionRequest(model="llm-unit-2", messages=[{"role": "user", "content": "hello"}])
     resp = await llm_module.chat_completions(_req(), payload, db_session, _token())
@@ -184,27 +196,25 @@ async def test_llm_unit_http_and_generic_errors_and_cooldown(db_session, monkeyp
     req = httpx.Request("POST", "http://test")
     exc = httpx.HTTPStatusError("boom", request=req, response=httpx.Response(401, request=req))
 
-    async def _chat_http(self, payload, api_key, base_url):
+    async def _chat_http(payload, api_key, base_url):
         raise exc
 
-    def _normalize_http(self, err):
+    def _normalize_http(err):
         return {"code": "auth_failed", "retryable": False, "cooldown_seconds": 0}
 
-    monkeypatch.setattr(llm_module.OpenAICompatAdapter, "chat_completions", _chat_http)
-    monkeypatch.setattr(llm_module.OpenAICompatAdapter, "normalize_error", _normalize_http)
+    monkeypatch.setattr(llm_module, "get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_http, normalize_impl=_normalize_http))
     payload = ChatCompletionRequest(model="llm-unit-3", messages=[{"role": "user", "content": "hello"}])
     with pytest.raises(Exception):
         await llm_module.chat_completions(_req(), payload, db_session, _token())
     assert pkey.health_state == "disabled"
 
-    async def _chat_generic(self, payload, api_key, base_url):
+    async def _chat_generic(payload, api_key, base_url):
         raise RuntimeError("network")
 
-    def _normalize_generic(self, err):
+    def _normalize_generic(err):
         return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 1}
 
-    monkeypatch.setattr(llm_module.OpenAICompatAdapter, "chat_completions", _chat_generic)
-    monkeypatch.setattr(llm_module.OpenAICompatAdapter, "normalize_error", _normalize_generic)
+    monkeypatch.setattr(llm_module, "get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_generic, normalize_impl=_normalize_generic))
     with pytest.raises(Exception):
         await llm_module.chat_completions(_req(), payload, db_session, _token())
 

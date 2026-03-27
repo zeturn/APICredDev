@@ -64,6 +64,23 @@ npm run dev
 - `BASALT_S2S_CLIENT_ID`
 - `BASALT_S2S_CLIENT_SECRET`
 
+### Provider Presets
+
+管理员可通过 `GET /v1/admin/provider-presets` 获取常见上游的推荐 `provider` 和 `base_url` 组合，便于创建 `provider_keys`。
+
+常见示例：
+
+- `openai` -> `https://api.openai.com`
+- `openrouter` -> `https://openrouter.ai/api`
+- `deepseek` -> `https://api.deepseek.com`
+- `groq` -> `https://api.groq.com/openai`
+- `xai` -> `https://api.x.ai`
+- `siliconflow` -> `https://api.siliconflow.cn`
+- `anthropic` -> `https://api.anthropic.com`
+- `gemini` -> `https://generativelanguage.googleapis.com`
+
+`provider_keys.secret_ref` 仍然填写你保存 API Key 的环境变量名，`provider_keys.key_name` 填对应服务商的 `base_url`。
+
 ## Persistence Mounts
 
 `docker-compose.yml` 当前已挂载：

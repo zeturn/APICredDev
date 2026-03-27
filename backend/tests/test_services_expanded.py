@@ -19,7 +19,10 @@ from app.db.models.user import User
 from app.schemas.common import ErrorInfo, ErrorResponse
 from app.services import admin_service, token_service, usage_service
 from app.services.bootstrap import ensure_admin_user
+from app.services.providers.anthropic import AnthropicAdapter
 from app.services.providers.base import ProviderAdapter
+from app.services.providers.factory import get_provider_adapter
+from app.services.providers.gemini import GeminiAdapter
 from app.services.providers.openai_compat import OpenAICompatAdapter
 from app.services.providers.stubs import StubAdapter
 from app.services.quota_service import try_reserve
@@ -102,6 +105,240 @@ async def test_openai_compat_adapter(monkeypatch):
         exc = httpx.HTTPStatusError("boom", request=req, response=resp)
         assert adapter.normalize_error(exc)["code"] == expected
     assert adapter.normalize_error(Exception("net"))["code"] == "network_error"
+
+
+@pytest.mark.asyncio
+async def test_openai_compat_adapter_native_stream(monkeypatch):
+    chunks = [
+        'data: {"id":"cmpl-stream","choices":[{"delta":{"role":"assistant","content":"hel"},"index":0,"finish_reason":null}]}',
+        'data: {"id":"cmpl-stream","choices":[{"delta":{"content":"lo"},"index":0,"finish_reason":null}]}',
+        'data: {"id":"cmpl-stream","choices":[{"delta":{},"index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}',
+        "data: [DONE]",
+    ]
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+        async def aiter_lines(self):
+            for chunk in chunks:
+                yield chunk
+
+    class _StreamCtx:
+        async def __aenter__(self):
+            return _Resp()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    class _Client:
+        def stream(self, method, url, json, headers):
+            assert method == "POST"
+            assert url.endswith("/v1/chat/completions")
+            assert json["stream"] is True
+            assert json["stream_options"]["include_usage"] is True
+            assert headers["Authorization"] == "Bearer key"
+            return _StreamCtx()
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr("app.services.providers.openai_compat.httpx.AsyncClient", lambda *a, **k: _Client())
+
+    adapter = OpenAICompatAdapter()
+    result = await adapter.stream_chat_completions({"model": "x", "messages": [{"role": "user", "content": "hi"}]}, "key", "http://base")
+    seen = []
+    async for chunk in result.iterator:
+        seen.append(chunk)
+    raw, usage = await result.finalize()
+
+    assert any("hel" in chunk for chunk in seen)
+    assert any("[DONE]" in chunk for chunk in seen)
+    assert raw["choices"][0]["message"]["content"] == "hello"
+    assert raw["choices"][0]["finish_reason"] == "stop"
+    assert usage["total_tokens"] == 5
+
+
+@pytest.mark.asyncio
+async def test_anthropic_and_gemini_adapters_and_factory(monkeypatch):
+    class _AnthropicResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "id": "msg_123",
+                "content": [{"type": "text", "text": "hello from claude"}],
+                "stop_reason": "end_turn",
+                "usage": {"input_tokens": 5, "output_tokens": 7},
+            }
+
+    class _GeminiResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "responseId": "resp-1",
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": "hello from gemini"}]},
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 4, "totalTokenCount": 7},
+            }
+
+    class _AnthropicClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, url, json, headers):
+            assert url.endswith("/v1/messages")
+            assert headers["x-api-key"] == "claude-key"
+            assert json["system"] == "sys"
+            return _AnthropicResp()
+
+    class _GeminiClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, url, params, json, headers):
+            assert url.endswith("/v1beta/models/gemini-2.5-pro:generateContent")
+            assert params["key"] == "gem-key"
+            assert json["systemInstruction"]["parts"][0]["text"] == "sys"
+            return _GeminiResp()
+
+    anthropic = AnthropicAdapter()
+    gemini = GeminiAdapter()
+
+    monkeypatch.setattr("app.services.providers.anthropic.httpx.AsyncClient", lambda *a, **k: _AnthropicClient())
+    raw_a, usage_a = await anthropic.chat_completions(
+        {"model": "claude-3-7-sonnet", "messages": [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}]},
+        "claude-key",
+        "https://api.anthropic.com",
+    )
+    assert raw_a["choices"][0]["message"]["content"] == "hello from claude"
+    assert usage_a["total_tokens"] == 12
+
+    monkeypatch.setattr("app.services.providers.gemini.httpx.AsyncClient", lambda *a, **k: _GeminiClient())
+    raw_g, usage_g = await gemini.chat_completions(
+        {"model": "gemini-2.5-pro", "messages": [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}]},
+        "gem-key",
+        "https://generativelanguage.googleapis.com",
+    )
+    assert raw_g["choices"][0]["message"]["content"] == "hello from gemini"
+    assert usage_g["total_tokens"] == 7
+
+    assert isinstance(get_provider_adapter("openai"), OpenAICompatAdapter)
+    assert isinstance(get_provider_adapter("deepseek"), OpenAICompatAdapter)
+    assert isinstance(get_provider_adapter("anthropic"), AnthropicAdapter)
+    assert isinstance(get_provider_adapter("gemini"), GeminiAdapter)
+    assert isinstance(get_provider_adapter("stub"), StubAdapter)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_and_gemini_native_stream(monkeypatch):
+    anthropic_lines = [
+        'event: message_start',
+        'data: {"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":4,"output_tokens":1}}}',
+        'event: content_block_delta',
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}',
+        'event: content_block_delta',
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}',
+        'event: message_delta',
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":6}}',
+        'event: message_stop',
+        'data: {"type":"message_stop"}',
+    ]
+
+    gemini_lines = [
+        'data: {"responseId":"resp-2","candidates":[{"content":{"parts":[{"text":"Hi"}]}}]}',
+        'data: {"responseId":"resp-2","candidates":[{"content":{"parts":[{"text":" there"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":3,"totalTokenCount":5}}',
+    ]
+
+    class _Resp:
+        def __init__(self, lines):
+            self._lines = lines
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_lines(self):
+            for line in self._lines:
+                yield line
+
+    class _StreamCtx:
+        def __init__(self, response):
+            self._response = response
+
+        async def __aenter__(self):
+            return self._response
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    class _AnthropicClient:
+        def stream(self, method, url, json, headers):
+            assert method == "POST"
+            assert url.endswith("/v1/messages")
+            assert json["stream"] is True
+            assert headers["x-api-key"] == "claude-key"
+            return _StreamCtx(_Resp(anthropic_lines))
+
+        async def aclose(self):
+            return None
+
+    class _GeminiClient:
+        def stream(self, method, url, params, json, headers):
+            assert method == "POST"
+            assert url.endswith(":streamGenerateContent")
+            assert params["key"] == "gem-key"
+            assert params["alt"] == "sse"
+            return _StreamCtx(_Resp(gemini_lines))
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr("app.services.providers.anthropic.httpx.AsyncClient", lambda *a, **k: _AnthropicClient())
+    anthropic = AnthropicAdapter()
+    a_stream = await anthropic.stream_chat_completions(
+        {"model": "claude-sonnet", "messages": [{"role": "user", "content": "hi"}]},
+        "claude-key",
+        "https://api.anthropic.com",
+    )
+    a_seen = []
+    async for chunk in a_stream.iterator:
+        a_seen.append(chunk)
+    a_raw, a_usage = await a_stream.finalize()
+    assert any("Hello" in chunk for chunk in a_seen)
+    assert any("[DONE]" in chunk for chunk in a_seen)
+    assert a_raw["choices"][0]["message"]["content"] == "Hello world"
+    assert a_raw["choices"][0]["finish_reason"] == "end_turn"
+    assert a_usage["total_tokens"] == 10
+
+    monkeypatch.setattr("app.services.providers.gemini.httpx.AsyncClient", lambda *a, **k: _GeminiClient())
+    gemini = GeminiAdapter()
+    g_stream = await gemini.stream_chat_completions(
+        {"model": "gemini-2.5-flash", "messages": [{"role": "user", "content": "hi"}]},
+        "gem-key",
+        "https://generativelanguage.googleapis.com",
+    )
+    g_seen = []
+    async for chunk in g_stream.iterator:
+        g_seen.append(chunk)
+    g_raw, g_usage = await g_stream.finalize()
+    assert any("Hi" in chunk for chunk in g_seen)
+    assert any("[DONE]" in chunk for chunk in g_seen)
+    assert g_raw["choices"][0]["message"]["content"] == "Hi there"
+    assert g_raw["choices"][0]["finish_reason"] == "STOP"
+    assert g_usage["total_tokens"] == 5
 
 
 @pytest.mark.asyncio
@@ -248,7 +485,7 @@ async def test_routing_service_branches(db_session):
         secret_ref="B",
         enabled=True,
         health_state="healthy",
-        cooldown_until=datetime.now() + timedelta(minutes=30),
+        cooldown_until=datetime.now(timezone.utc) + timedelta(minutes=30),
     )
     p_ok = ProviderKey(provider="x", key_name="c", secret_ref="C", enabled=True, health_state="healthy", cooldown_until=datetime.now(timezone.utc) - timedelta(minutes=1))
     db_session.add_all([p_disabled, p_cool, p_ok])
