@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1.0",
+  "type": "basalt_app_resources",
+  "navigation": [
+    { "key": "home", "label": "APICred", "path": "/", "url": "http://localhost:5106" },
+    { "key": "credentials", "label": "Credentials", "path": "/credentials", "permission_key": "apicred.read" }
+  ],
+  "oauth_clients": [
+    {
+      "client_name": "APICred OAuth Client",
+      "redirect_uris": [
+        "http://localhost:8103/v1/auth/basalt/callback"
+      ]
+    }
+  ],
+  "webhooks": [],
+  "claims": [
+    { "claim": "app_id", "value": "apicred" }
+  ],
+  "extra": {
+    "feature_flags": [],
+    "settings": {}
+  }
+}

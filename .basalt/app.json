@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.1.0",
+  "type": "basalt_app_definition",
+  "app": {
+    "app_id": "apicred",
+    "app_key": "apicred",
+    "display_name": "APICred",
+    "description": "BasaltPass import metadata for APICred.",
+    "homepage_url": "http://localhost:5106",
+    "api_base_url": "http://localhost:8103",
+    "callback_urls": [
+      "http://localhost:8103/v1/auth/basalt/callback"
+    ],
+    "default_role_key": "apicred_viewer",
+    "status": "active",
+    "tags": [
+      "workplace",
+      "basalt"
+    ],
+    "service_ports": [
+      { "service": "backend_api", "port": 8103, "protocol": "http" },
+      { "service": "frontend_dev", "port": 5106, "protocol": "http" },
+      { "service": "postgresql", "port": 5403, "protocol": "tcp" },
+      { "service": "redis", "port": 6303, "protocol": "tcp" }
+    ],
+    "metadata": {
+      "project_root": "C:/Users/Administrator/Desktop/WorkPlace/APICred",
+      "oauth_record_name": "APICred OAuth Client"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "APICred",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "runArgs": [
+    "--init",
+    "-p",
+    "8103:8103",
+    "-p",
+    "5106:5106",
+    "-p",
+    "5403:5403",
+    "-p",
+    "6303:6303"
+  ],
+  "forwardPorts": [8103, 5106, 5403, 6303],
+  "portsAttributes": {
+    "8103": {
+      "label": "APICred Backend API",
+      "onAutoForward": "notify"
+    },
+    "5106": {
+      "label": "APICred Frontend Dev",
+      "onAutoForward": "openBrowserOnce"
+    },
+    "5403": {
+      "label": "APICred PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "6303": {
+      "label": "APICred Redis",
+      "onAutoForward": "silent"
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "bash -lc 'cd backend && pip install poetry && poetry install && cd ../frontend && npm install'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

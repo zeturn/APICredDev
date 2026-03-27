@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "type": "basalt_rbac_bundle",
+  "permissions": [
+    { "permission_key": "apicred.admin", "display_name": "APICred Admin", "resource": "apicred", "action": "admin", "scope": "app", "description": "Full administrative access to APICred.", "status": "active" },
+    { "permission_key": "apicred.read", "display_name": "APICred Read", "resource": "apicred", "action": "read", "scope": "app", "description": "Read access to APICred resources.", "status": "active" },
+    { "permission_key": "apicred.write", "display_name": "APICred Write", "resource": "apicred", "action": "write", "scope": "app", "description": "Create or update APICred resources.", "status": "active" }
+  ],
+  "roles": [
+    { "role_key": "apicred_admin", "display_name": "APICred Admin", "description": "Full access role for APICred operators.", "assignable": true, "priority": 100, "status": "active" },
+    { "role_key": "apicred_editor", "display_name": "APICred Editor", "description": "Write-capable role for APICred operators.", "assignable": true, "priority": 60, "status": "active" },
+    { "role_key": "apicred_viewer", "display_name": "APICred Viewer", "description": "Read-only role for APICred operators.", "assignable": true, "priority": 20, "status": "active" }
+  ],
+  "role_permissions": [
+    { "role_key": "apicred_admin", "permission_key": "apicred.admin", "effect": "allow" },
+    { "role_key": "apicred_admin", "permission_key": "apicred.read", "effect": "allow" },
+    { "role_key": "apicred_admin", "permission_key": "apicred.write", "effect": "allow" },
+    { "role_key": "apicred_editor", "permission_key": "apicred.read", "effect": "allow" },
+    { "role_key": "apicred_editor", "permission_key": "apicred.write", "effect": "allow" },
+    { "role_key": "apicred_viewer", "permission_key": "apicred.read", "effect": "allow" }
+  ]
+}
