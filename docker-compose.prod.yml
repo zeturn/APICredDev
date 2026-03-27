@@ -1,0 +1,24 @@
+services:
+  backend:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/apicred-backend:${APICRED_TAG:-latest}
+    mem_limit: 1g
+    cpus: 1.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      TOKEN_SALT: ${TOKEN_SALT:?TOKEN_SALT is required}
+    ports:
+      - "8103:8103"
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/apicred-frontend:${APICRED_TAG:-latest}
+    mem_limit: 512m
+    cpus: 0.5
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5106:80"
