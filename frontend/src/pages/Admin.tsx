@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@zeturn/watercolor-react";
+import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../api/adminClient";
 

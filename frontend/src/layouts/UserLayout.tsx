@@ -1,4 +1,4 @@
-import { Button, Card, List, ListItem, Typography } from "@zeturn/watercolor-react";
+import { Button, Card, List, ListItem, Typography } from "../lib/watercolor";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { userConsoleRoutes } from "../navigation/consoleRoutes";
 

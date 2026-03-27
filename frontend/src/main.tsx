@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "@zeturn/watercolor-react";
+import { ThemeProvider } from "./lib/watercolor";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";

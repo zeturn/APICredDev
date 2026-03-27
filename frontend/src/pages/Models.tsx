@@ -1,4 +1,4 @@
-import { Badge, Card, Grid, Typography } from "@zeturn/watercolor-react";
+import { Badge, Card, Grid, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import api from "../api/client";
 

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, TextField, Typography } from "@zeturn/watercolor-react";
+import { Alert, Button, Card, TextField, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/client";

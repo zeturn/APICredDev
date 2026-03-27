@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@zeturn/watercolor-react";
+import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "../lib/watercolor";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/client";

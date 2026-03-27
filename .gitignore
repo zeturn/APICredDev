@@ -55,6 +55,7 @@ frontend/build/
 
 # Runtime data
 dump.rdb
+data/
 
 # db
 *.sqlite

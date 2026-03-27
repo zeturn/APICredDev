@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Grid, TextField, Typography } from "@zeturn/watercolor-react";
+import { Alert, Button, Card, Grid, TextField, Typography } from "../lib/watercolor";
 import { useState } from "react";
 import api from "../api/client";
 
