@@ -15,6 +15,7 @@ from app.api.v1 import models as models_api
 from app.api.v1 import tokens as tokens_api
 from app.db.models.ledger import LedgerEntry
 from app.db.models.model import Model
+from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
 from app.services.auth_service import login_user, register_user
@@ -35,6 +36,7 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
     assert admin_api._to_dict(obj)["b"] == "2026-01-01T00:00:00+00:00"
 
     monkeypatch.setattr(admin_api, "list_models", lambda db: [SimpleNamespace(id="m1", created_at=now)])
+    monkeypatch.setattr(admin_api, "get_admin_dashboard", lambda db: {"total_users": 1})
     monkeypatch.setattr(admin_api, "upsert_model", lambda db, p: SimpleNamespace(id="m2", created_at=now))
     monkeypatch.setattr(admin_api, "list_provider_keys", lambda db: [SimpleNamespace(id="p1", created_at=now)])
     monkeypatch.setattr(admin_api, "list_provider_presets", lambda: [{"provider": "openai", "base_url": "https://api.openai.com"}])
@@ -43,12 +45,14 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
     monkeypatch.setattr(admin_api, "upsert_model_provider_key", lambda db, p: SimpleNamespace(id="k2", created_at=now))
     monkeypatch.setattr(admin_api, "list_users", lambda db: [SimpleNamespace(id="u1", created_at=now)])
     monkeypatch.setattr(admin_api, "list_usage_sessions", lambda db: [SimpleNamespace(id="s1", created_at=now)])
+    monkeypatch.setattr(admin_api, "update_user_status", lambda db, uid, status: SimpleNamespace(id=uid, status=status, created_at=now))
 
     async def _await(v):
         return v
 
     for name in (
         "list_models",
+        "get_admin_dashboard",
         "upsert_model",
         "list_provider_keys",
         "upsert_provider_key",
@@ -56,11 +60,13 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
         "upsert_model_provider_key",
         "list_users",
         "list_usage_sessions",
+        "update_user_status",
     ):
         fn = getattr(admin_api, name)
         monkeypatch.setattr(admin_api, name, (lambda f: (lambda *a, **k: _await(f(*a, **k))))(fn))
 
     assert await admin_api.admin_models_list(req, token, db_session)
+    assert await admin_api.admin_dashboard(req, token, db_session)
     assert await admin_api.admin_models_upsert(req, SimpleNamespace(model_dump=lambda: {}), token, db_session)
     assert await admin_api.admin_provider_keys_list(req, token, db_session)
     assert await admin_api.admin_provider_presets(req, token)
@@ -68,6 +74,7 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
     assert await admin_api.admin_model_provider_keys_list(req, token, db_session)
     assert await admin_api.admin_model_provider_keys_upsert(req, SimpleNamespace(model_dump=lambda: {}), token, db_session)
     assert await admin_api.admin_users(req, token, db_session)
+    assert await admin_api.admin_user_status_update("u1", req, {"status": "disabled"}, token, db_session)
     assert await admin_api.admin_usage_sessions(req, token, db_session)
 
 
@@ -116,11 +123,19 @@ async def test_auth_tokens_billing_models_direct_calls(monkeypatch, db_session):
     )
     monkeypatch.setattr(billing_api, "get_wallet", lambda db, uid: _await(wallet_obj))
     monkeypatch.setattr(billing_api, "list_ledger", lambda db, uid, limit: _await([ledger_item]))
+    monkeypatch.setattr(billing_api, "get_user_usage_summary", lambda db, uid: _await({"recent_sessions": [], "by_model": []}))
     monkeypatch.setattr(billing_api, "redeem_code", _raise)
+    monkeypatch.setattr(
+        billing_api,
+        "select",
+        lambda *args, **kwargs: __import__("sqlalchemy").select(*args, **kwargs),
+    )
     w = await billing_api.wallet(db_session, user)
     assert w.balance_credits == 1
     lg = await billing_api.ledger(db_session, user)
     assert len(lg) == 1
+    usage = await billing_api.usage(db_session, user)
+    assert usage["recent_sessions"] == []
     with pytest.raises(Exception):
         await billing_api.redeem(SimpleNamespace(code="x"), req, db_session, user)
 
@@ -170,4 +185,17 @@ async def test_auth_and_billing_services_remaining_lines(db_session):
     )
     await db_session.commit()
     assert await list_ledger(db_session, u.id, 10)
+
+    session = UsageSession(
+        user_id=u.id,
+        token_id="t1",
+        request_id="r1",
+        model_id="m1",
+        status="completed",
+        final_cost_credits=1.5,
+        upstream_provider="openai",
+        usage={"total_tokens": 10},
+    )
+    db_session.add(session)
+    await db_session.commit()
 

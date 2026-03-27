@@ -42,7 +42,7 @@ const UserLayout = () => {
             </List>
 
             <div className="mt-6 space-y-2">
-              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin")}>
+              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")}>
                 进入管理后台
               </Button>
               <Button buttonStyle="text" variant="error" fullWidth onClick={logout}>

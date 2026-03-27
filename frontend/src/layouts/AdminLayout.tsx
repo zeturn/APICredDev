@@ -1,15 +1,22 @@
-import { Button, Card, List, ListItem, Typography } from "../lib/watercolor";
+import { Button, Card, List, ListItem, TextField, Typography } from "../lib/watercolor";
+import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { adminConsoleRoutes } from "../navigation/consoleRoutes";
 
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [adminToken, setAdminToken] = useState(localStorage.getItem("admin_token") ?? "");
   const navItems = adminConsoleRoutes.map((item) => ({ to: item.path, label: item.label }));
 
   const logout = () => {
     localStorage.removeItem("access_token");
     navigate("/login");
+  };
+
+  const saveAdminToken = () => {
+    localStorage.setItem("admin_token", adminToken);
+    window.location.reload();
   };
 
   return (
@@ -26,6 +33,19 @@ const AdminLayout = () => {
             <Typography variant="body2" color="textSecondary" className="mt-1">
               Key Pool 与模型策略配置。
             </Typography>
+
+            <div className="mt-4 space-y-2">
+              <TextField
+                label="Admin Token"
+                placeholder="X-Admin-Token"
+                value={adminToken}
+                onChange={(e: any) => setAdminToken(e.target.value)}
+                fullWidth
+              />
+              <Button variant="primary" buttonStyle="filled" fullWidth onClick={saveAdminToken}>
+                保存管理密钥
+              </Button>
+            </div>
 
             <List className="mt-4 space-y-1">
               {navItems.map((item) => (

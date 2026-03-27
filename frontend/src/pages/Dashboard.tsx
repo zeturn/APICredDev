@@ -3,15 +3,26 @@ import { useEffect, useState } from "react";
 import api from "../api/client";
 
 const DashboardPage = () => {
+  const [summary, setSummary] = useState({
+    balance_credits: 0,
+    used_credits: 0,
+    usage_sessions: 0,
+    available_models: 0,
+  });
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
+      const summaryResp = await api.get("/billing/summary");
+      setSummary(summaryResp.data);
       const walletResp = await api.get("/billing/wallet");
       setBalance(walletResp.data.balance_credits);
       const ledgerResp = await api.get("/billing/ledger");
       setLedger(ledgerResp.data.slice(0, 10));
+      const modelsResp = await api.get("/models");
+      setModels(modelsResp.data);
     };
     load();
   }, []);
@@ -26,10 +37,10 @@ const DashboardPage = () => {
       </div>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card className="p-6">
             <Typography variant="body2" color="textSecondary">
-              当前余额
+              剩余额度
             </Typography>
             <Typography variant="h3" className="mt-2">
               {balance}
@@ -39,20 +50,72 @@ const DashboardPage = () => {
             </Typography>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card className="p-6">
             <Typography variant="body2" color="textSecondary">
-              今日窗口
+              已使用额度
             </Typography>
-            <Typography variant="h6" className="mt-2">
-              账单日状态
+            <Typography variant="h3" className="mt-2">
+              {summary.used_credits}
             </Typography>
             <Typography variant="caption" color="textSecondary" className="mt-3 block">
-              余额与账本保持一致，可追溯审计。
+              共 {summary.usage_sessions} 次调用已完成结算。
+            </Typography>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card className="p-6">
+            <Typography variant="body2" color="textSecondary">
+              可用模型
+            </Typography>
+            <Typography variant="h3" className="mt-2">
+              {summary.available_models}
+            </Typography>
+            <Typography variant="caption" color="textSecondary" className="mt-3 block">
+              当前已启用并可调用的模型数量。
             </Typography>
           </Card>
         </Grid>
       </Grid>
+
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.28em]">
+              models
+            </Typography>
+            <Typography variant="h6" className="mt-2">
+              可用模型列表
+            </Typography>
+          </div>
+          <Badge variant="primary">{models.length}</Badge>
+        </div>
+        <div className="mt-4">
+          <Table striped hover>
+            <TableHead>
+              <TableRow>
+                <TableCell>模型</TableCell>
+                <TableCell>定价</TableCell>
+                <TableCell align="right">倍率</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {models.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{JSON.stringify(item.pricing)}</TableCell>
+                  <TableCell align="right">x{item.multiplier}</TableCell>
+                </TableRow>
+              ))}
+              {models.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3}>暂无可用模型</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
 
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,7 +127,7 @@ const DashboardPage = () => {
               最近 10 笔
             </Typography>
           </div>
-          <Badge variant="primary">append-only</Badge>
+          <Badge variant="secondary">append-only</Badge>
         </div>
         <div className="mt-4">
           <Table striped hover>

@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.deps import get_db
 from app.db.models.model import Model
 from app.db.models.recharge_code import RechargeCode
+from app.db.models.usage_session import UsageSession
 from app.main import create_app
 
 
@@ -47,6 +48,8 @@ async def test_api_smoke(db_session):
         # wallet/ledger
         wallet = await client.get("/v1/billing/wallet", headers={"Authorization": f"Bearer {access_token}"})
         assert wallet.status_code == 200
+        summary = await client.get("/v1/billing/summary", headers={"Authorization": f"Bearer {access_token}"})
+        assert summary.status_code == 200
 
         # redeem
         code_plain = "CODE123"
@@ -59,6 +62,8 @@ async def test_api_smoke(db_session):
 
         ledger = await client.get("/v1/billing/ledger", headers={"Authorization": f"Bearer {access_token}"})
         assert ledger.status_code == 200
+        usage = await client.get("/v1/billing/usage", headers={"Authorization": f"Bearer {access_token}"})
+        assert usage.status_code == 200
 
         # tokens
         tok = await client.post(
@@ -68,6 +73,19 @@ async def test_api_smoke(db_session):
         )
         assert tok.status_code == 200
         raw_api_token = tok.json()["token"]
+
+        usage_row = UsageSession(
+            user_id=me.json()["id"],
+            token_id="tok1",
+            request_id="req1",
+            model_id=model.id,
+            status="completed",
+            final_cost_credits=2.5,
+            upstream_provider="openai",
+            usage={"total_tokens": 128},
+        )
+        db_session.add(usage_row)
+        await db_session.commit()
 
         # chat completions with missing model -> 404
         chat = await client.post(
@@ -89,9 +107,13 @@ async def test_api_smoke(db_session):
         admin_headers = {"X-Admin-Token": settings.admin_token}
         admin_models = await client.get("/v1/admin/models", headers=admin_headers)
         assert admin_models.status_code == 200
+        admin_dashboard = await client.get("/v1/admin/dashboard", headers=admin_headers)
+        assert admin_dashboard.status_code == 200
         admin_presets = await client.get("/v1/admin/provider-presets", headers=admin_headers)
         assert admin_presets.status_code == 200
         assert any(item["provider"] == "openai" for item in admin_presets.json())
         admin_users = await client.get("/v1/admin/users", headers=admin_headers)
         assert admin_users.status_code == 200
+        admin_usage = await client.get("/v1/admin/usage-summary", headers=admin_headers)
+        assert admin_usage.status_code == 200
 

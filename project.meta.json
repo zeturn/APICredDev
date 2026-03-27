@@ -7,6 +7,12 @@
     "name": "APICred",
     "root_path": "/workspaces/WorkPlace/APICred"
   },
+  "features": {
+    "basaltpass_integration": {
+      "record_name": "APICred OAuth Client",
+      "callback_url": "http://localhost:8103/v1/auth/basalt/callback"
+    }
+  },
   "service_ports": [
     {
       "service": "backend_api",

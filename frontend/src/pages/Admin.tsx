@@ -12,9 +12,22 @@ type ProviderPreset = {
 
 const AdminPage = () => {
   const [adminToken, setAdminToken] = useState(localStorage.getItem("admin_token") ?? "");
+  const [dashboard, setDashboard] = useState<any | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
   const [providerKeys, setProviderKeys] = useState<any[]>([]);
+  const [modelProviderKeys, setModelProviderKeys] = useState<any[]>([]);
   const [providerPresets, setProviderPresets] = useState<ProviderPreset[]>([]);
+  const [modelName, setModelName] = useState("");
+  const [modelMultiplier, setModelMultiplier] = useState("1");
+  const [modelPrice, setModelPrice] = useState("0");
+  const [modelPriceUnit, setModelPriceUnit] = useState("1k_tokens");
+  const [modelEnabled, setModelEnabled] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const [selectedProviderKeyId, setSelectedProviderKeyId] = useState("");
+  const [mappingPriority, setMappingPriority] = useState("1");
+  const [mappingEnabled, setMappingEnabled] = useState(true);
   const [provider, setProvider] = useState("");
   const [keyName, setKeyName] = useState("");
   const [secretRef, setSecretRef] = useState("");
@@ -26,15 +39,27 @@ const AdminPage = () => {
 
   const loadAdminData = async () => {
     if (!adminToken) {
+      setDashboard(null);
+      setUsers([]);
+      setModels([]);
       setProviderKeys([]);
+      setModelProviderKeys([]);
       setProviderPresets([]);
       return;
     }
-    const [keysResp, presetsResp] = await Promise.all([
+    const [dashboardResp, usersResp, modelsResp, keysResp, modelKeysResp, presetsResp] = await Promise.all([
+      adminApi.get("/admin/dashboard"),
+      adminApi.get("/admin/users"),
+      adminApi.get("/admin/models"),
       adminApi.get("/admin/provider-keys"),
+      adminApi.get("/admin/model-provider-keys"),
       adminApi.get("/admin/provider-presets"),
     ]);
+    setDashboard(dashboardResp.data);
+    setUsers(usersResp.data);
+    setModels(modelsResp.data);
     setProviderKeys(keysResp.data);
+    setModelProviderKeys(modelKeysResp.data);
     setProviderPresets(presetsResp.data);
   };
 
@@ -80,6 +105,46 @@ const AdminPage = () => {
     await loadAdminData();
   };
 
+  const createModel = async () => {
+    await adminApi.post("/admin/models", {
+      name: modelName,
+      category: "llm",
+      enabled: modelEnabled,
+      multiplier: Number(modelMultiplier || 1),
+      pricing: {
+        unit: modelPriceUnit,
+        price: Number(modelPrice || 0),
+      },
+    });
+    setModelName("");
+    setModelMultiplier("1");
+    setModelPrice("0");
+    setModelPriceUnit("1k_tokens");
+    setModelEnabled(true);
+    await loadAdminData();
+  };
+
+  const createModelProviderKey = async () => {
+    await adminApi.post("/admin/model-provider-keys", {
+      model_id: selectedModelId,
+      provider_key_id: selectedProviderKeyId,
+      enabled: mappingEnabled,
+      priority: Number(mappingPriority || 1),
+      quota_unit: "requests",
+      quota_rules: { minute: 1000 },
+    });
+    setSelectedModelId("");
+    setSelectedProviderKeyId("");
+    setMappingPriority("1");
+    setMappingEnabled(true);
+    await loadAdminData();
+  };
+
+  const updateUserStatus = async (userId: string, status: string) => {
+    await adminApi.post(`/admin/users/${userId}/status`, { status });
+    await loadAdminData();
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -88,7 +153,7 @@ const AdminPage = () => {
         </Typography>
         <Typography variant="h5">Admin 控制面板</Typography>
         <Typography variant="body2" color="textSecondary">
-          管理模型提供商 Key 与模型配置。
+          用户、模型、服务商与全站额度运营控制台。
         </Typography>
       </div>
 
@@ -114,6 +179,136 @@ const AdminPage = () => {
             请先填写并保存 Admin Token 才能访问管理接口。
           </Alert>
         )}
+      </Card>
+
+      {dashboard && (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <Card className="p-6">
+              <Typography variant="body2" color="textSecondary">用户总数</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.total_users}</Typography>
+              <Typography variant="caption" color="textSecondary">活跃 {dashboard.active_users}</Typography>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card className="p-6">
+              <Typography variant="body2" color="textSecondary">模型总数</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.total_models}</Typography>
+              <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_models}</Typography>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card className="p-6">
+              <Typography variant="body2" color="textSecondary">服务商 Key</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.provider_keys}</Typography>
+              <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_provider_keys}</Typography>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card className="p-6">
+              <Typography variant="body2" color="textSecondary">全站已使用额度</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.total_usage_credits}</Typography>
+              <Typography variant="caption" color="textSecondary">剩余 {dashboard.total_remaining_credits}</Typography>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Typography variant="h6">用户管理</Typography>
+          <Badge variant="warning">{users.length}</Badge>
+        </div>
+        <div className="mt-4">
+          <Table striped hover>
+            <TableHead>
+              <TableRow>
+                <TableCell>邮箱</TableCell>
+                <TableCell>状态</TableCell>
+                <TableCell align="right">余额</TableCell>
+                <TableCell align="right">已使用</TableCell>
+                <TableCell align="right">调用次数</TableCell>
+                <TableCell align="right">操作</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.email}</TableCell>
+                  <TableCell>{item.status}</TableCell>
+                  <TableCell align="right">{item.balance_credits}</TableCell>
+                  <TableCell align="right">{item.used_credits}</TableCell>
+                  <TableCell align="right">{item.usage_sessions}</TableCell>
+                  <TableCell align="right">
+                    <div className="flex justify-end gap-2">
+                      <Button buttonStyle="text" variant="secondary" onClick={() => updateUserStatus(item.id, "active")}>启用</Button>
+                      <Button buttonStyle="text" variant="error" onClick={() => updateUserStatus(item.id, "disabled")}>禁用</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <Typography variant="h6">模型与服务商管理</Typography>
+        <Grid container spacing={2} className="mt-2" alignItems="flex-end">
+          <Grid item xs={12} md={4}>
+            <TextField label="模型名" placeholder="gpt-4o-mini" value={modelName} onChange={(e: any) => setModelName(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="倍率" value={modelMultiplier} onChange={(e: any) => setModelMultiplier(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="单价" value={modelPrice} onChange={(e: any) => setModelPrice(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <label className="mb-2 block text-sm font-medium text-slate-600">计价单位</label>
+            <select
+              className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              value={modelPriceUnit}
+              onChange={(e) => setModelPriceUnit(e.target.value)}
+            >
+              <option value="1k_tokens">1k_tokens</option>
+              <option value="request">request</option>
+            </select>
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={modelEnabled} onChange={(e) => setModelEnabled(e.target.checked)} />
+              启用
+            </label>
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createModel} disabled={!modelName}>
+              新增
+            </Button>
+          </Grid>
+        </Grid>
+        <div className="mt-4">
+          <Table striped hover>
+            <TableHead>
+              <TableRow>
+                <TableCell>模型</TableCell>
+                <TableCell>状态</TableCell>
+                <TableCell>定价</TableCell>
+                <TableCell align="right">倍率</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {models.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
+                  <TableCell>{JSON.stringify(item.pricing)}</TableCell>
+                  <TableCell align="right">x{item.multiplier}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Card className="p-6">
@@ -227,6 +422,85 @@ const AdminPage = () => {
               {providerKeys.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5}>暂无提供商 Key</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <Typography variant="h6">模型与服务商绑定</Typography>
+        <Grid container spacing={2} className="mt-2" alignItems="flex-end">
+          <Grid item xs={12} md={4}>
+            <label className="mb-2 block text-sm font-medium text-slate-600">模型</label>
+            <select
+              className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              value={selectedModelId}
+              onChange={(e) => setSelectedModelId(e.target.value)}
+            >
+              <option value="">选择模型</option>
+              {models.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <label className="mb-2 block text-sm font-medium text-slate-600">服务商 Key</label>
+            <select
+              className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              value={selectedProviderKeyId}
+              onChange={(e) => setSelectedProviderKeyId(e.target.value)}
+            >
+              <option value="">选择服务商 Key</option>
+              {providerKeys.map((item) => (
+                <option key={item.id} value={item.id}>{item.provider} / {item.key_name}</option>
+              ))}
+            </select>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="优先级" value={mappingPriority} onChange={(e: any) => setMappingPriority(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={mappingEnabled} onChange={(e) => setMappingEnabled(e.target.checked)} />
+              启用
+            </label>
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <Button
+              variant="primary"
+              buttonStyle="filled"
+              fullWidth
+              onClick={createModelProviderKey}
+              disabled={!selectedModelId || !selectedProviderKeyId}
+            >
+              新增
+            </Button>
+          </Grid>
+        </Grid>
+        <div className="mt-4">
+          <Table striped hover>
+            <TableHead>
+              <TableRow>
+                <TableCell>模型 ID</TableCell>
+                <TableCell>服务商 Key ID</TableCell>
+                <TableCell>状态</TableCell>
+                <TableCell align="right">优先级</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {modelProviderKeys.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.model_id}</TableCell>
+                  <TableCell>{item.provider_key_id}</TableCell>
+                  <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
+                  <TableCell align="right">{item.priority}</TableCell>
+                </TableRow>
+              ))}
+              {modelProviderKeys.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>暂无模型与服务商绑定</TableCell>
                 </TableRow>
               )}
             </TableBody>
