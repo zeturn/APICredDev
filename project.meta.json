@@ -34,5 +34,13 @@
       "port": 6303,
       "protocol": "tcp"
     }
+  ],
+  "health_checks": [
+    {
+      "service": "backend_api",
+      "kind": "liveness",
+      "path": "/health",
+      "url": "http://localhost:8103/health"
+    }
   ]
 }

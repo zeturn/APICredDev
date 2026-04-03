@@ -25,7 +25,15 @@
     ],
     "metadata": {
       "project_root": "C:/Users/Administrator/Desktop/WorkPlace/APICred",
-      "oauth_record_name": "APICred OAuth Client"
+      "oauth_record_name": "APICred OAuth Client",
+      "health_checks": [
+        {
+          "service": "backend_api",
+          "kind": "liveness",
+          "path": "/health",
+          "url": "http://localhost:8103/health"
+        }
+      ]
     }
   }
 }

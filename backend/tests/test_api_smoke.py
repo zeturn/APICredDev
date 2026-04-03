@@ -25,6 +25,10 @@ async def test_api_smoke(db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        health = await client.get("/health")
+        assert health.status_code == 200
+        assert health.json() == {"status": "ok", "service": "apicred"}
+
         # register + login
         reg = await client.post("/v1/auth/register", json={"email": "u1@example.com", "password": "pass"})
         assert reg.status_code == 200

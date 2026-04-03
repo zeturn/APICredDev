@@ -53,6 +53,10 @@ def create_app() -> FastAPI:
     async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
 
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "service": "apicred"}
+
     app.include_router(auth.router, prefix="/v1")
     app.include_router(tokens.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
