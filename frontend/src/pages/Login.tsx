@@ -13,7 +13,6 @@ const LoginPage = () => {
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/workspace/dashboard";
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
-  const basaltOAuthProvider = import.meta.env.VITE_BASALT_OAUTH_PROVIDER ?? "google";
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
@@ -104,9 +103,9 @@ const LoginPage = () => {
             variant="secondary"
             buttonStyle="outlined"
             fullWidth
-            onClick={() => {
+          onClick={() => {
               const nextPath = encodeURIComponent(from);
-              window.location.href = `${apiBaseUrl}/auth/basalt/oauth/${basaltOAuthProvider}/login?next=${nextPath}`;
+              window.location.href = `${apiBaseUrl}/auth/basalt/login?next=${nextPath}`;
             }}
           >
             使用 BasaltPass 登录

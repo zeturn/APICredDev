@@ -86,8 +86,7 @@ def _urlsafe_b64(data: bytes) -> str:
 
 def _create_pkce_pair() -> tuple[str, str]:
     verifier = _urlsafe_b64(secrets.token_bytes(32))
-    # BasaltPass expects SHA256 hex (not base64url).
-    challenge = hashlib.sha256(verifier.encode('ascii')).hexdigest()
+    challenge = _urlsafe_b64(hashlib.sha256(verifier.encode('ascii')).digest())
     return verifier, challenge
 
 
@@ -144,7 +143,7 @@ async def _exchange_oauth_code(code: str, code_verifier: str, redirect_uri: str,
     }
     if settings.basalt_oauth_client_secret:
         payload['client_secret'] = settings.basalt_oauth_client_secret
-    token_url = f"{settings.basalt_base_url.rstrip('/')}/api/v1/oauth/token"
+    token_url = f"{settings.basalt_internal_base_url.rstrip('/')}/api/v1/oauth/token"
     try:
         async with httpx.AsyncClient(timeout=settings.basalt_timeout_seconds) as client:
             response = await client.post(token_url, data=payload)
@@ -159,7 +158,7 @@ async def _exchange_oauth_code(code: str, code_verifier: str, redirect_uri: str,
 
 
 async def _fetch_userinfo(access_token: str, request_id: str) -> dict[str, Any]:
-    userinfo_url = f"{settings.basalt_base_url.rstrip('/')}/api/v1/oauth/userinfo"
+    userinfo_url = f"{settings.basalt_internal_base_url.rstrip('/')}/api/v1/oauth/userinfo"
     try:
         async with httpx.AsyncClient(timeout=settings.basalt_timeout_seconds) as client:
             response = await client.get(

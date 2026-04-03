@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     debug_endpoints_enabled: bool = True
 
     basalt_base_url: str = "http://localhost:8101"
+    basalt_internal_base_url: str = "http://localhost:8101"
     basalt_service_token: str = ""
     basalt_oauth_client_id: str = ""
     basalt_oauth_client_secret: str = ""

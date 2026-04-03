@@ -11,6 +11,11 @@ services:
       - "5403:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apicred -d apicred"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   redis:
     image: redis:7
@@ -21,22 +26,35 @@ services:
       - "6303:6379"
     volumes:
       - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "jynthbgrvfecs22650", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   backend:
     build: ./backend
     mem_limit: 1g
     cpus: 1.0
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://apicred:ZHxXmRf8ApKAXWh7@postgres:5432/apicred
       REDIS_URL: redis://:jynthbgrvfecs22650@redis:6379/0
       ADMIN_TOKEN: dev-admin-token
       APP_SECRET: dev-secret
       TOKEN_SALT: dev-token-salt
+      BASALT_INTERNAL_BASE_URL: ${BASALT_INTERNAL_BASE_URL:-http://host.docker.internal:8101}
     ports:
       - "8103:8103"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     image: node:20
