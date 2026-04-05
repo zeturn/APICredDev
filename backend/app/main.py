@@ -21,19 +21,67 @@ from app.core.logging import configure_logging
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.db import models as _models  # noqa: F401
-from app.services.bootstrap import ensure_admin_user
+from app.services.bootstrap import ensure_admin_user, ensure_default_brands, ensure_default_models, ensure_default_providers, ensure_default_provider_keys
 
 
 def _apply_compat_schema_updates(connection) -> None:
     inspector = inspect(connection)
     if not inspector.has_table("model_provider_keys"):
-        return
-    columns = {column["name"] for column in inspector.get_columns("model_provider_keys")}
-    if "base_url" not in columns:
+        mpk_columns = set()
+    else:
+        mpk_columns = {column["name"] for column in inspector.get_columns("model_provider_keys")}
+    if "base_url" not in mpk_columns:
         connection.execute(text("ALTER TABLE model_provider_keys ADD COLUMN base_url VARCHAR"))
-    if "weight" not in columns:
+    if "weight" not in mpk_columns:
         connection.execute(text("ALTER TABLE model_provider_keys ADD COLUMN weight INTEGER DEFAULT 1"))
         connection.execute(text("UPDATE model_provider_keys SET weight = 1 WHERE weight IS NULL"))
+    if inspector.has_table("models"):
+        model_columns = {column["name"] for column in inspector.get_columns("models")}
+        if "brand_id" not in model_columns:
+            connection.execute(text("ALTER TABLE models ADD COLUMN brand_id VARCHAR"))
+        if "icon_slug" not in model_columns:
+            connection.execute(text("ALTER TABLE models ADD COLUMN icon_slug VARCHAR"))
+        if "icon_url" not in model_columns:
+            connection.execute(text("ALTER TABLE models ADD COLUMN icon_url VARCHAR"))
+    if inspector.has_table("brands"):
+        brand_columns = {column["name"] for column in inspector.get_columns("brands")}
+        if "icon_slug" not in brand_columns:
+            connection.execute(text("ALTER TABLE brands ADD COLUMN icon_slug VARCHAR"))
+        if "icon_url" not in brand_columns:
+            connection.execute(text("ALTER TABLE brands ADD COLUMN icon_url VARCHAR"))
+    if inspector.has_table("provider_keys"):
+        provider_key_columns = {column["name"] for column in inspector.get_columns("provider_keys")}
+        if "provider_id" not in provider_key_columns:
+            connection.execute(text("ALTER TABLE provider_keys ADD COLUMN provider_id VARCHAR"))
+        if "secret_encrypted" not in provider_key_columns:
+            connection.execute(text("ALTER TABLE provider_keys ADD COLUMN secret_encrypted VARCHAR"))
+        if "secret_last4" not in provider_key_columns:
+            connection.execute(text("ALTER TABLE provider_keys ADD COLUMN secret_last4 VARCHAR"))
+    if inspector.has_table("providers"):
+        provider_columns = {column["name"] for column in inspector.get_columns("providers")}
+        if "default_base_url" not in provider_columns:
+            connection.execute(text("ALTER TABLE providers ADD COLUMN default_base_url VARCHAR"))
+
+    if not inspector.has_table("usage_sessions"):
+        return
+    usage_columns = {column["name"] for column in inspector.get_columns("usage_sessions")}
+    if "model_name" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN model_name VARCHAR"))
+    if "request_messages" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN request_messages JSON"))
+    if "request_text" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN request_text TEXT"))
+    if "response_text" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN response_text TEXT"))
+    if "prompt_tokens" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN prompt_tokens INTEGER DEFAULT 0"))
+        connection.execute(text("UPDATE usage_sessions SET prompt_tokens = 0 WHERE prompt_tokens IS NULL"))
+    if "completion_tokens" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN completion_tokens INTEGER DEFAULT 0"))
+        connection.execute(text("UPDATE usage_sessions SET completion_tokens = 0 WHERE completion_tokens IS NULL"))
+    if "total_tokens" not in usage_columns:
+        connection.execute(text("ALTER TABLE usage_sessions ADD COLUMN total_tokens INTEGER DEFAULT 0"))
+        connection.execute(text("UPDATE usage_sessions SET total_tokens = 0 WHERE total_tokens IS NULL"))
 
 
 def create_app() -> FastAPI:
@@ -55,6 +103,10 @@ def create_app() -> FastAPI:
             await conn.run_sync(_apply_compat_schema_updates)
         async with SessionLocal() as db:
             await ensure_admin_user(db)
+            await ensure_default_brands(db)
+            await ensure_default_providers(db)
+            await ensure_default_provider_keys(db)
+            await ensure_default_models(db)
 
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):

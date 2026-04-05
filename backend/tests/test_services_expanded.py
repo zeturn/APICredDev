@@ -10,6 +10,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core.config import settings
+from app.core.secrets import decrypt_secret
 from app.core.time import format_bucket
 from app.db.models.model import Model
 from app.db.models.model_provider_key import ModelProviderKey
@@ -18,7 +19,7 @@ from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.schemas.common import ErrorInfo, ErrorResponse
 from app.services import admin_service, token_service, usage_service
-from app.services.bootstrap import ensure_admin_user
+from app.services.bootstrap import ensure_admin_user, ensure_default_brands, ensure_default_models, ensure_default_providers, ensure_default_provider_keys
 from app.services.providers.anthropic import AnthropicAdapter
 from app.services.providers.base import ProviderAdapter
 from app.services.providers.factory import get_provider_adapter
@@ -66,9 +67,34 @@ async def test_provider_base_and_stub_and_usage_cost():
 
     model_token = Model(name="m-token", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 2})
     model_req = Model(name="m-req", category="llm", enabled=True, multiplier=1.5, pricing={"unit": "request", "price": 3})
+    model_segments = Model(
+        name="m-segments",
+        category="llm",
+        enabled=True,
+        multiplier=1,
+        pricing={"mode": "token_segments", "input_per_million": 2.5, "cached_input_per_million": 0.25, "output_per_million": 15},
+    )
+    model_tiered = Model(
+        name="m-tiered",
+        category="llm",
+        enabled=True,
+        multiplier=1,
+        pricing={
+            "mode": "token_segments",
+            "input_per_million": 2,
+            "output_per_million": 12,
+            "tiers": [
+                {"max_input_tokens": 200000, "input_per_million": 2, "output_per_million": 12},
+                {"min_input_tokens": 200001, "input_per_million": 4, "output_per_million": 18},
+            ],
+        },
+    )
     assert usage_service.estimate_tokens([{"content": "hello"}], 10) >= 10
     assert usage_service.calculate_cost(model_token, 1500, 1) == 4.0
     assert usage_service.calculate_cost(model_req, 10, 2) == 9.0
+    assert usage_service.calculate_cost(model_segments, total_tokens=3000, prompt_tokens=2000, completion_tokens=1000) == 0.02
+    assert usage_service.calculate_cost(model_segments, total_tokens=3000, prompt_tokens=2000, completion_tokens=1000, cached_input_tokens=1000) == 0.01775
+    assert usage_service.calculate_cost(model_tiered, total_tokens=201000, prompt_tokens=201000, completion_tokens=1000) == pytest.approx(0.822)
 
 
 @pytest.mark.asyncio
@@ -381,16 +407,33 @@ async def test_quota_try_reserve_and_redis_client(monkeypatch):
 async def test_admin_token_routing_and_bootstrap_services(db_session):
     await ensure_admin_user(db_session)
     await ensure_admin_user(db_session)
+    await ensure_default_brands(db_session)
+    await ensure_default_brands(db_session)
+    await ensure_default_providers(db_session)
+    await ensure_default_providers(db_session)
+    await ensure_default_provider_keys(db_session)
+    await ensure_default_provider_keys(db_session)
+    await ensure_default_models(db_session)
+    await ensure_default_models(db_session)
     users = await admin_service.list_users(db_session)
-    assert any(u.email == settings.admin_email for u in users)
+    assert any(u["email"] == settings.admin_email for u in users)
+    brands = await admin_service.list_brands(db_session)
+    openai_brand = next((b for b in brands if b.slug == "openai"), None)
+    assert openai_brand is not None
+    provider_keys = await admin_service.list_provider_keys(db_session)
+    assert provider_keys == []
+    models = await admin_service.list_models(db_session)
+    assert any(m.name == "gpt-5.4" for m in models)
+    assert any(m.name == "gemini-3.1-pro-preview" for m in models)
+    assert any(m.name == "claude-sonnet-4.6" for m in models)
 
     model = await admin_service.upsert_model(
         db_session,
-        {"name": "model-a", "category": "llm", "enabled": True, "multiplier": 1.0, "pricing": {"unit": "1k_tokens", "price": 1}},
+        {"name": "model-a", "brand_id": openai_brand.id, "category": "llm", "enabled": True, "multiplier": 1.0, "pricing": {"unit": "1k_tokens", "price": 1}},
     )
     model2 = await admin_service.upsert_model(
         db_session,
-        {"id": model.id, "name": "model-a", "category": "llm", "enabled": False, "multiplier": 2.0, "pricing": {"unit": "request", "price": 3}},
+        {"id": model.id, "name": "model-a", "brand_id": openai_brand.id, "category": "llm", "enabled": False, "multiplier": 2.0, "pricing": {"unit": "request", "price": 3}},
     )
     assert model2.enabled is False
     assert len(await admin_service.list_models(db_session)) >= 1
@@ -400,7 +443,7 @@ async def test_admin_token_routing_and_bootstrap_services(db_session):
         {
             "provider": "openai",
             "key_name": "base",
-            "secret_ref": "OPENAI_KEY",
+            "api_key": "sk-test-openai-1234",
             "enabled": True,
             "health_state": "healthy",
             "cooldown_until": None,
@@ -412,14 +455,44 @@ async def test_admin_token_routing_and_bootstrap_services(db_session):
             "id": pkey.id,
             "provider": "openai",
             "key_name": "base-2",
-            "secret_ref": "OPENAI_KEY",
+            "api_key": "sk-test-openai-9876",
             "enabled": True,
             "health_state": "healthy",
             "cooldown_until": None,
         },
     )
     assert pkey2.key_name == "base-2"
+    assert pkey2.secret_last4 == "9876"
+    assert decrypt_secret(pkey2.secret_encrypted) == "sk-test-openai-9876"
     assert len(await admin_service.list_provider_keys(db_session)) >= 1
+
+    class _Resp:
+        def __init__(self, status_code=200, payload=None):
+            self.status_code = status_code
+            self._payload = payload or {"data": [{"id": "m1"}]}
+            self.headers = {"content-type": "application/json"}
+
+        def json(self):
+            return self._payload
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get(self, url, headers=None, params=None):
+            assert url.endswith("/v1/models")
+            assert headers["Authorization"].startswith("Bearer ")
+            return _Resp()
+
+    from app.services import admin_service as admin_service_module
+
+    admin_service_module.httpx.AsyncClient = lambda timeout=20: _Client()
+    validation = await admin_service.validate_provider_key(db_session, pkey2.id)
+    assert validation["ok"] is True
+    assert validation["model_count"] == 1
 
     mpk = await admin_service.upsert_model_provider_key(
         db_session,
@@ -448,7 +521,7 @@ async def test_admin_token_routing_and_bootstrap_services(db_session):
     assert len(await admin_service.list_model_provider_keys(db_session)) >= 1
 
     us = UsageSession(
-        user_id=users[0].id,
+        user_id=users[0]["id"],
         token_id="t1",
         request_id="r1",
         model_id=model.id,

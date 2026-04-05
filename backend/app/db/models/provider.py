@@ -1,22 +1,20 @@
 import uuid
-from sqlalchemy import String, DateTime, Numeric, JSON, Boolean, ForeignKey
+
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.time import utc_now
 from app.db.base import Base
 
 
-class Model(Base):
-    __tablename__ = "models"
+class Provider(Base):
+    __tablename__ = "providers"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
-    brand_id: Mapped[str | None] = mapped_column(String, ForeignKey("brands.id"), index=True, nullable=True)
+    slug: Mapped[str] = mapped_column(String, unique=True, index=True)
+    default_base_url: Mapped[str | None] = mapped_column(String, nullable=True)
     icon_slug: Mapped[str | None] = mapped_column(String, nullable=True)
     icon_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    category: Mapped[str] = mapped_column(String, default="llm")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    multiplier: Mapped[float] = mapped_column(Numeric(20, 6), default=1)
-    pricing: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=utc_now)
-

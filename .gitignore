@@ -41,6 +41,7 @@ build/
 dist/
 .venv/
 venv/
+pytest-cache-files-*/
 
 # Backend local artifacts
 backend/.pytest_cache/

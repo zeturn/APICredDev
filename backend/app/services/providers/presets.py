@@ -81,3 +81,11 @@ PROVIDER_PRESETS = [
 
 def list_provider_presets() -> list[dict]:
     return [dict(item) for item in PROVIDER_PRESETS]
+
+
+def get_provider_default_base_url(provider: str) -> str | None:
+    normalized = (provider or "").strip().lower()
+    for item in PROVIDER_PRESETS:
+        if item["provider"] == normalized:
+            return item.get("base_url")
+    return None

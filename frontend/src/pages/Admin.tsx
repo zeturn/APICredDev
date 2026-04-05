@@ -1,6 +1,7 @@
 import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../api/adminClient";
+import { formatPricingSummary } from "../shared/pricing";
 
 type ProviderPreset = {
   provider: string;
@@ -10,18 +11,43 @@ type ProviderPreset = {
   notes: string;
 };
 
+type Brand = {
+  id: string;
+  name: string;
+  slug: string;
+  enabled: boolean;
+  icon_url?: string | null;
+};
+
+type Provider = {
+  id: string;
+  name: string;
+  slug: string;
+  icon_url?: string | null;
+  enabled: boolean;
+};
+
 const AdminPage = () => {
   const [adminToken, setAdminToken] = useState(localStorage.getItem("admin_token") ?? "");
   const [dashboard, setDashboard] = useState<any | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [models, setModels] = useState<any[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [providerKeys, setProviderKeys] = useState<any[]>([]);
   const [modelProviderKeys, setModelProviderKeys] = useState<any[]>([]);
   const [providerPresets, setProviderPresets] = useState<ProviderPreset[]>([]);
   const [modelName, setModelName] = useState("");
+  const [selectedBrandId, setSelectedBrandId] = useState("");
+  const [modelIconUrl, setModelIconUrl] = useState("");
+  const [modelCategory, setModelCategory] = useState("llm");
   const [modelMultiplier, setModelMultiplier] = useState("1");
+  const [pricingMode, setPricingMode] = useState("token_segments");
   const [modelPrice, setModelPrice] = useState("0");
   const [modelPriceUnit, setModelPriceUnit] = useState("1k_tokens");
+  const [inputPrice, setInputPrice] = useState("0");
+  const [cachedInputPrice, setCachedInputPrice] = useState("");
+  const [outputPrice, setOutputPrice] = useState("0");
   const [modelEnabled, setModelEnabled] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
@@ -30,9 +56,9 @@ const AdminPage = () => {
   const [mappingPriority, setMappingPriority] = useState("1");
   const [mappingWeight, setMappingWeight] = useState("1");
   const [mappingEnabled, setMappingEnabled] = useState(true);
-  const [provider, setProvider] = useState("");
+  const [selectedProviderId, setSelectedProviderId] = useState("");
   const [keyName, setKeyName] = useState("");
-  const [secretRef, setSecretRef] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [healthState, setHealthState] = useState("healthy");
   const [cooldownUntil, setCooldownUntil] = useState("");
@@ -44,14 +70,18 @@ const AdminPage = () => {
       setDashboard(null);
       setUsers([]);
       setModels([]);
+      setBrands([]);
+      setProviders([]);
       setProviderKeys([]);
       setModelProviderKeys([]);
       setProviderPresets([]);
       return;
     }
-    const [dashboardResp, usersResp, modelsResp, keysResp, modelKeysResp, presetsResp] = await Promise.all([
+    const [dashboardResp, usersResp, brandsResp, providersResp, modelsResp, keysResp, modelKeysResp, presetsResp] = await Promise.all([
       adminApi.get("/admin/dashboard"),
       adminApi.get("/admin/users"),
+      adminApi.get("/admin/brands"),
+      adminApi.get("/admin/providers"),
       adminApi.get("/admin/models"),
       adminApi.get("/admin/provider-keys"),
       adminApi.get("/admin/model-provider-keys"),
@@ -59,6 +89,8 @@ const AdminPage = () => {
     ]);
     setDashboard(dashboardResp.data);
     setUsers(usersResp.data);
+    setBrands(brandsResp.data);
+    setProviders(providersResp.data);
     setModels(modelsResp.data);
     setProviderKeys(keysResp.data);
     setModelProviderKeys(modelKeysResp.data);
@@ -80,7 +112,8 @@ const AdminPage = () => {
     if (!preset) {
       return;
     }
-    setProvider(preset.provider);
+    const provider = providers.find((item) => item.slug === preset.provider);
+    setSelectedProviderId(provider?.id ?? "");
     setKeyName(preset.base_url);
     if (!healthState) {
       setHealthState("healthy");
@@ -88,18 +121,20 @@ const AdminPage = () => {
   };
 
   const createProviderKey = async () => {
+    const provider = providers.find((item) => item.id === selectedProviderId);
     const payload = {
-      provider,
-      key_name: keyName,
-      secret_ref: secretRef,
+      provider_id: selectedProviderId || null,
+      provider: provider?.slug || "",
+      key_name: keyName.trim(),
+      api_key: apiKey,
       enabled,
       health_state: healthState || "healthy",
       cooldown_until: cooldownUntil || null,
     };
     await adminApi.post("/admin/provider-keys", payload);
-    setProvider("");
+    setSelectedProviderId("");
     setKeyName("");
-    setSecretRef("");
+    setApiKey("");
     setEnabled(true);
     setHealthState("healthy");
     setCooldownUntil("");
@@ -108,20 +143,38 @@ const AdminPage = () => {
   };
 
   const createModel = async () => {
+    const pricing =
+      pricingMode === "token_segments"
+        ? {
+            mode: "token_segments",
+            input_per_million: Number(inputPrice || 0),
+            cached_input_per_million: cachedInputPrice === "" ? undefined : Number(cachedInputPrice),
+            output_per_million: Number(outputPrice || 0),
+          }
+        : {
+            unit: modelPriceUnit,
+            price: Number(modelPrice || 0),
+          };
     await adminApi.post("/admin/models", {
       name: modelName,
-      category: "llm",
+      brand_id: selectedBrandId || null,
+      icon_url: modelIconUrl || null,
+      category: modelCategory,
       enabled: modelEnabled,
       multiplier: Number(modelMultiplier || 1),
-      pricing: {
-        unit: modelPriceUnit,
-        price: Number(modelPrice || 0),
-      },
+      pricing,
     });
     setModelName("");
+    setSelectedBrandId("");
+    setModelIconUrl("");
+    setModelCategory("llm");
     setModelMultiplier("1");
+    setPricingMode("token_segments");
     setModelPrice("0");
     setModelPriceUnit("1k_tokens");
+    setInputPrice("0");
+    setCachedInputPrice("");
+    setOutputPrice("0");
     setModelEnabled(true);
     await loadAdminData();
   };
@@ -131,7 +184,7 @@ const AdminPage = () => {
     await adminApi.post("/admin/model-provider-keys", {
       model_id: selectedModelId,
       provider_key_id: selectedProviderKeyId,
-      base_url: mappingBaseUrl || selectedProviderKey?.key_name || "",
+      base_url: mappingBaseUrl.trim() || null,
       enabled: mappingEnabled,
       priority: Number(mappingPriority || 1),
       weight: Number(mappingWeight || 1),
@@ -262,26 +315,72 @@ const AdminPage = () => {
       <Card className="p-6">
         <Typography variant="h6">模型与服务商管理</Typography>
         <Grid container spacing={2} className="mt-2" alignItems="flex-end">
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
+            <label className="mb-2 block text-sm font-medium text-slate-600">品牌</label>
+            <select
+              className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              value={selectedBrandId}
+              onChange={(e) => setSelectedBrandId(e.target.value)}
+            >
+              <option value="">选择品牌</option>
+              {brands.filter((item) => item.enabled).map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </Grid>
+          <Grid item xs={12} md={2}>
             <TextField label="模型名" placeholder="gpt-4o-mini" value={modelName} onChange={(e: any) => setModelName(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="模型图标 URL" placeholder="https://..." value={modelIconUrl} onChange={(e: any) => setModelIconUrl(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="分类" placeholder="llm / image / embedding" value={modelCategory} onChange={(e: any) => setModelCategory(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField label="倍率" value={modelMultiplier} onChange={(e: any) => setModelMultiplier(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField label="单价" value={modelPrice} onChange={(e: any) => setModelPrice(e.target.value)} fullWidth />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">计价单位</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">计费模式</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
-              value={modelPriceUnit}
-              onChange={(e) => setModelPriceUnit(e.target.value)}
+              value={pricingMode}
+              onChange={(e) => setPricingMode(e.target.value)}
             >
-              <option value="1k_tokens">1k_tokens</option>
-              <option value="request">request</option>
+              <option value="token_segments">结构化 token</option>
+              <option value="simple">简单单价</option>
             </select>
           </Grid>
+          {pricingMode === "token_segments" ? (
+            <>
+              <Grid item xs={12} md={1}>
+                <TextField label="输入价/1M" value={inputPrice} onChange={(e: any) => setInputPrice(e.target.value)} fullWidth />
+              </Grid>
+              <Grid item xs={12} md={1}>
+                <TextField label="缓存输入/1M" value={cachedInputPrice} onChange={(e: any) => setCachedInputPrice(e.target.value)} fullWidth />
+              </Grid>
+              <Grid item xs={12} md={1}>
+                <TextField label="输出价/1M" value={outputPrice} onChange={(e: any) => setOutputPrice(e.target.value)} fullWidth />
+              </Grid>
+            </>
+          ) : (
+            <>
+              <Grid item xs={12} md={1}>
+                <TextField label="单价" value={modelPrice} onChange={(e: any) => setModelPrice(e.target.value)} fullWidth />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <label className="mb-2 block text-sm font-medium text-slate-600">计价单位</label>
+                <select
+                  className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+                  value={modelPriceUnit}
+                  onChange={(e) => setModelPriceUnit(e.target.value)}
+                >
+                  <option value="1k_tokens">1k_tokens</option>
+                  <option value="request">request</option>
+                </select>
+              </Grid>
+            </>
+          )}
           <Grid item xs={12} md={1}>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={modelEnabled} onChange={(e) => setModelEnabled(e.target.checked)} />
@@ -289,7 +388,7 @@ const AdminPage = () => {
             </label>
           </Grid>
           <Grid item xs={12} md={1}>
-            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createModel} disabled={!modelName}>
+            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createModel} disabled={!modelName || !selectedBrandId}>
               新增
             </Button>
           </Grid>
@@ -299,6 +398,8 @@ const AdminPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>模型</TableCell>
+                <TableCell>品牌</TableCell>
+                <TableCell>图标</TableCell>
                 <TableCell>状态</TableCell>
                 <TableCell>定价</TableCell>
                 <TableCell align="right">倍率</TableCell>
@@ -308,8 +409,24 @@ const AdminPage = () => {
               {models.map((item) => (
                 <TableRow key={item.id} hover>
                   <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.brand_name || brands.find((brand) => brand.id === item.brand_id)?.name || "-"}</TableCell>
+                  <TableCell>
+                    {item.effective_icon_url ? (
+                      <img src={item.effective_icon_url} alt={item.name} className="h-6 w-6 rounded-md object-contain" />
+                    ) : (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-600">
+                        {(item.name || "?").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
-                  <TableCell>{JSON.stringify(item.pricing)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1 text-sm text-slate-700">
+                      {formatPricingSummary(item.pricing).map((line) => (
+                        <div key={`${item.id}-${line}`}>{line}</div>
+                      ))}
+                    </div>
+                  </TableCell>
                   <TableCell align="right">x{item.multiplier}</TableCell>
                 </TableRow>
               ))}
@@ -343,30 +460,40 @@ const AdminPage = () => {
             {activePreset ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                 <div className="font-medium text-slate-900">{activePreset.label}</div>
-                <div className="mt-1">协议：{activePreset.protocol}</div>
-                <div className="mt-1 break-all">推荐地址：{activePreset.base_url}</div>
-                <div className="mt-1">{activePreset.notes}</div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
-                未选择预设时，可继续手动填写自定义服务商。
+              <div className="mt-1">协议：{activePreset.protocol}</div>
+              <div className="mt-1 break-all">推荐地址：{activePreset.base_url}</div>
+              <div className="mt-1">{activePreset.notes}</div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                未选择预设时，默认 URL 也可以留空，系统会回退到服务商默认地址。
               </div>
             )}
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Provider" placeholder="openai" value={provider} onChange={(e: any) => setProvider(e.target.value)} fullWidth />
+            <label className="mb-2 block text-sm font-medium text-slate-600">服务商</label>
+            <select
+              className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              value={selectedProviderId}
+              onChange={(e) => setSelectedProviderId(e.target.value)}
+            >
+              <option value="">选择服务商</option>
+              {providers.filter((item) => item.enabled).map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
               label="Base URL"
-              placeholder="https://api.openai.com"
+              placeholder="留空则使用服务商默认地址"
               value={keyName}
               onChange={(e: any) => setKeyName(e.target.value)}
               fullWidth
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Secret Ref" placeholder="OPENAI_KEY" value={secretRef} onChange={(e: any) => setSecretRef(e.target.value)} fullWidth />
+            <TextField label="API Key" placeholder="sk-..." value={apiKey} onChange={(e: any) => setApiKey(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField label="健康状态" placeholder="healthy" value={healthState} onChange={(e: any) => setHealthState(e.target.value)} fullWidth />
@@ -392,7 +519,7 @@ const AdminPage = () => {
               buttonStyle="filled"
               fullWidth
               onClick={createProviderKey}
-              disabled={!provider || !keyName || !secretRef}
+              disabled={!selectedProviderId || !apiKey}
             >
               新增
             </Button>
@@ -410,7 +537,9 @@ const AdminPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Provider</TableCell>
+                <TableCell>图标</TableCell>
                 <TableCell>名称</TableCell>
+                <TableCell>密钥</TableCell>
                 <TableCell>状态</TableCell>
                 <TableCell>健康</TableCell>
                 <TableCell align="right">创建时间</TableCell>
@@ -420,7 +549,17 @@ const AdminPage = () => {
               {providerKeys.map((item) => (
                 <TableRow key={item.id} hover>
                   <TableCell>{item.provider}</TableCell>
+                  <TableCell>
+                    {providers.find((provider) => provider.slug === item.provider)?.icon_url ? (
+                      <img src={providers.find((provider) => provider.slug === item.provider)?.icon_url} alt={item.provider} className="h-6 w-6 rounded-md object-contain" />
+                    ) : (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-600">
+                        {(item.provider || "?").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>{item.key_name}</TableCell>
+                  <TableCell>{item.has_secret ? (item.secret_last4 ? `****${item.secret_last4}` : "已加密") : "未设置"}</TableCell>
                   <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
                   <TableCell>{item.health_state}</TableCell>
                   <TableCell align="right">{item.created_at}</TableCell>
@@ -428,7 +567,7 @@ const AdminPage = () => {
               ))}
               {providerKeys.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5}>暂无提供商 Key</TableCell>
+                  <TableCell colSpan={7}>暂无提供商 Key</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -460,8 +599,7 @@ const AdminPage = () => {
               onChange={(e) => {
                 const nextId = e.target.value;
                 setSelectedProviderKeyId(nextId);
-                const selectedProviderKey = providerKeys.find((item) => item.id === nextId);
-                setMappingBaseUrl(selectedProviderKey?.key_name ?? "");
+                setMappingBaseUrl("");
               }}
             >
               <option value="">选择服务商 Key</option>

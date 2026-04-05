@@ -40,6 +40,9 @@ async def authorize_usage(
     model_id: str,
     estimated_cost: float,
     meta: dict,
+    model_name: str | None = None,
+    request_messages: list[dict] | None = None,
+    request_text: str | None = None,
 ) -> UsageSession:
     wallet = await get_wallet(db, user_id)
     estimated = Decimal(str(estimated_cost))
@@ -52,8 +55,11 @@ async def authorize_usage(
         token_id=token_id,
         request_id=request_id,
         model_id=model_id,
+        model_name=model_name,
         status="started",
         estimated_cost_credits=estimated,
+        request_messages=request_messages or [],
+        request_text=request_text,
     )
     ledger = LedgerEntry(
         user_id=user_id,
@@ -78,6 +84,7 @@ async def settle_usage(
     usage: UsageSession,
     final_cost: float,
     usage_meta: dict,
+    response_text: str | None = None,
 ) -> None:
     if usage.status == "completed":
         return
@@ -108,6 +115,10 @@ async def settle_usage(
         wallet.updated_at = utc_now()
         db.add(adjustment)
     usage.final_cost_credits = final
+    usage.prompt_tokens = int((usage_meta or {}).get("prompt_tokens", 0) or 0)
+    usage.completion_tokens = int((usage_meta or {}).get("completion_tokens", 0) or 0)
+    usage.total_tokens = int((usage_meta or {}).get("total_tokens", 0) or 0)
+    usage.response_text = response_text
     usage.usage = usage_meta
     usage.status = "completed"
     usage.completed_at = utc_now()
