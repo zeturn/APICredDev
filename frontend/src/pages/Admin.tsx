@@ -26,7 +26,9 @@ const AdminPage = () => {
   const [selectedPreset, setSelectedPreset] = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
   const [selectedProviderKeyId, setSelectedProviderKeyId] = useState("");
+  const [mappingBaseUrl, setMappingBaseUrl] = useState("");
   const [mappingPriority, setMappingPriority] = useState("1");
+  const [mappingWeight, setMappingWeight] = useState("1");
   const [mappingEnabled, setMappingEnabled] = useState(true);
   const [provider, setProvider] = useState("");
   const [keyName, setKeyName] = useState("");
@@ -125,17 +127,22 @@ const AdminPage = () => {
   };
 
   const createModelProviderKey = async () => {
+    const selectedProviderKey = providerKeys.find((item) => item.id === selectedProviderKeyId);
     await adminApi.post("/admin/model-provider-keys", {
       model_id: selectedModelId,
       provider_key_id: selectedProviderKeyId,
+      base_url: mappingBaseUrl || selectedProviderKey?.key_name || "",
       enabled: mappingEnabled,
       priority: Number(mappingPriority || 1),
+      weight: Number(mappingWeight || 1),
       quota_unit: "requests",
       quota_rules: { minute: 1000 },
     });
     setSelectedModelId("");
     setSelectedProviderKeyId("");
+    setMappingBaseUrl("");
     setMappingPriority("1");
+    setMappingWeight("1");
     setMappingEnabled(true);
     await loadAdminData();
   };
@@ -450,7 +457,12 @@ const AdminPage = () => {
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={selectedProviderKeyId}
-              onChange={(e) => setSelectedProviderKeyId(e.target.value)}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                setSelectedProviderKeyId(nextId);
+                const selectedProviderKey = providerKeys.find((item) => item.id === nextId);
+                setMappingBaseUrl(selectedProviderKey?.key_name ?? "");
+              }}
             >
               <option value="">选择服务商 Key</option>
               {providerKeys.map((item) => (
@@ -459,7 +471,13 @@ const AdminPage = () => {
             </select>
           </Grid>
           <Grid item xs={12} md={2}>
+            <TextField label="Base URL" value={mappingBaseUrl} onChange={(e: any) => setMappingBaseUrl(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={1}>
             <TextField label="优先级" value={mappingPriority} onChange={(e: any) => setMappingPriority(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <TextField label="权重" value={mappingWeight} onChange={(e: any) => setMappingWeight(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={1}>
             <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -485,8 +503,10 @@ const AdminPage = () => {
               <TableRow>
                 <TableCell>模型 ID</TableCell>
                 <TableCell>服务商 Key ID</TableCell>
+                <TableCell>Base URL</TableCell>
                 <TableCell>状态</TableCell>
                 <TableCell align="right">优先级</TableCell>
+                <TableCell align="right">权重</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -494,13 +514,15 @@ const AdminPage = () => {
                 <TableRow key={item.id} hover>
                   <TableCell>{item.model_id}</TableCell>
                   <TableCell>{item.provider_key_id}</TableCell>
+                  <TableCell>{item.base_url || "-"}</TableCell>
                   <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
                   <TableCell align="right">{item.priority}</TableCell>
+                  <TableCell align="right">{item.weight ?? 1}</TableCell>
                 </TableRow>
               ))}
               {modelProviderKeys.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4}>暂无模型与服务商绑定</TableCell>
+                  <TableCell colSpan={6}>暂无模型与服务商绑定</TableCell>
                 </TableRow>
               )}
             </TableBody>

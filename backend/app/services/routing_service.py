@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import select, asc
+from sqlalchemy import select, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import timezone
@@ -21,7 +21,7 @@ async def get_candidates(db: AsyncSession, model_id: str) -> list[RoutingResult]
         .where(ModelProviderKey.model_id == model_id)
         .where(ModelProviderKey.enabled.is_(True))
         .where(ProviderKey.enabled.is_(True))
-        .order_by(asc(ModelProviderKey.priority))
+        .order_by(asc(ModelProviderKey.priority), desc(ModelProviderKey.weight))
     )
     rows = result.all()
     now = utc_now()

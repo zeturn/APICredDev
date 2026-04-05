@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 from app.api.v1 import (
     auth,
@@ -23,6 +24,18 @@ from app.db import models as _models  # noqa: F401
 from app.services.bootstrap import ensure_admin_user
 
 
+def _apply_compat_schema_updates(connection) -> None:
+    inspector = inspect(connection)
+    if not inspector.has_table("model_provider_keys"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("model_provider_keys")}
+    if "base_url" not in columns:
+        connection.execute(text("ALTER TABLE model_provider_keys ADD COLUMN base_url VARCHAR"))
+    if "weight" not in columns:
+        connection.execute(text("ALTER TABLE model_provider_keys ADD COLUMN weight INTEGER DEFAULT 1"))
+        connection.execute(text("UPDATE model_provider_keys SET weight = 1 WHERE weight IS NULL"))
+
+
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="apicred", version="0.1.0")
@@ -39,6 +52,7 @@ def create_app() -> FastAPI:
     async def startup() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_apply_compat_schema_updates)
         async with SessionLocal() as db:
             await ensure_admin_user(db)
 

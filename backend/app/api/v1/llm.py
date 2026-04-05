@@ -76,7 +76,7 @@ async def chat_completions(
             if not ok:
                 continue
             api_key = os.getenv(candidate.provider_key.secret_ref, "")
-            base_url = candidate.provider_key.key_name
+            base_url = getattr(candidate.mpk, "base_url", None) or candidate.provider_key.key_name
             adapter = get_provider_adapter(candidate.provider_key.provider)
             try:
                 logger.info(
