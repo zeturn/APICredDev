@@ -57,6 +57,13 @@ frontend/build/
 # Runtime data
 dump.rdb
 data/
+/docs-site/.docusaurus/
+/docs-site/build/
+/docs-site/.cache/
+/docs-site/.temp/
+/sdk/python/dist/
+/sdk/python/build/
+/sdk/python/*.egg-info/
 
 # db
 *.sqlite

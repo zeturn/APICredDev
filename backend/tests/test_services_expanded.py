@@ -10,7 +10,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core.config import settings
-from app.core.secrets import decrypt_secret
+from app.core.secrets import decrypt_secret, encrypt_secret
 from app.core.time import format_bucket
 from app.db.models.model import Model
 from app.db.models.model_provider_key import ModelProviderKey
@@ -551,16 +551,17 @@ async def test_routing_service_branches(db_session):
     db_session.add(model)
     await db_session.commit()
 
-    p_disabled = ProviderKey(provider="x", key_name="a", secret_ref="A", enabled=True, health_state="disabled")
+    p_disabled = ProviderKey(provider="x", key_name="a", secret_encrypted=encrypt_secret("A"), secret_last4="A", enabled=True, health_state="disabled")
     p_cool = ProviderKey(
         provider="x",
         key_name="b",
-        secret_ref="B",
+        secret_encrypted=encrypt_secret("B"),
+        secret_last4="B",
         enabled=True,
         health_state="healthy",
         cooldown_until=datetime.now(timezone.utc) + timedelta(minutes=30),
     )
-    p_ok = ProviderKey(provider="x", key_name="c", secret_ref="C", enabled=True, health_state="healthy", cooldown_until=datetime.now(timezone.utc) - timedelta(minutes=1))
+    p_ok = ProviderKey(provider="x", key_name="c", secret_encrypted=encrypt_secret("C"), secret_last4="C", enabled=True, health_state="healthy", cooldown_until=datetime.now(timezone.utc) - timedelta(minutes=1))
     db_session.add_all([p_disabled, p_cool, p_ok])
     await db_session.commit()
 

@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends
@@ -81,9 +80,6 @@ def _resolve_api_key(candidate) -> str:
     encrypted_secret = getattr(candidate.provider_key, "secret_encrypted", None)
     if encrypted_secret:
         return decrypt_secret(encrypted_secret)
-    secret_ref = (getattr(candidate.provider_key, "secret_ref", None) or "").strip()
-    if secret_ref:
-        return os.getenv(secret_ref, "")
     return ""
 
 

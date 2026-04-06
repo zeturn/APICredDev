@@ -142,18 +142,6 @@ async def ensure_default_provider_keys(db: AsyncSession) -> None:
         if provider:
             provider_key.provider_id = provider.id
 
-    for payload in DEFAULT_PROVIDER_KEYS:
-        result = await db.execute(
-            select(ProviderKey).where(ProviderKey.provider == payload["provider"]).where(ProviderKey.secret_ref == payload["secret_ref"])
-        )
-        provider_key = result.scalars().first()
-        provider = providers.get(payload["provider"])
-        if provider_key:
-            # Keep default records aligned with our canonical upstream URL.
-            provider_key.provider_id = provider.id if provider else provider_key.provider_id
-            provider_key.key_name = payload["key_name"]
-            provider_key.health_state = payload["health_state"]
-            continue
     await db.commit()
 
 

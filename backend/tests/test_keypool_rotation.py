@@ -3,6 +3,7 @@ from redis.asyncio import Redis
 import random
 
 from app.core.config import settings
+from app.core.secrets import encrypt_secret
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
 from app.db.models.model_provider_key import ModelProviderKey
@@ -28,7 +29,7 @@ async def test_keypool_rotation(db_session):
 
     keys = {}
     for name in ["b", "a", "d", "c"]:
-        pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_ref="K", enabled=True)
+        pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
         db_session.add(pkey)
         await db_session.commit()
         await db_session.refresh(pkey)
@@ -79,8 +80,8 @@ async def test_multi_window_switch(db_session):
     await db_session.commit()
     await db_session.refresh(model)
 
-    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_ref="K", enabled=True)
-    pkey2 = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_ref="K2", enabled=True)
+    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
+    pkey2 = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K2"), secret_last4="K2", enabled=True)
     db_session.add_all([pkey, pkey2])
     await db_session.commit()
     await db_session.refresh(pkey)
@@ -129,7 +130,7 @@ async def test_cooldown_skips_key(db_session):
     await db_session.commit()
     await db_session.refresh(model)
 
-    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_ref="K", enabled=True)
+    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
     pkey.cooldown_until = utc_now() + timedelta(seconds=120)
     db_session.add(pkey)
     await db_session.commit()
@@ -159,8 +160,8 @@ async def test_weighted_selection_prefers_higher_weight_same_priority(db_session
     await db_session.commit()
     await db_session.refresh(model)
 
-    low_key = ProviderKey(provider="openai", key_name="https://example.com", secret_ref="LOW", enabled=True, health_state="healthy")
-    high_key = ProviderKey(provider="openai", key_name="https://example.com", secret_ref="HIGH", enabled=True, health_state="healthy")
+    low_key = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("LOW"), secret_last4="LOW", enabled=True, health_state="healthy")
+    high_key = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("HIGH"), secret_last4="IGH", enabled=True, health_state="healthy")
     db_session.add_all([low_key, high_key])
     await db_session.commit()
     await db_session.refresh(low_key)
@@ -191,9 +192,9 @@ async def test_weighted_selection_keeps_priority_tiers(db_session):
     await db_session.commit()
     await db_session.refresh(model)
 
-    p1_a = ProviderKey(provider="openai", key_name="https://example.com", secret_ref="P1A", enabled=True, health_state="healthy")
-    p1_b = ProviderKey(provider="openai", key_name="https://example.com", secret_ref="P1B", enabled=True, health_state="healthy")
-    p2 = ProviderKey(provider="openai", key_name="https://example.com", secret_ref="P2", enabled=True, health_state="healthy")
+    p1_a = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P1A"), secret_last4="P1A", enabled=True, health_state="healthy")
+    p1_b = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P1B"), secret_last4="P1B", enabled=True, health_state="healthy")
+    p2 = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P2"), secret_last4="P2", enabled=True, health_state="healthy")
     db_session.add_all([p1_a, p1_b, p2])
     await db_session.commit()
     await db_session.refresh(p1_a)

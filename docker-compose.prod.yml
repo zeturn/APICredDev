@@ -5,11 +5,16 @@ services:
     cpus: 1.0
     restart: unless-stopped
     environment:
+      PRODUCTION_MODE: "true"
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
       TOKEN_SALT: ${TOKEN_SALT:?TOKEN_SALT is required}
+      DEBUG_ENDPOINTS_ENABLED: "false"
+      STARTUP_CREATE_TABLES_ENABLED: "false"
+      STARTUP_SCHEMA_COMPAT_ENABLED: "false"
+      STARTUP_BOOTSTRAP_ENABLED: "false"
     ports:
       - "8103:8103"
     healthcheck:

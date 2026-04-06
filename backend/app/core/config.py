@@ -19,8 +19,12 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = "whsec_dev"
     stripe_price_credits: int = 1000
 
+    production_mode: bool = False
     max_key_attempts: int = 3
-    debug_endpoints_enabled: bool = True
+    debug_endpoints_enabled: bool = False
+    startup_create_tables_enabled: bool = False
+    startup_schema_compat_enabled: bool = False
+    startup_bootstrap_enabled: bool = False
 
     basalt_base_url: str = "http://localhost:8101"
     basalt_internal_base_url: str = "http://localhost:8101"
@@ -38,4 +42,24 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def validate_production_settings(current: Settings) -> None:
+    if not current.production_mode:
+        return
+
+    insecure_values = {
+        "app_secret": {"", "dev-secret"},
+        "token_salt": {"", "dev-token-salt"},
+        "admin_token": {"", "dev-admin-token"},
+    }
+    bad = [name for name, blocked in insecure_values.items() if getattr(current, name) in blocked]
+    if bad:
+        raise RuntimeError(f"insecure production settings: {', '.join(sorted(bad))}")
+
+    if current.debug_endpoints_enabled:
+        raise RuntimeError("debug endpoints must be disabled in production mode")
+
+    if current.startup_create_tables_enabled or current.startup_schema_compat_enabled or current.startup_bootstrap_enabled:
+        raise RuntimeError("startup create-tables/schema-compat/bootstrap must be disabled in production mode")
 

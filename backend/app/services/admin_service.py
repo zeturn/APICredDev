@@ -100,13 +100,9 @@ async def upsert_provider_key(db: AsyncSession, payload: dict) -> ProviderKey:
         if provider:
             payload["provider"] = provider.slug
     api_key = (payload.pop("api_key", None) or "").strip()
-    secret_ref = (payload.get("secret_ref") or "").strip()
     if api_key:
         payload["secret_encrypted"] = encrypt_secret(api_key)
         payload["secret_last4"] = api_key[-4:]
-        payload["secret_ref"] = ""
-    else:
-        payload["secret_ref"] = secret_ref
     item_id = payload.get("id")
     if item_id:
         pkey = await db.get(ProviderKey, item_id)
@@ -131,8 +127,6 @@ async def validate_provider_key(db: AsyncSession, provider_key_id: str) -> dict:
     provider = await db.get(Provider, provider_key.provider_id) if provider_key.provider_id else None
     base_url = (provider_key.key_name or "").strip() or (getattr(provider, "default_base_url", None) or "").strip() or get_provider_default_base_url(provider_key.provider) or ""
     api_key = decrypt_secret(provider_key.secret_encrypted) if provider_key.secret_encrypted else ""
-    if not api_key and provider_key.secret_ref:
-        return {"ok": False, "provider": provider_key.provider, "base_url": base_url, "message": "legacy secret_ref requires environment variable"}
     if not api_key:
         return {"ok": False, "provider": provider_key.provider, "base_url": base_url, "message": "missing api key"}
 

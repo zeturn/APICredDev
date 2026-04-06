@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
+from app.core.secrets import encrypt_secret
 from app.core.deps import get_bearer_token, get_db
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
@@ -139,7 +140,7 @@ async def test_llm_insufficient_balance_and_no_candidates(db_session, monkeypatc
 async def test_llm_success_and_upstream_failures(db_session, monkeypatch):
     app = create_app()
     model = Model(name="llm-m2", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 1})
-    pkey = ProviderKey(provider="openai", key_name="http://upstream", secret_ref="OPENAI_TEST_KEY", enabled=True, health_state="healthy")
+    pkey = ProviderKey(provider="openai", key_name="http://upstream", secret_encrypted=encrypt_secret("sk-test"), secret_last4="test", enabled=True, health_state="healthy")
     db_session.add_all([model, pkey])
     await db_session.commit()
 
@@ -184,8 +185,6 @@ async def test_llm_success_and_upstream_failures(db_session, monkeypatch):
         )
 
     monkeypatch.setattr("app.api.v1.llm.get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_ok))
-    os.environ["OPENAI_TEST_KEY"] = "sk-test"
-
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         success = await client.post(

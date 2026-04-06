@@ -13,6 +13,7 @@ from app.core.deps import get_bearer_token, get_current_user, require_scopes, ge
 from app.core.security import create_access_token, generate_api_token, hash_api_token
 from app.db.models.api_token import ApiToken
 from app.db.models.user import User
+from app.core.config import settings
 from app.main import create_app
 
 
@@ -102,10 +103,13 @@ async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     monkeypatch.setattr("app.main.ensure_default_providers", _ensure_default_providers)
     monkeypatch.setattr("app.main.ensure_default_provider_keys", _ensure_default_provider_keys)
     monkeypatch.setattr("app.main.ensure_default_models", _ensure_default_models)
+    monkeypatch.setattr(settings, "startup_create_tables_enabled", True)
+    monkeypatch.setattr(settings, "startup_schema_compat_enabled", True)
+    monkeypatch.setattr(settings, "startup_bootstrap_enabled", True)
 
     app = create_app()
-    for startup in app.router.on_startup:
-        await startup()
+    async with app.router.lifespan_context(app):
+        pass
 
     assert calls["run_sync"] is True
     assert calls["admin"] is True

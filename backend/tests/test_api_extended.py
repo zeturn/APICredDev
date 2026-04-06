@@ -109,7 +109,7 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
         pkey_payload = {
             "provider": "openai",
             "key_name": "k1",
-            "secret_ref": "OPENAI_KEY",
+            "api_key": "sk-test",
             "enabled": True,
             "health_state": "healthy",
             "cooldown_until": None,

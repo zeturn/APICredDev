@@ -13,7 +13,6 @@ class ProviderKey(Base):
     provider_id: Mapped[str | None] = mapped_column(String, ForeignKey("providers.id"), index=True, nullable=True)
     provider: Mapped[str] = mapped_column(String)
     key_name: Mapped[str] = mapped_column(String)
-    secret_ref: Mapped[str] = mapped_column(String, default="")
     secret_encrypted: Mapped[str | None] = mapped_column(String, nullable=True)
     secret_last4: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)

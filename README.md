@@ -79,7 +79,7 @@ npm run dev
 - `anthropic` -> `https://api.anthropic.com`
 - `gemini` -> `https://generativelanguage.googleapis.com`
 
-`provider_keys.secret_ref` 仍然填写你保存 API Key 的环境变量名，`provider_keys.key_name` 填对应服务商的 `base_url`。
+`provider_keys` 现在会把管理员录入的 API Key 加密后存库，`key_name` 填默认 `base_url`，详情页里的模型绑定可以再覆盖单模型 `base_url`。
 
 ## Persistence Mounts
 
@@ -113,9 +113,13 @@ pytest -q
 生产建议：
 
 - 使用独立 Postgres/Redis 托管实例
-- 所有密钥通过环境变量注入
+- Provider API Key 通过管理后台录入并加密存储到数据库
 - 使用反向代理与 HTTPS
 - 启用日志、监控与告警
+- 设置 `PRODUCTION_MODE=true`
+- 关闭 `STARTUP_CREATE_TABLES_ENABLED`
+- 关闭 `STARTUP_SCHEMA_COMPAT_ENABLED` 和 `STARTUP_BOOTSTRAP_ENABLED`
+- 保持 `DEBUG_ENDPOINTS_ENABLED=false`
 
 ---
 

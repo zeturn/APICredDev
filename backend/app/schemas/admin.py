@@ -38,7 +38,6 @@ class ProviderKeyUpsert(BaseModel):
     provider: str
     key_name: str
     api_key: str | None = None
-    secret_ref: str | None = None
     enabled: bool
     health_state: str
     cooldown_until: str | None = None

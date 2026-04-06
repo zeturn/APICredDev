@@ -10,6 +10,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.api.v1 import llm as llm_module
+from app.core.secrets import encrypt_secret
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
 from app.schemas.llm import ChatCompletionRequest
@@ -93,10 +94,9 @@ async def test_llm_unit_insufficient_and_no_candidates(db_session, monkeypatch):
 @pytest.mark.asyncio
 async def test_llm_unit_success_and_reserve_continue(db_session, monkeypatch):
     model = Model(name="llm-unit-2", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 1})
-    pkey = ProviderKey(provider="openai", key_name="http://base", secret_ref="OPENAI_UNIT_KEY", enabled=True, health_state="healthy")
+    pkey = ProviderKey(provider="openai", key_name="http://base", secret_encrypted=encrypt_secret("sk-unit"), secret_last4="unit", enabled=True, health_state="healthy")
     db_session.add_all([model, pkey])
     await db_session.commit()
-    os.environ["OPENAI_UNIT_KEY"] = "sk-unit"
 
     usage = SimpleNamespace(
         id="usage-2",
@@ -154,7 +154,7 @@ async def test_llm_unit_success_and_reserve_continue(db_session, monkeypatch):
 @pytest.mark.asyncio
 async def test_llm_unit_http_and_generic_errors_and_cooldown(db_session, monkeypatch):
     model = Model(name="llm-unit-3", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 1})
-    pkey = ProviderKey(provider="openai", key_name="http://base", secret_ref="OPENAI_UNIT_KEY2", enabled=True, health_state="healthy")
+    pkey = ProviderKey(provider="openai", key_name="http://base", secret_encrypted=encrypt_secret("sk-unit-2"), secret_last4="it-2", enabled=True, health_state="healthy")
     db_session.add_all([model, pkey])
     await db_session.commit()
 
@@ -222,7 +222,7 @@ async def test_llm_unit_http_and_generic_errors_and_cooldown(db_session, monkeyp
 @pytest.mark.asyncio
 async def test_llm_unit_attempt_limit_and_reserve_continue(db_session, monkeypatch):
     model = Model(name="llm-unit-4", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 1})
-    pkey = ProviderKey(provider="openai", key_name="http://base", secret_ref="OPENAI_UNIT_KEY3", enabled=True, health_state="healthy")
+    pkey = ProviderKey(provider="openai", key_name="http://base", secret_encrypted=encrypt_secret("sk-unit-3"), secret_last4="it-3", enabled=True, health_state="healthy")
     db_session.add_all([model, pkey])
     await db_session.commit()
 

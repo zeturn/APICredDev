@@ -41,8 +41,8 @@ def _to_dict(obj: object) -> dict:
                 data[k] = v.isoformat()
             else:
                 data[k] = v
-        if "secret_encrypted" in obj or "secret_ref" in obj:
-            data["has_secret"] = bool(obj.get("secret_encrypted") or obj.get("secret_ref"))
+        if "secret_encrypted" in obj:
+            data["has_secret"] = bool(obj.get("secret_encrypted"))
         return data
     data = {}
     for k, v in obj.__dict__.items():
@@ -54,8 +54,8 @@ def _to_dict(obj: object) -> dict:
             data[k] = v.isoformat()
         else:
             data[k] = v
-    if hasattr(obj, "secret_encrypted") or hasattr(obj, "secret_ref"):
-        data["has_secret"] = bool(getattr(obj, "secret_encrypted", None) or getattr(obj, "secret_ref", None))
+    if hasattr(obj, "secret_encrypted"):
+        data["has_secret"] = bool(getattr(obj, "secret_encrypted", None))
     return data
 
 

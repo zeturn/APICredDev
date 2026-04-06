@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -10,13 +11,13 @@ from app.api.v1 import (
     tokens,
     models,
     llm,
-    data_sources,
     billing,
     admin,
     basalt,
     stripe_webhook,
 )
 from app.core.errors import AppError
+from app.core.config import settings, validate_production_settings
 from app.core.logging import configure_logging
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
@@ -57,6 +58,33 @@ def _apply_compat_schema_updates(connection) -> None:
             connection.execute(text("ALTER TABLE provider_keys ADD COLUMN secret_encrypted VARCHAR"))
         if "secret_last4" not in provider_key_columns:
             connection.execute(text("ALTER TABLE provider_keys ADD COLUMN secret_last4 VARCHAR"))
+        if "secret_ref" in provider_key_columns:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM model_provider_keys
+                    WHERE provider_key_id IN (
+                        SELECT id
+                        FROM provider_keys
+                        WHERE COALESCE(secret_encrypted, '') = ''
+                          AND COALESCE(secret_ref, '') <> ''
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM provider_keys
+                    WHERE COALESCE(secret_encrypted, '') = ''
+                      AND COALESCE(secret_ref, '') <> ''
+                    """
+                )
+            )
+            try:
+                connection.execute(text("ALTER TABLE provider_keys DROP COLUMN secret_ref"))
+            except Exception:
+                pass
     if inspector.has_table("providers"):
         provider_columns = {column["name"] for column in inspector.get_columns("providers")}
         if "default_base_url" not in provider_columns:
@@ -84,9 +112,27 @@ def _apply_compat_schema_updates(connection) -> None:
         connection.execute(text("UPDATE usage_sessions SET total_tokens = 0 WHERE total_tokens IS NULL"))
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    validate_production_settings(settings)
+    async with engine.begin() as conn:
+        if settings.startup_create_tables_enabled:
+            await conn.run_sync(Base.metadata.create_all)
+        if settings.startup_schema_compat_enabled:
+            await conn.run_sync(_apply_compat_schema_updates)
+    if settings.startup_bootstrap_enabled:
+        async with SessionLocal() as db:
+            await ensure_admin_user(db)
+            await ensure_default_brands(db)
+            await ensure_default_providers(db)
+            await ensure_default_provider_keys(db)
+            await ensure_default_models(db)
+    yield
+
+
 def create_app() -> FastAPI:
     configure_logging()
-    app = FastAPI(title="apicred", version="0.1.0")
+    app = FastAPI(title="apicred", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -95,18 +141,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.on_event("startup")
-    async def startup() -> None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            await conn.run_sync(_apply_compat_schema_updates)
-        async with SessionLocal() as db:
-            await ensure_admin_user(db)
-            await ensure_default_brands(db)
-            await ensure_default_providers(db)
-            await ensure_default_provider_keys(db)
-            await ensure_default_models(db)
 
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
@@ -127,7 +161,6 @@ def create_app() -> FastAPI:
     app.include_router(tokens.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
     app.include_router(llm.router, prefix="/v1")
-    app.include_router(data_sources.router, prefix="/v1")
     app.include_router(billing.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
