@@ -28,8 +28,6 @@ def _req():
 
 @pytest.mark.asyncio
 async def test_admin_api_direct_calls(monkeypatch, db_session):
-    req = _req()
-    token = "dev-admin-token"
     now = SimpleNamespace(isoformat=lambda: "2026-01-01T00:00:00+00:00")
 
     obj = SimpleNamespace(a=1, b=now, _hidden=1)
@@ -65,17 +63,17 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
         fn = getattr(admin_api, name)
         monkeypatch.setattr(admin_api, name, (lambda f: (lambda *a, **k: _await(f(*a, **k))))(fn))
 
-    assert await admin_api.admin_models_list(req, token, db_session)
-    assert await admin_api.admin_dashboard(req, token, db_session)
-    assert await admin_api.admin_models_upsert(req, SimpleNamespace(model_dump=lambda: {}), token, db_session)
-    assert await admin_api.admin_provider_keys_list(req, token, db_session)
-    assert await admin_api.admin_provider_presets(req, token)
-    assert await admin_api.admin_provider_keys_upsert(req, SimpleNamespace(model_dump=lambda: {}), token, db_session)
-    assert await admin_api.admin_model_provider_keys_list(req, token, db_session)
-    assert await admin_api.admin_model_provider_keys_upsert(req, SimpleNamespace(model_dump=lambda: {}), token, db_session)
-    assert await admin_api.admin_users(req, token, db_session)
-    assert await admin_api.admin_user_status_update("u1", req, {"status": "disabled"}, token, db_session)
-    assert await admin_api.admin_usage_sessions(req, token, db_session)
+    assert await admin_api.admin_models_list(db_session)
+    assert await admin_api.admin_dashboard(db_session)
+    assert await admin_api.admin_models_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_provider_keys_list(db_session)
+    assert await admin_api.admin_provider_presets()
+    assert await admin_api.admin_provider_keys_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_model_provider_keys_list(db_session)
+    assert await admin_api.admin_model_provider_keys_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_users(db_session)
+    assert await admin_api.admin_user_status_update("u1", _req(), {"status": "disabled"}, db_session)
+    assert await admin_api.admin_usage_sessions(db_session)
 
 
 @pytest.mark.asyncio

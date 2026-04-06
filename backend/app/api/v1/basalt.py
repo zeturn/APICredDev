@@ -7,8 +7,9 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_optional_current_user
 from app.core.errors import AppError
+from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 
 router = APIRouter(tags=["basalt"])
@@ -26,9 +27,81 @@ def get_basalt_client() -> BasaltPassClient:
     return BasaltPassClient()
 
 
-def _require_admin_token(request: Request, x_admin_token: str | None = Header(default=None)) -> None:
-    if not x_admin_token or x_admin_token != settings.admin_token:
-        raise AppError("admin_unauthorized", "invalid admin token", request.state.request_id, 403)
+async def _require_admin_access(
+    request: Request,
+    x_admin_token: str | None = Header(default=None),
+    user=Depends(get_optional_current_user),
+    client: BasaltPassClient = Depends(get_basalt_client),
+) -> None:
+    await assert_admin_access(
+        request=request,
+        x_admin_token=x_admin_token,
+        user=user,
+        client=client,
+    )
+
+
+def _extract_codes(payload: Any) -> set[str]:
+    values: list[Any] = []
+    if isinstance(payload, list):
+        values = payload
+    elif isinstance(payload, dict):
+        for key in ("permissions", "roles", "permission_codes", "role_codes"):
+            raw = payload.get(key)
+            if isinstance(raw, list):
+                values.extend(raw)
+
+    codes: set[str] = set()
+    for item in values:
+        if isinstance(item, str):
+            code = item.strip().lower()
+            if code:
+                codes.add(code)
+            continue
+        if isinstance(item, dict):
+            code = str(item.get("code") or item.get("name") or "").strip().lower()
+            if code:
+                codes.add(code)
+    return codes
+
+
+def _has_required_permission(codes: set[str], required: str) -> bool:
+    if required in codes:
+        return True
+    required_suffix = f".{required}"
+    for code in codes:
+        if code.endswith(required_suffix):
+            return True
+    return False
+
+
+def _build_user_permission_dependency(required_code: str):
+    required = required_code.strip().lower()
+
+    async def _dependency(
+        request: Request,
+        client: BasaltPassClient = Depends(get_basalt_client),
+        user=Depends(get_current_user),
+    ) -> None:
+        if not settings.basalt_rbac_enforce:
+            return
+
+        basalt_user_id = (getattr(user, "basalt_user_id", None) or "").strip()
+        if not basalt_user_id:
+            if settings.basalt_rbac_strict_user_binding:
+                raise AppError("rbac_user_unbound", "user is not linked to BasaltPass", request.state.request_id, 403)
+            return
+
+        tenant_id = (getattr(user, "basalt_tenant_id", None) or settings.basalt_default_tenant_id or "").strip() or None
+        try:
+            payload = await client.s2s_get_user_permissions(basalt_user_id, tenant_id=tenant_id)
+        except ValueError:
+            return
+
+        if not _has_required_permission(_extract_codes(payload), required):
+            raise AppError("permission_denied", f"missing permission: {required_code}", request.state.request_id, 403)
+
+    return _dependency
 
 
 def _extract_body(payload: Any) -> Any:
@@ -94,7 +167,7 @@ def _build_user_handler(spec: ProxyRouteSpec):
 def _build_admin_handler(spec: ProxyRouteSpec):
     async def _handler(
         request: Request,
-        _: None = Depends(_require_admin_token),
+        _: None = Depends(_require_admin_access),
         client: BasaltPassClient = Depends(get_basalt_client),
     ) -> JSONResponse:
         return await _proxy_request(request, client, spec)
@@ -310,10 +383,12 @@ ADMIN_PROXY_SPECS: list[ProxyRouteSpec] = [
 ]
 
 for _spec in USER_PROXY_SPECS:
+    _permission_code = "read" if _spec.method.upper() == "GET" else "write"
     router.add_api_route(
         _spec.apicred_path,
         endpoint=_build_user_handler(_spec),
         methods=[_spec.method],
+        dependencies=[Depends(_build_user_permission_dependency(_permission_code))],
         name=f"user_proxy_{_spec.method.lower()}_{_spec.apicred_path}",
     )
 

@@ -46,7 +46,7 @@ async def test_api_smoke(db_session):
         await db_session.commit()
 
         # models
-        models_resp = await client.get("/v1/models")
+        models_resp = await client.get("/v1/models", headers={"Authorization": f"Bearer {access_token}"})
         assert models_resp.status_code == 200
 
         # wallet/ledger
@@ -101,11 +101,11 @@ async def test_api_smoke(db_session):
 
         # data sources
         time_resp = await client.get("/v1/time")
-        assert time_resp.status_code == 200
+        assert time_resp.status_code == 404
         weather_resp = await client.get("/v1/weather")
-        assert weather_resp.status_code == 501
+        assert weather_resp.status_code == 404
         fx_resp = await client.get("/v1/fx")
-        assert fx_resp.status_code == 501
+        assert fx_resp.status_code == 404
 
         # admin endpoints
         admin_headers = {"X-Admin-Token": settings.admin_token}

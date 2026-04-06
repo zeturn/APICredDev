@@ -11,6 +11,65 @@
     "basaltpass_integration": {
       "record_name": "APICred OAuth Client",
       "callback_url": "http://localhost:8103/v1/auth/basalt/callback"
+    },
+    "authz": {
+      "provider": "basaltpass",
+      "mode": "app_rbac",
+      "basalt_target": {
+        "app_id": null,
+        "tenant_id_env": "BASALT_TENANT_ID"
+      },
+      "permissions": [
+        {
+          "code": "read",
+          "name": "Read",
+          "description": "Read APICred resources",
+          "category": "general"
+        },
+        {
+          "code": "write",
+          "name": "Write",
+          "description": "Create or update APICred resources",
+          "category": "general"
+        },
+        {
+          "code": "admin",
+          "name": "Admin",
+          "description": "Manage APICred admin capabilities",
+          "category": "administration"
+        }
+      ],
+      "roles": [
+        {
+          "code": "viewer",
+          "name": "Viewer",
+          "description": "Read-only access"
+        },
+        {
+          "code": "editor",
+          "name": "Editor",
+          "description": "Can modify non-admin resources"
+        },
+        {
+          "code": "admin",
+          "name": "Admin",
+          "description": "Full admin access"
+        }
+      ],
+      "role_permissions": {
+        "viewer": [
+          "read"
+        ],
+        "editor": [
+          "read",
+          "write"
+        ],
+        "admin": [
+          "read",
+          "write",
+          "admin"
+        ]
+      }
     }
   },
   "service_ports": [

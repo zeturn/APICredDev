@@ -12,6 +12,10 @@ Authorization: Bearer <access_token>
 
 ## 2. 用户业务主流程
 
+> 当前已接入统一 RBAC 依赖函数：`permission("read") / permission("write")`。
+>
+> 已迁移模块：`/v1/auth/me`、`/v1/models`、`/v1/tokens/*`、`/v1/billing/*`、`/v1/basalt/*(用户代理路由按 GET/写操作自动映射 read/write)`。
+
 ### 2.1 Token 管理
 
 - `POST /v1/tokens`
@@ -24,7 +28,11 @@ Authorization: Bearer <access_token>
 - `GET /v1/billing/ledger`
 - `POST /v1/billing/redeem`
 
-### 2.3 Basalt 用户能力（auth / permission / wallet）
+### 2.3 模型列表
+
+- `GET /v1/models`（需要用户 Bearer，且具备 `read` 权限）
+
+### 2.4 Basalt 用户能力（auth / permission / wallet）
 
 主要入口均在 `GET|POST|PUT /v1/basalt/*`，核心分组：
 
@@ -34,10 +42,16 @@ Authorization: Bearer <access_token>
 
 ## 3. 管理后台主流程
 
-管理请求使用：
+管理请求支持两种方式：
 
 ```http
 X-Admin-Token: <admin_token>
+```
+
+或使用租户管理员账号登录后得到的用户 Bearer Token（tenant `owner/admin/tenant/tenant_admin/aadmin` 角色会被识别为管理权限）：
+
+```http
+Authorization: Bearer <access_token>
 ```
 
 ### 3.1 原生管理接口
@@ -75,4 +89,17 @@ X-Admin-Token: <admin_token>
 - 主导航链接
 - 上一页/下一页
 - 全量页面链接表
+
+## 5. LLM 调用鉴权（双轨）
+
+`POST /v1/chat/completions` 当前使用双轨校验：
+
+1. API Token scope：必须包含 `llm`
+2. Basalt RBAC：`token_permission("write")`
+
+说明：
+
+- 这保证了与历史 API Token scope 行为兼容；
+- 同时可以逐步过渡到 Basalt app 权限系统；
+- 若未绑定 Basalt 账号且 `basalt_rbac_strict_user_binding=false`，仍保持兼容放行。
 

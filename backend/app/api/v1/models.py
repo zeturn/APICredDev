@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db
+from app.core.deps import get_db, permission
 from app.db.models.brand import Brand
 from app.db.models.model import Model
 from app.schemas.models import ModelItem
@@ -12,7 +12,10 @@ router = APIRouter(prefix="/models", tags=["models"])
 
 
 @router.get("", response_model=list[ModelItem])
-async def list_models(db: AsyncSession = Depends(get_db)) -> list[ModelItem]:
+async def list_models(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(permission("read")),
+) -> list[ModelItem]:
     result = await db.execute(select(Model, Brand).outerjoin(Brand, Brand.id == Model.brand_id).where(Model.enabled.is_(True)))
     rows = result.all()
     return [

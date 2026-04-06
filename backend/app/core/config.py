@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     basalt_oauth_audience: str = ""
     basalt_s2s_client_id: str = ""
     basalt_s2s_client_secret: str = ""
+    basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin"
+    basalt_rbac_enforce: bool = True
+    basalt_rbac_strict_user_binding: bool = False
+    basalt_default_tenant_id: str = ""
     basalt_timeout_seconds: float = 15.0
     basalt_max_retries: int = 2
     apicred_public_base_url: str = "http://localhost:8103"

@@ -17,6 +17,8 @@ from app.services.auth_service import register_user, login_user
 class FakeBasaltClient:
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.permission_role_codes: list[str] = ["member"]
+        self.roles: list[dict] = [{"code": "member"}]
 
     async def proxy(self, method: str, upstream_path: str, *, query=None, body=None, headers=None):
         self.calls.append(
@@ -39,11 +41,11 @@ class FakeBasaltClient:
 
     async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None):
         self.calls.append({"method": "S2S_PERMISSIONS", "user_id": user_id, "tenant_id": tenant_id})
-        return {"permission_codes": ["entry.read"], "role_codes": ["member"]}
+        return {"permission_codes": ["entry.read"], "role_codes": self.permission_role_codes}
 
     async def s2s_get_user_roles(self, user_id: str, tenant_id: str | None = None):
         self.calls.append({"method": "S2S_ROLES", "user_id": user_id, "tenant_id": tenant_id})
-        return {"roles": [{"code": "member"}]}
+        return {"roles": self.roles}
 
     async def s2s_get_user_wallet(self, user_id: str, currency: str, limit: int = 20, tenant_id: str | None = None):
         self.calls.append(
@@ -146,6 +148,38 @@ async def test_basalt_admin_requires_valid_admin_token(db_session):
         bad = await client.get("/v1/admin/basalt/users", headers={"X-Admin-Token": "bad-token"})
         assert bad.status_code == 403
         assert bad.json()["error"]["code"] == "admin_unauthorized"
+
+
+@pytest.mark.asyncio
+async def test_basalt_admin_allows_tenant_admin_bearer(db_session):
+    app = create_app()
+    fake = FakeBasaltClient()
+    fake.permission_role_codes = ["tenant"]
+    fake.roles = [{"code": "tenant"}]
+
+    async def _override_db():
+        yield db_session
+
+    def _override_basalt():
+        return fake
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_basalt_client] = _override_basalt
+
+    user = await register_user(db_session, "tenant-admin@example.com", "pass")
+    user.basalt_user_id = "bp-admin-user"
+    user.basalt_tenant_id = "bp-tenant-1"
+    await db_session.commit()
+    token = await login_user(db_session, "tenant-admin@example.com", "pass")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/v1/admin/basalt/users",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["path"] == "/api/v1/admin/users/"
 
 
 @pytest.mark.asyncio

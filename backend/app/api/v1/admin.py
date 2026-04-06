@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.core.deps import get_db
+from app.core.deps import get_db, get_optional_current_user
 from app.core.errors import AppError
 from app.schemas.admin import BrandUpsert, ModelUpsert, ProviderUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
+from app.services.admin_access import assert_admin_access
+from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
 from app.services.dashboard_service import get_admin_usage_summary
 from app.services.admin_service import (
@@ -28,7 +29,25 @@ from app.services.admin_service import (
 )
 
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+def get_basalt_client() -> BasaltPassClient:
+    return BasaltPassClient()
+
+
+async def require_admin_access(
+    request: Request,
+    x_admin_token: str | None = Header(default=None),
+    user=Depends(get_optional_current_user),
+    client: BasaltPassClient = Depends(get_basalt_client),
+) -> None:
+    await assert_admin_access(
+        request=request,
+        x_admin_token=x_admin_token,
+        user=user,
+        client=client,
+    )
+
+
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_access)])
 
 
 def _to_dict(obj: object) -> dict:
@@ -59,69 +78,55 @@ def _to_dict(obj: object) -> dict:
     return data
 
 
-def _check_admin(token: str | None, request_id) -> None:
-    if not token or token != settings.admin_token:
-        raise AppError("admin_unauthorized", "invalid admin token", request_id, 403)
-
-
 @router.get("/models")
-async def admin_models_list(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_models_list(db: AsyncSession = Depends(get_db)) -> list:
     models = await list_models(db)
     return [_to_dict(m) for m in models]
 
 
 @router.get("/brands")
-async def admin_brands_list(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_brands_list(db: AsyncSession = Depends(get_db)) -> list:
     brands = await list_brands(db)
     return [_to_dict(b) for b in brands]
 
 
 @router.get("/providers")
-async def admin_providers_list(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_providers_list(db: AsyncSession = Depends(get_db)) -> list:
     providers = await list_providers(db)
     return [_to_dict(p) for p in providers]
 
 
 @router.get("/dashboard")
-async def admin_dashboard(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_dashboard(db: AsyncSession = Depends(get_db)) -> dict:
     return await get_admin_dashboard(db)
 
 
 @router.post("/models")
-async def admin_models_upsert(request: Request, payload: ModelUpsert, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_models_upsert(payload: ModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     model = await upsert_model(db, payload.model_dump())
     return _to_dict(model)
 
 
 @router.post("/brands")
-async def admin_brands_upsert(request: Request, payload: BrandUpsert, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_brands_upsert(payload: BrandUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     brand = await upsert_brand(db, payload.model_dump())
     return _to_dict(brand)
 
 
 @router.post("/providers")
-async def admin_providers_upsert(request: Request, payload: ProviderUpsert, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_providers_upsert(payload: ProviderUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     provider = await upsert_provider(db, payload.model_dump())
     return _to_dict(provider)
 
 
 @router.get("/provider-keys")
-async def admin_provider_keys_list(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_provider_keys_list(db: AsyncSession = Depends(get_db)) -> list:
     keys = await list_provider_keys(db)
     return [_to_dict(k) for k in keys]
 
 
 @router.get("/provider-keys/{provider_key_id}")
-async def admin_provider_key_detail(provider_key_id: str, request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_provider_key_detail(provider_key_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
     provider_key = await get_provider_key(db, provider_key_id)
     if not provider_key:
         raise AppError("provider_key_not_found", "provider key not found", request.state.request_id, 404)
@@ -133,21 +138,18 @@ async def admin_provider_key_detail(provider_key_id: str, request: Request, x_ad
 
 
 @router.get("/provider-presets")
-async def admin_provider_presets(request: Request, x_admin_token: str | None = Header(default=None)) -> list[dict]:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_provider_presets() -> list[dict]:
     return list_provider_presets()
 
 
 @router.post("/provider-keys")
-async def admin_provider_keys_upsert(request: Request, payload: ProviderKeyUpsert, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_provider_keys_upsert(payload: ProviderKeyUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     key = await upsert_provider_key(db, payload.model_dump())
     return _to_dict(key)
 
 
 @router.post("/provider-keys/{provider_key_id}/validate")
-async def admin_provider_key_validate(provider_key_id: str, request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_provider_key_validate(provider_key_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
     try:
         return await validate_provider_key(db, provider_key_id)
     except ValueError:
@@ -155,22 +157,19 @@ async def admin_provider_key_validate(provider_key_id: str, request: Request, x_
 
 
 @router.get("/model-provider-keys")
-async def admin_model_provider_keys_list(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_model_provider_keys_list(db: AsyncSession = Depends(get_db)) -> list:
     items = await list_model_provider_keys(db)
     return [_to_dict(i) for i in items]
 
 
 @router.post("/model-provider-keys")
-async def admin_model_provider_keys_upsert(request: Request, payload: ModelProviderKeyUpsert, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_model_provider_keys_upsert(payload: ModelProviderKeyUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     item = await upsert_model_provider_key(db, payload.model_dump())
     return _to_dict(item)
 
 
 @router.get("/users")
-async def admin_users(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_users(db: AsyncSession = Depends(get_db)) -> list:
     users = await list_users(db)
     return [_to_dict(u) for u in users]
 
@@ -180,10 +179,8 @@ async def admin_user_status_update(
     user_id: str,
     request: Request,
     payload: dict,
-    x_admin_token: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
     try:
         user = await update_user_status(db, user_id, payload.get("status", "active"))
     except ValueError:
@@ -192,14 +189,12 @@ async def admin_user_status_update(
 
 
 @router.get("/usage-sessions")
-async def admin_usage_sessions(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> list:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_usage_sessions(db: AsyncSession = Depends(get_db)) -> list:
     sessions = await list_usage_sessions(db)
     return [_to_dict(s) for s in sessions]
 
 
 @router.get("/usage-summary")
-async def admin_usage_summary(request: Request, x_admin_token: str | None = Header(default=None), db: AsyncSession = Depends(get_db)) -> dict:
-    _check_admin(x_admin_token, request.state.request_id)
+async def admin_usage_summary(db: AsyncSession = Depends(get_db)) -> dict:
     return await get_admin_usage_summary(db)
 

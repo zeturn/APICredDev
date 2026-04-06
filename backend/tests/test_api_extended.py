@@ -7,9 +7,19 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core.config import settings
 from app.core.deps import get_db
+from app.api.v1.admin import get_basalt_client
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
 from app.main import create_app
+from app.services.auth_service import register_user, login_user
+
+
+class _TenantAdminBasaltClient:
+    async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None):
+        return {"permission_codes": ["entry.read"], "role_codes": ["tenant"]}
+
+    async def s2s_get_user_roles(self, user_id: str, tenant_id: str | None = None):
+        return {"roles": [{"code": "tenant"}]}
 
 
 @pytest.mark.asyncio
@@ -64,7 +74,7 @@ async def test_auth_and_tokens_and_billing_and_models_branches(db_session):
         disabled = Model(name="m-disabled", category="llm", enabled=False, multiplier=1, pricing={})
         db_session.add_all([enabled, disabled])
         await db_session.commit()
-        model_resp = await client.get("/v1/models")
+        model_resp = await client.get("/v1/models", headers=headers)
         assert model_resp.status_code == 200
         names = [m["name"] for m in model_resp.json()]
         assert "m-enabled" in names
@@ -188,4 +198,32 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
         )
         assert ok.status_code == 200
         assert recorded["called"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_routes_allow_tenant_admin_bearer(db_session):
+    app = create_app()
+
+    async def _override_db():
+        yield db_session
+
+    def _override_basalt_client():
+        return _TenantAdminBasaltClient()
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_basalt_client] = _override_basalt_client
+
+    user = await register_user(db_session, "tenant-admin-api@example.com", "pass")
+    user.basalt_user_id = "bp-user-admin"
+    user.basalt_tenant_id = "bp-tenant-admin"
+    await db_session.commit()
+    token = await login_user(db_session, "tenant-admin-api@example.com", "pass")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/v1/admin/models",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
 

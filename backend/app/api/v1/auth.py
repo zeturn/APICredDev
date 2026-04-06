@@ -11,7 +11,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_user, get_db, permission
 from app.core.errors import AppError
 from app.core.security import create_access_token
 from app.schemas.auth import LoginRequest, MeResponse, RegisterRequest, TokenResponse
@@ -47,7 +47,10 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
 
 
 @router.get('/me', response_model=MeResponse)
-async def me(user=Depends(get_current_user)) -> MeResponse:
+async def me(
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> MeResponse:
     return MeResponse(id=user.id, email=user.email, status=user.status)
 
 

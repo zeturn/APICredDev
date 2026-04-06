@@ -8,7 +8,7 @@ import httpx
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from app.core.deps import get_db, get_bearer_token, require_scopes
+from app.core.deps import get_db, get_bearer_token, require_scopes, token_permission
 from app.core.errors import AppError
 from app.core.secrets import decrypt_secret
 from app.core.time import utc_now
@@ -89,6 +89,7 @@ async def chat_completions(
     payload: ChatCompletionRequest,
     db: AsyncSession = Depends(get_db),
     api_token=Depends(get_bearer_token),
+    _: None = Depends(token_permission("write")),
 ) -> ChatCompletionResponse:
     request_id = request.state.request_id
     await require_scopes(["llm"], api_token, request)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, permission
 from app.core.errors import AppError
 from app.schemas.tokens import TokenCreateRequest, TokenCreateResponse, TokenListItem
 from app.services.token_service import create_token, list_tokens, revoke_token
@@ -11,13 +11,22 @@ router = APIRouter(prefix="/tokens", tags=["tokens"])
 
 
 @router.post("", response_model=TokenCreateResponse)
-async def create(payload: TokenCreateRequest, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> TokenCreateResponse:
+async def create(
+    payload: TokenCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("write")),
+) -> TokenCreateResponse:
     token, raw = await create_token(db, user.id, payload.name, payload.scopes)
     return TokenCreateResponse(id=token.id, name=token.name, token=raw, scopes=token.scopes)
 
 
 @router.get("", response_model=list[TokenListItem])
-async def list_all(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> list[TokenListItem]:
+async def list_all(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> list[TokenListItem]:
     tokens = await list_tokens(db, user.id)
     return [
         TokenListItem(
@@ -33,7 +42,13 @@ async def list_all(db: AsyncSession = Depends(get_db), user=Depends(get_current_
 
 
 @router.delete("/{token_id}")
-async def delete(token_id: str, request: Request, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> dict:
+async def delete(
+    token_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("write")),
+) -> dict:
     request_id = request.state.request_id
     try:
         await revoke_token(db, user.id, token_id)

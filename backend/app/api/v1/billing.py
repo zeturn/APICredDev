@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, permission
 from app.core.errors import AppError
 from app.db.models.model import Model
 from app.db.models.usage_session import UsageSession
@@ -17,13 +17,21 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 @router.get("/wallet", response_model=WalletResponse)
-async def wallet(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> WalletResponse:
+async def wallet(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> WalletResponse:
     wallet_obj = await get_wallet(db, user.id)
     return WalletResponse(balance_credits=float(wallet_obj.balance_credits), updated_at=wallet_obj.updated_at.isoformat())
 
 
 @router.get("/summary")
-async def billing_summary(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> dict:
+async def billing_summary(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> dict:
     wallet_obj = await get_wallet(db, user.id)
     used_credits = float(
         (await db.execute(select(func.coalesce(func.sum(UsageSession.final_cost_credits), 0)).where(UsageSession.user_id == user.id))).scalar() or 0
@@ -40,7 +48,11 @@ async def billing_summary(db: AsyncSession = Depends(get_db), user=Depends(get_c
 
 
 @router.get("/ledger", response_model=list[LedgerItem])
-async def ledger(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> list[LedgerItem]:
+async def ledger(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> list[LedgerItem]:
     entries = await list_ledger(db, user.id, limit=50)
     return [
         LedgerItem(
@@ -58,12 +70,22 @@ async def ledger(db: AsyncSession = Depends(get_db), user=Depends(get_current_us
 
 
 @router.get("/usage")
-async def usage(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> dict:
+async def usage(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("read")),
+) -> dict:
     return await get_user_usage_summary(db, user.id)
 
 
 @router.post("/redeem", response_model=RedeemResponse)
-async def redeem(payload: RedeemRequest, request: Request, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)) -> RedeemResponse:
+async def redeem(
+    payload: RedeemRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    _: None = Depends(permission("write")),
+) -> RedeemResponse:
     request_id = request.state.request_id
     code_hash = hashlib.sha256(payload.code.encode("utf-8")).hexdigest()
     try:
