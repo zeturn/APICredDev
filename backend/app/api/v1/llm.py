@@ -89,7 +89,7 @@ async def chat_completions(
     payload: ChatCompletionRequest,
     db: AsyncSession = Depends(get_db),
     api_token=Depends(get_bearer_token),
-    _: None = Depends(token_permission("write")),
+    _: None = Depends(token_permission("user_console")),
 ) -> ChatCompletionResponse:
     request_id = request.state.request_id
     await require_scopes(["llm"], api_token, request)

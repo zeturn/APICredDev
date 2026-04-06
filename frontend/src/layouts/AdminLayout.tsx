@@ -1,22 +1,36 @@
-import { Button, Card, List, ListItem, TextField, Typography } from "../lib/watercolor";
-import { useState } from "react";
+import { Alert, Button, Card, List, ListItem, Typography } from "../lib/watercolor";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { adminConsoleRoutes } from "../navigation/consoleRoutes";
+import { ensureAdminToken } from "../api/adminClient";
 
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [adminToken, setAdminToken] = useState(localStorage.getItem("admin_token") ?? "");
+  const [adminReady, setAdminReady] = useState(false);
+  const [adminAllowed, setAdminAllowed] = useState(false);
   const navItems = adminConsoleRoutes.map((item) => ({ to: item.path, label: item.label }));
+
+  useEffect(() => {
+    let active = true;
+    const bootstrap = async () => {
+      const token = await ensureAdminToken();
+      if (!active) {
+        return;
+      }
+      setAdminAllowed(Boolean(token));
+      setAdminReady(true);
+    };
+    bootstrap();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const logout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("admin_token");
     navigate("/login");
-  };
-
-  const saveAdminToken = () => {
-    localStorage.setItem("admin_token", adminToken);
-    window.location.reload();
   };
 
   return (
@@ -34,17 +48,10 @@ const AdminLayout = () => {
               Key Pool 与模型策略配置。
             </Typography>
 
-            <div className="mt-4 space-y-2">
-              <TextField
-                label="Admin Token"
-                placeholder="X-Admin-Token"
-                value={adminToken}
-                onChange={(e: any) => setAdminToken(e.target.value)}
-                fullWidth
-              />
-              <Button variant="primary" buttonStyle="filled" fullWidth onClick={saveAdminToken}>
-                保存管理密钥
-              </Button>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <Typography variant="caption" color="textSecondary">
+                {adminReady ? (adminAllowed ? "已自动配置 Admin Token" : "当前账号无 Admin 权限") : "正在自动校验 Admin 权限..."}
+              </Typography>
             </div>
 
             <List className="mt-4 space-y-1">
@@ -72,7 +79,17 @@ const AdminLayout = () => {
           </Card>
         </aside>
         <main className="flex-1">
-          <Outlet />
+          {!adminReady && (
+            <Card className="p-6">
+              <Typography variant="body2" color="textSecondary">正在校验管理员权限...</Typography>
+            </Card>
+          )}
+          {adminReady && !adminAllowed && (
+            <Alert type="warning" variant="filled" showIcon>
+              当前账号不具备管理员权限，无法访问管理控制台。
+            </Alert>
+          )}
+          {adminReady && adminAllowed && <Outlet />}
         </main>
       </div>
     </div>

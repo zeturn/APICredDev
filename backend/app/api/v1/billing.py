@@ -20,7 +20,7 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 async def wallet(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> WalletResponse:
     wallet_obj = await get_wallet(db, user.id)
     return WalletResponse(balance_credits=float(wallet_obj.balance_credits), updated_at=wallet_obj.updated_at.isoformat())
@@ -30,7 +30,7 @@ async def wallet(
 async def billing_summary(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> dict:
     wallet_obj = await get_wallet(db, user.id)
     used_credits = float(
@@ -51,7 +51,7 @@ async def billing_summary(
 async def ledger(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> list[LedgerItem]:
     entries = await list_ledger(db, user.id, limit=50)
     return [
@@ -73,7 +73,7 @@ async def ledger(
 async def usage(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> dict:
     return await get_user_usage_summary(db, user.id)
 
@@ -84,7 +84,7 @@ async def redeem(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("write")),
+    _: None = Depends(permission("user_console")),
 ) -> RedeemResponse:
     request_id = request.state.request_id
     code_hash = hashlib.sha256(payload.code.encode("utf-8")).hexdigest()

@@ -1,7 +1,7 @@
 import { Badge, Button, Card, Table, TableBody, TableCell, TableHead, TableRow } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro, AdminTokenWarning } from "./adminCommon";
+import { AdminPageIntro } from "./adminCommon";
 
 const AdminUsersPage = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -28,7 +28,6 @@ const AdminUsersPage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title="用户管理" description="查看用户余额、使用情况，并启用或禁用账号。" />
-      {!adminToken && <AdminTokenWarning />}
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold text-slate-900">用户列表</div>

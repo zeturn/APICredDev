@@ -1,7 +1,7 @@
 import { Badge, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro, AdminTokenWarning } from "./adminCommon";
+import { AdminPageIntro } from "./adminCommon";
 
 const AdminUsagePage = () => {
   const [usage, setUsage] = useState<{ recent_sessions: any[]; by_model: any[]; by_provider: any[] }>({
@@ -26,7 +26,6 @@ const AdminUsagePage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title="使用统计" description="查看全站最近调用记录，并按模型与服务商聚合额度消耗。" />
-      {!adminToken && <AdminTokenWarning />}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>

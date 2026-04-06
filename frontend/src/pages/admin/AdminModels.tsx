@@ -1,7 +1,7 @@
 import { Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro, AdminTokenWarning } from "./adminCommon";
+import { AdminPageIntro } from "./adminCommon";
 import { formatPricingSummary } from "../../shared/pricing";
 
 type Brand = {
@@ -84,7 +84,6 @@ const AdminModelsPage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title="模型管理" description="新增和查看对外可售卖的模型，以及对应计价策略。" />
-      {!adminToken && <AdminTokenWarning />}
       <Card className="p-6">
         <div className="text-lg font-semibold text-slate-900">新增模型</div>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">

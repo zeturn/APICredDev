@@ -14,7 +14,7 @@ router = APIRouter(prefix="/models", tags=["models"])
 @router.get("", response_model=list[ModelItem])
 async def list_models(
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> list[ModelItem]:
     result = await db.execute(select(Model, Brand).outerjoin(Brand, Brand.id == Model.brand_id).where(Model.enabled.is_(True)))
     rows = result.all()

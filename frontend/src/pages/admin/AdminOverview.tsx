@@ -1,7 +1,7 @@
 import { Badge, Card, Grid, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro, AdminTokenWarning } from "./adminCommon";
+import { AdminPageIntro } from "./adminCommon";
 
 const AdminOverviewPage = () => {
   const [dashboard, setDashboard] = useState<any | null>(null);
@@ -22,7 +22,6 @@ const AdminOverviewPage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title="总览" description="查看全站用户、模型、服务商和额度运行状态。" />
-      {!adminToken && <AdminTokenWarning />}
       {dashboard && (
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}>

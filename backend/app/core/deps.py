@@ -29,7 +29,10 @@ async def get_current_user(
     if not authorization or not authorization.startswith("Bearer "):
         raise AppError("auth_missing", "missing bearer token", request.state.request_id, 401)
     token = authorization.split(" ", 1)[1]
-    payload = decode_access_token(token)
+    try:
+        payload = decode_access_token(token)
+    except Exception:
+        raise AppError("auth_invalid", "invalid token", request.state.request_id, 401)
     user_id = payload.get("sub")
     if not user_id:
         raise AppError("auth_invalid", "invalid token", request.state.request_id, 401)
@@ -88,6 +91,10 @@ async def require_scopes(required: List[str], token: ApiToken, request: Request 
 def _extract_code_set(payload: Any) -> set[str]:
     values: list[Any] = []
     if isinstance(payload, dict):
+        if isinstance(payload.get("permission_codes"), list):
+            values.extend(payload.get("permission_codes") or [])
+        if isinstance(payload.get("role_codes"), list):
+            values.extend(payload.get("role_codes") or [])
         if isinstance(payload.get("roles"), list):
             values.extend(payload.get("roles") or [])
         if isinstance(payload.get("permissions"), list):
@@ -112,6 +119,7 @@ def _extract_code_set(payload: Any) -> set[str]:
 def _has_required_code(codes: set[str], required: str) -> bool:
     if required in codes:
         return True
+
     suffix = f".{required}"
     for code in codes:
         if code.endswith(suffix):

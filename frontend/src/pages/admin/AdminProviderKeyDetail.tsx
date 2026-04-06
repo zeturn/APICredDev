@@ -2,7 +2,7 @@ import { Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, Tabl
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro, AdminTokenWarning } from "./adminCommon";
+import { AdminPageIntro } from "./adminCommon";
 
 type Provider = {
   id: string;
@@ -102,7 +102,6 @@ const AdminProviderKeyDetailPage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title="Key 详情" description="先创建 Key，再在详情页为这把 Key 配置可服务模型和特殊路由参数。" />
-      {!adminToken && <AdminTokenWarning />}
 
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">

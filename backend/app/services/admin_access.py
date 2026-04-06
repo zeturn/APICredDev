@@ -70,7 +70,4 @@ async def assert_admin_access(
     if x_admin_token and x_admin_token == settings.admin_token:
         return
 
-    if user and await is_tenant_admin(user, client):
-        return
-
     raise AppError("admin_unauthorized", "invalid admin token", request.state.request_id, 403)

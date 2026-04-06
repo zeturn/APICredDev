@@ -21,53 +21,37 @@
       },
       "permissions": [
         {
-          "code": "read",
-          "name": "Read",
-          "description": "Read APICred resources",
-          "category": "general"
+          "code": "user_console",
+          "name": "用户控制台权限",
+          "description": "允许访问 APICred 用户控制台",
+          "category": "console"
         },
         {
-          "code": "write",
-          "name": "Write",
-          "description": "Create or update APICred resources",
-          "category": "general"
-        },
-        {
-          "code": "admin",
-          "name": "Admin",
-          "description": "Manage APICred admin capabilities",
-          "category": "administration"
+          "code": "admin_console",
+          "name": "Admin控制台权限",
+          "description": "允许访问 APICred Admin 控制台",
+          "category": "console"
         }
       ],
       "roles": [
         {
-          "code": "viewer",
-          "name": "Viewer",
-          "description": "Read-only access"
-        },
-        {
-          "code": "editor",
-          "name": "Editor",
-          "description": "Can modify non-admin resources"
+          "code": "user",
+          "name": "User",
+          "description": "用户控制台角色"
         },
         {
           "code": "admin",
           "name": "Admin",
-          "description": "Full admin access"
+          "description": "管理员控制台角色"
         }
       ],
       "role_permissions": {
-        "viewer": [
-          "read"
-        ],
-        "editor": [
-          "read",
-          "write"
+        "user": [
+          "user_console"
         ],
         "admin": [
-          "read",
-          "write",
-          "admin"
+          "user_console",
+          "admin_console"
         ]
       }
     }

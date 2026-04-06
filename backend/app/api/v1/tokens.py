@@ -15,7 +15,7 @@ async def create(
     payload: TokenCreateRequest,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("write")),
+    _: None = Depends(permission("user_console")),
 ) -> TokenCreateResponse:
     token, raw = await create_token(db, user.id, payload.name, payload.scopes)
     return TokenCreateResponse(id=token.id, name=token.name, token=raw, scopes=token.scopes)
@@ -25,7 +25,7 @@ async def create(
 async def list_all(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> list[TokenListItem]:
     tokens = await list_tokens(db, user.id)
     return [
@@ -47,7 +47,7 @@ async def delete(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
-    _: None = Depends(permission("write")),
+    _: None = Depends(permission("user_console")),
 ) -> dict:
     request_id = request.state.request_id
     try:

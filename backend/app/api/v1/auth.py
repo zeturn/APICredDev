@@ -16,6 +16,8 @@ from app.core.errors import AppError
 from app.core.security import create_access_token
 from app.schemas.auth import LoginRequest, MeResponse, RegisterRequest, TokenResponse
 from app.services.auth_service import get_or_create_oauth_user, login_user, register_user
+from app.services.admin_access import is_tenant_admin
+from app.services.basaltpass_client import BasaltPassClient
 
 
 router = APIRouter(prefix='/auth', tags=['auth'])
@@ -49,9 +51,24 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
 @router.get('/me', response_model=MeResponse)
 async def me(
     user=Depends(get_current_user),
-    _: None = Depends(permission("read")),
+    _: None = Depends(permission("user_console")),
 ) -> MeResponse:
     return MeResponse(id=user.id, email=user.email, status=user.status)
+
+
+@router.get('/admin-token')
+async def admin_token(
+    request: Request,
+    user=Depends(get_current_user),
+    client: BasaltPassClient = Depends(BasaltPassClient),
+) -> dict[str, str]:
+    try:
+        allowed = await is_tenant_admin(user, client)
+    except ValueError as exc:
+        raise AppError('admin_check_unavailable', str(exc), request.state.request_id, 503)
+    if not allowed:
+        raise AppError('admin_unauthorized', 'missing admin role', request.state.request_id, 403)
+    return {'admin_token': settings.admin_token}
 
 
 def _safe_next(next_path: str | None) -> str:
