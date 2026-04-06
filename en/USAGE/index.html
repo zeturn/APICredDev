@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.5.2">
 <title data-rh="true">APICred 使用文档 | APICred Docs</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://example.com/APICred/en/USAGE"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="APICred 使用文档 | APICred Docs"><meta data-rh="true" name="description" content="1. 登录与认证"><meta data-rh="true" property="og:description" content="1. 登录与认证"><link data-rh="true" rel="icon" href="data:;base64,iVBORw0KGgo="><link data-rh="true" rel="canonical" href="https://example.com/APICred/en/USAGE"><link data-rh="true" rel="alternate" href="https://example.com/APICred/USAGE" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://example.com/APICred/en/USAGE" hreflang="en"><link data-rh="true" rel="alternate" href="https://example.com/APICred/USAGE" hreflang="x-default"><link rel="stylesheet" href="/APICred/en/assets/css/styles.d8be0e43.css">
-<script src="/APICred/en/assets/js/runtime~main.b69b75d3.js" defer="defer"></script>
+<script src="/APICred/en/assets/js/runtime~main.ecff8054.js" defer="defer"></script>
 <script src="/APICred/en/assets/js/main.fc252d87.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -17,6 +17,10 @@
 </ol>
 <div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#bfc7d5;--prism-background-color:#292d3e"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-http codeBlock_bY9V thin-scrollbar" style="color:#bfc7d5;background-color:#292d3e"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#bfc7d5"><span class="token plain">Authorization: Bearer &lt;access_token&gt;</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="2-用户业务主流程">2. 用户业务主流程<a href="#2-用户业务主流程" class="hash-link" aria-label="Direct link to 2. 用户业务主流程" title="Direct link to 2. 用户业务主流程">​</a></h2>
+<blockquote>
+<p>当前已接入统一 RBAC 依赖函数：<code>permission(&quot;read&quot;) / permission(&quot;write&quot;)</code>。</p>
+<p>已迁移模块：<code>/v1/auth/me</code>、<code>/v1/models</code>、<code>/v1/tokens/*</code>、<code>/v1/billing/*</code>、<code>/v1/basalt/*(用户代理路由按 GET/写操作自动映射 read/write)</code>。</p>
+</blockquote>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="21-token-管理">2.1 Token 管理<a href="#21-token-管理" class="hash-link" aria-label="Direct link to 2.1 Token 管理" title="Direct link to 2.1 Token 管理">​</a></h3>
 <ul>
 <li><code>POST /v1/tokens</code></li>
@@ -29,7 +33,11 @@
 <li><code>GET /v1/billing/ledger</code></li>
 <li><code>POST /v1/billing/redeem</code></li>
 </ul>
-<h3 class="anchor anchorWithStickyNavbar_LWe7" id="23-basalt-用户能力auth--permission--wallet">2.3 Basalt 用户能力（auth / permission / wallet）<a href="#23-basalt-用户能力auth--permission--wallet" class="hash-link" aria-label="Direct link to 2.3 Basalt 用户能力（auth / permission / wallet）" title="Direct link to 2.3 Basalt 用户能力（auth / permission / wallet）">​</a></h3>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="23-模型列表">2.3 模型列表<a href="#23-模型列表" class="hash-link" aria-label="Direct link to 2.3 模型列表" title="Direct link to 2.3 模型列表">​</a></h3>
+<ul>
+<li><code>GET /v1/models</code>（需要用户 Bearer，且具备 <code>read</code> 权限）</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="24-basalt-用户能力auth--permission--wallet">2.4 Basalt 用户能力（auth / permission / wallet）<a href="#24-basalt-用户能力auth--permission--wallet" class="hash-link" aria-label="Direct link to 2.4 Basalt 用户能力（auth / permission / wallet）" title="Direct link to 2.4 Basalt 用户能力（auth / permission / wallet）">​</a></h3>
 <p>主要入口均在 <code>GET|POST|PUT /v1/basalt/*</code>，核心分组：</p>
 <ul>
 <li><code>auth</code>: <code>/v1/basalt/auth/*</code></li>
@@ -37,8 +45,10 @@
 <li><code>wallet</code>: <code>/v1/basalt/wallet/*</code></li>
 </ul>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="3-管理后台主流程">3. 管理后台主流程<a href="#3-管理后台主流程" class="hash-link" aria-label="Direct link to 3. 管理后台主流程" title="Direct link to 3. 管理后台主流程">​</a></h2>
-<p>管理请求使用：</p>
+<p>管理请求支持两种方式：</p>
 <div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#bfc7d5;--prism-background-color:#292d3e"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-http codeBlock_bY9V thin-scrollbar" style="color:#bfc7d5;background-color:#292d3e"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#bfc7d5"><span class="token plain">X-Admin-Token: &lt;admin_token&gt;</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
+<p>或使用租户管理员账号登录后得到的用户 Bearer Token（tenant <code>owner/admin/tenant/tenant_admin/aadmin</code> 角色会被识别为管理权限）：</p>
+<div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#bfc7d5;--prism-background-color:#292d3e"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-http codeBlock_bY9V thin-scrollbar" style="color:#bfc7d5;background-color:#292d3e"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#bfc7d5"><span class="token plain">Authorization: Bearer &lt;access_token&gt;</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="31-原生管理接口">3.1 原生管理接口<a href="#31-原生管理接口" class="hash-link" aria-label="Direct link to 3.1 原生管理接口" title="Direct link to 3.1 原生管理接口">​</a></h3>
 <ul>
 <li><code>/v1/admin/models</code></li>
@@ -71,6 +81,18 @@
 <li>主导航链接</li>
 <li>上一页/下一页</li>
 <li>全量页面链接表</li>
-</ul></div></article><nav class="pagination-nav docusaurus-mt-lg" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/APICred/en/TESTING"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">APICred 测试文档</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/APICred/en/"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">APICred 文档总览</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#1-登录与认证" class="table-of-contents__link toc-highlight">1. 登录与认证</a></li><li><a href="#2-用户业务主流程" class="table-of-contents__link toc-highlight">2. 用户业务主流程</a><ul><li><a href="#21-token-管理" class="table-of-contents__link toc-highlight">2.1 Token 管理</a></li><li><a href="#22-钱包与账本" class="table-of-contents__link toc-highlight">2.2 钱包与账本</a></li><li><a href="#23-basalt-用户能力auth--permission--wallet" class="table-of-contents__link toc-highlight">2.3 Basalt 用户能力（auth / permission / wallet）</a></li></ul></li><li><a href="#3-管理后台主流程" class="table-of-contents__link toc-highlight">3. 管理后台主流程</a><ul><li><a href="#31-原生管理接口" class="table-of-contents__link toc-highlight">3.1 原生管理接口</a></li><li><a href="#32-basalt-管理集成" class="table-of-contents__link toc-highlight">3.2 Basalt 管理集成</a></li></ul></li><li><a href="#4-前端控制台" class="table-of-contents__link toc-highlight">4. 前端控制台</a></li></ul></div></div></div></div></main></div></div></div><footer class="footer footer--dark"><div class="container container-fluid"><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2026 APICred</div></div></div></footer></div>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="5-llm-调用鉴权双轨">5. LLM 调用鉴权（双轨）<a href="#5-llm-调用鉴权双轨" class="hash-link" aria-label="Direct link to 5. LLM 调用鉴权（双轨）" title="Direct link to 5. LLM 调用鉴权（双轨）">​</a></h2>
+<p><code>POST /v1/chat/completions</code> 当前使用双轨校验：</p>
+<ol>
+<li>API Token scope：必须包含 <code>llm</code></li>
+<li>Basalt RBAC：<code>token_permission(&quot;write&quot;)</code></li>
+</ol>
+<p>说明：</p>
+<ul>
+<li>这保证了与历史 API Token scope 行为兼容；</li>
+<li>同时可以逐步过渡到 Basalt app 权限系统；</li>
+<li>若未绑定 Basalt 账号且 <code>basalt_rbac_strict_user_binding=false</code>，仍保持兼容放行。</li>
+</ul></div></article><nav class="pagination-nav docusaurus-mt-lg" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/APICred/en/TESTING"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">APICred 测试文档</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/APICred/en/"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">APICred 文档总览</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#1-登录与认证" class="table-of-contents__link toc-highlight">1. 登录与认证</a></li><li><a href="#2-用户业务主流程" class="table-of-contents__link toc-highlight">2. 用户业务主流程</a><ul><li><a href="#21-token-管理" class="table-of-contents__link toc-highlight">2.1 Token 管理</a></li><li><a href="#22-钱包与账本" class="table-of-contents__link toc-highlight">2.2 钱包与账本</a></li><li><a href="#23-模型列表" class="table-of-contents__link toc-highlight">2.3 模型列表</a></li><li><a href="#24-basalt-用户能力auth--permission--wallet" class="table-of-contents__link toc-highlight">2.4 Basalt 用户能力（auth / permission / wallet）</a></li></ul></li><li><a href="#3-管理后台主流程" class="table-of-contents__link toc-highlight">3. 管理后台主流程</a><ul><li><a href="#31-原生管理接口" class="table-of-contents__link toc-highlight">3.1 原生管理接口</a></li><li><a href="#32-basalt-管理集成" class="table-of-contents__link toc-highlight">3.2 Basalt 管理集成</a></li></ul></li><li><a href="#4-前端控制台" class="table-of-contents__link toc-highlight">4. 前端控制台</a></li><li><a href="#5-llm-调用鉴权双轨" class="table-of-contents__link toc-highlight">5. LLM 调用鉴权（双轨）</a></li></ul></div></div></div></div></main></div></div></div><footer class="footer footer--dark"><div class="container container-fluid"><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2026 APICred</div></div></div></footer></div>
 </body>
 </html>
