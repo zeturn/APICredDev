@@ -132,7 +132,13 @@ async def lifespan(_: FastAPI):
 
 def create_app() -> FastAPI:
     configure_logging()
-    app = FastAPI(title="apicred", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="apicred",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+    )
 
     app.add_middleware(
         CORSMiddleware,

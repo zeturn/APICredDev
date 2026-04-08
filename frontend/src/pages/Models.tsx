@@ -1,16 +1,24 @@
-import { Badge, Card, Grid, Typography } from "../lib/watercolor";
+import { Badge, Button, Card, Grid, Typography } from "../lib/watercolor";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/client";
 import { formatPricingSummary } from "../shared/pricing";
+import Skeleton from "../ui/Skeleton";
+import { useNavigate } from "react-router-dom";
 
 const ModelsPage = () => {
+  const navigate = useNavigate();
   const [models, setModels] = useState<any[]>([]);
   const [keyword, setKeyword] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const resp = await api.get("/models");
-      setModels(resp.data);
+      try {
+        const resp = await api.get("/models");
+        setModels(resp.data);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -58,6 +66,26 @@ const ModelsPage = () => {
         </div>
       </Card>
 
+      {loading && (
+        <Grid container spacing={2}>
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <Grid item xs={12} md={6} key={`sk-${idx}`}>
+              <Card className="p-6">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-14 w-14" rounded="lg" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="mt-2 h-3 w-28" />
+                  </div>
+                </div>
+                <Skeleton className="mt-4 h-24 w-full" rounded="lg" />
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {!loading && (
       <Grid container spacing={2}>
         {filteredModels.map((m) => (
           <Grid item xs={12} md={6} key={m.id}>
@@ -103,13 +131,23 @@ const ModelsPage = () => {
         {filteredModels.length === 0 && (
           <Grid item xs={12}>
             <Card className="p-6">
-              <Typography variant="body2" color="textSecondary">
-                暂无匹配模型
+              <Typography variant="h6">当前暂无可用模型</Typography>
+              <Typography variant="body2" color="textSecondary" className="mt-2">
+                可能是模型目录尚未初始化，或当前环境尚未同步默认模型数据。
               </Typography>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="secondary" buttonStyle="outlined" onClick={() => window.location.reload()}>
+                  重新加载
+                </Button>
+                <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/admin/models")}>
+                  通知管理员检查模型配置
+                </Button>
+              </div>
             </Card>
           </Grid>
         )}
       </Grid>
+      )}
     </div>
   );
 };

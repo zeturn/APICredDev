@@ -92,4 +92,84 @@
   .wc-soft {
     @apply border border-slate-300 bg-white;
   }
+
+  .ui-skeleton {
+    @apply border border-slate-200 bg-slate-100;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ui-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+    animation: ui-skeleton-shimmer 1.25s infinite;
+  }
+
+  .ui-loading-bar {
+    height: 3px;
+    width: 100%;
+    background: linear-gradient(90deg, #334155 0%, #94a3b8 45%, #334155 100%);
+    background-size: 220% 100%;
+    animation: ui-loading-slide 1s linear infinite;
+  }
+
+  .ui-loading-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #cbd5e1;
+    border-top-color: #334155;
+    border-radius: 9999px;
+    display: inline-block;
+    animation: ui-spin 0.7s linear infinite;
+  }
+
+  .ui-center-loading-track {
+    position: relative;
+    overflow: hidden;
+    height: 6px;
+  }
+
+  .ui-center-loading-track::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 38%;
+    left: -40%;
+    background: #334155;
+    animation: ui-center-progress-run 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes ui-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ui-loading-slide {
+  0% {
+    background-position: 220% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ui-center-progress-run {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
 }

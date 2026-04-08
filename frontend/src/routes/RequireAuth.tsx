@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import LoadingScreen from "../pages/LoadingScreen";
 
 const RequireAuth = () => {
   const location = useLocation();
@@ -27,7 +28,7 @@ const RequireAuth = () => {
   }, [location.pathname]);
 
   if (state === "checking") {
-    return null;
+    return <LoadingScreen />;
   }
 
   if (state !== "ok") {

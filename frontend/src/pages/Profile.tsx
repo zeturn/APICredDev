@@ -1,6 +1,7 @@
 import { Card, Grid, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import Skeleton from "../ui/Skeleton";
 
 type Me = {
   id: string;
@@ -45,7 +46,22 @@ const ProfilePage = () => {
       </div>
 
       <Card className="p-6">
-        {loading && <Typography variant="body2" color="textSecondary">加载中...</Typography>}
+        {loading && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="mt-2 h-4 w-full" />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="mt-2 h-4 w-full" />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="mt-2 h-4 w-20" />
+            </Grid>
+          </Grid>
+        )}
 
         {!loading && me && (
           <Grid container spacing={3}>

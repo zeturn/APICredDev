@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { AdminIcon } from "./admin/adminCommon";
+import Skeleton from "../ui/Skeleton";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -14,15 +15,20 @@ const DashboardPage = () => {
   });
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const summaryResp = await api.get("/billing/summary");
-      setSummary(summaryResp.data);
-      const walletResp = await api.get("/billing/wallet");
-      setBalance(walletResp.data.balance_credits);
-      const ledgerResp = await api.get("/billing/ledger");
-      setLedger(ledgerResp.data.slice(0, 10));
+      try {
+        const summaryResp = await api.get("/billing/summary");
+        setSummary(summaryResp.data);
+        const walletResp = await api.get("/billing/wallet");
+        setBalance(walletResp.data.balance_credits);
+        const ledgerResp = await api.get("/billing/ledger");
+        setLedger(ledgerResp.data.slice(0, 10));
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -48,7 +54,7 @@ const DashboardPage = () => {
                   <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
                 </div>
                 <Typography variant="h3" className="mt-2">
-                  {balance}
+                  {loading ? <Skeleton className="h-10 w-24" /> : balance}
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
                   credits
@@ -65,10 +71,10 @@ const DashboardPage = () => {
                   <AdminIcon icon="usage" className="h-4 w-4 text-slate-500" />
                 </div>
                 <Typography variant="h3" className="mt-2">
-                  {summary.used_credits}
+                  {loading ? <Skeleton className="h-10 w-24" /> : summary.used_credits}
                 </Typography>
                 <Typography variant="caption" color="textSecondary" className="mt-3 block">
-                  共 {summary.usage_sessions} 次调用已完成结算。
+                  {loading ? <Skeleton className="h-3 w-40" /> : `共 ${summary.usage_sessions} 次调用已完成结算。`}
                 </Typography>
               </Card>
             </Grid>
@@ -84,7 +90,7 @@ const DashboardPage = () => {
               <AdminIcon icon="models" className="h-4 w-4 text-slate-500" />
             </div>
             <Typography variant="h3" className="mt-2">
-              {summary.available_models}
+              {loading ? <Skeleton className="h-10 w-20" /> : summary.available_models}
             </Typography>
             <Typography variant="caption" color="textSecondary" className="mt-3 block">
               当前已启用并可调用的模型数量。
@@ -115,7 +121,17 @@ const DashboardPage = () => {
           <Badge variant="secondary">append-only</Badge>
         </div>
         <div className="mt-4 space-y-2">
-          {ledger.map((item) => (
+          {loading && Array.from({ length: 5 }).map((_, idx) => (
+            <div key={`sk-${idx}`} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Skeleton className="h-3 w-36" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <Skeleton className="mt-2 h-3 w-32" />
+            </div>
+          ))}
+
+          {!loading && ledger.map((item) => (
             <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-medium text-slate-900">{item.entry_type}</div>
@@ -125,7 +141,7 @@ const DashboardPage = () => {
             </div>
           ))}
 
-          {ledger.length === 0 && <div className="text-sm text-slate-500">暂无账本记录</div>}
+          {!loading && ledger.length === 0 && <div className="text-sm text-slate-500">暂无账本记录</div>}
         </div>
       </Card>
     </div>
