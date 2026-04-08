@@ -1,8 +1,11 @@
-import { Badge, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "../lib/watercolor";
+import { Badge, Button, Card, Grid, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { AdminIcon } from "./admin/adminCommon";
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState({
     balance_credits: 0,
     used_credits: 0,
@@ -11,7 +14,6 @@ const DashboardPage = () => {
   });
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState<any[]>([]);
-  const [models, setModels] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -21,8 +23,6 @@ const DashboardPage = () => {
       setBalance(walletResp.data.balance_credits);
       const ledgerResp = await api.get("/billing/ledger");
       setLedger(ledgerResp.data.slice(0, 10));
-      const modelsResp = await api.get("/models");
-      setModels(modelsResp.data);
     };
     load();
   }, []);
@@ -36,44 +36,67 @@ const DashboardPage = () => {
         <Typography variant="h5">总览</Typography>
       </div>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <Card className="p-6">
-            <Typography variant="body2" color="textSecondary">
-              剩余额度
-            </Typography>
-            <Typography variant="h3" className="mt-2">
-              {balance}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              credits
-            </Typography>
-          </Card>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <Typography variant="body2" color="textSecondary">
+                    剩余额度
+                  </Typography>
+                  <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
+                </div>
+                <Typography variant="h3" className="mt-2">
+                  {balance}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  credits
+                </Typography>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <Typography variant="body2" color="textSecondary">
+                    已使用额度
+                  </Typography>
+                  <AdminIcon icon="usage" className="h-4 w-4 text-slate-500" />
+                </div>
+                <Typography variant="h3" className="mt-2">
+                  {summary.used_credits}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" className="mt-3 block">
+                  共 {summary.usage_sessions} 次调用已完成结算。
+                </Typography>
+              </Card>
+            </Grid>
+          </Grid>
         </Grid>
+
         <Grid item xs={12} md={4}>
-          <Card className="p-6">
-            <Typography variant="body2" color="textSecondary">
-              已使用额度
-            </Typography>
-            <Typography variant="h3" className="mt-2">
-              {summary.used_credits}
-            </Typography>
-            <Typography variant="caption" color="textSecondary" className="mt-3 block">
-              共 {summary.usage_sessions} 次调用已完成结算。
-            </Typography>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card className="p-6">
-            <Typography variant="body2" color="textSecondary">
-              可用模型
-            </Typography>
+          <Card className="h-full p-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Typography variant="body2" color="textSecondary">
+                可用模型
+              </Typography>
+              <AdminIcon icon="models" className="h-4 w-4 text-slate-500" />
+            </div>
             <Typography variant="h3" className="mt-2">
               {summary.available_models}
             </Typography>
             <Typography variant="caption" color="textSecondary" className="mt-3 block">
               当前已启用并可调用的模型数量。
             </Typography>
+            <div className="mt-4">
+              <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/workspace/models")}>
+                <span className="inline-flex items-center gap-2">
+                  <AdminIcon icon="api" className="h-4 w-4" />
+                  查看模型价格与图标
+                </span>
+              </Button>
+            </div>
           </Card>
         </Grid>
       </Grid>
@@ -82,77 +105,27 @@ const DashboardPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.28em]">
-              models
-            </Typography>
-            <Typography variant="h6" className="mt-2">
-              可用模型列表
-            </Typography>
-          </div>
-          <Badge variant="primary">{models.length}</Badge>
-        </div>
-        <div className="mt-4">
-          <Table striped hover>
-            <TableHead>
-              <TableRow>
-                <TableCell>模型</TableCell>
-                <TableCell>定价</TableCell>
-                <TableCell align="right">倍率</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {models.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell>{JSON.stringify(item.pricing)}</TableCell>
-                  <TableCell align="right">x{item.multiplier}</TableCell>
-                </TableRow>
-              ))}
-              {models.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3}>暂无可用模型</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.28em]">
               ledger
             </Typography>
-            <Typography variant="h6" className="mt-2">
-              最近 10 笔
-            </Typography>
+            <div className="mt-2 flex items-center gap-2">
+              <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
+              <Typography variant="h6">最近 10 笔</Typography>
+            </div>
           </div>
           <Badge variant="secondary">append-only</Badge>
         </div>
-        <div className="mt-4">
-          <Table striped hover>
-            <TableHead>
-              <TableRow>
-                <TableCell>类型</TableCell>
-                <TableCell align="right">额度</TableCell>
-                <TableCell align="right">时间</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {ledger.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>{item.entry_type}</TableCell>
-                  <TableCell align="right">{item.amount_credits}</TableCell>
-                  <TableCell align="right">{item.created_at}</TableCell>
-                </TableRow>
-              ))}
-              {ledger.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3}>暂无账本记录</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+        <div className="mt-4 space-y-2">
+          {ledger.map((item) => (
+            <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium text-slate-900">{item.entry_type}</div>
+                <div className="text-sm font-semibold text-slate-900">{item.amount_credits}</div>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">{item.created_at ? String(item.created_at).replace("T", " ").slice(0, 19) : "-"}</div>
+            </div>
+          ))}
+
+          {ledger.length === 0 && <div className="text-sm text-slate-500">暂无账本记录</div>}
         </div>
       </Card>
     </div>

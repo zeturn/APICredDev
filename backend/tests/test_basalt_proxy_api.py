@@ -8,6 +8,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.api.v1.basalt import get_basalt_client
 from app.api.v1 import basalt as basalt_module
+from app.api.v1.auth import get_basalt_client as get_auth_basalt_client
 from app.core.config import settings
 from app.core.deps import get_db
 from app.main import create_app
@@ -82,12 +83,15 @@ async def test_basalt_proxy_user_and_admin_routes(db_session):
 
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt
+    app.dependency_overrides[get_auth_basalt_client] = _override_basalt
 
     user = await register_user(db_session, "proxy-user@example.com", "pass")
     user.basalt_user_id = "bp-user-1"
     user.basalt_tenant_id = "bp-tenant-1"
     await db_session.commit()
     token = await login_user(db_session, "proxy-user@example.com", "pass")
+    fake.permission_role_codes = ["tenant"]
+    fake.roles = [{"code": "tenant"}]
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -98,17 +102,22 @@ async def test_basalt_proxy_user_and_admin_routes(db_session):
         assert user_resp.status_code == 200
         assert user_resp.json()["data"]["balance"] == 12345
 
+        admin_token_resp = await client.get(
+            "/v1/auth/admin-token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert admin_token_resp.status_code == 200
+        admin_access_token = admin_token_resp.json()["admin_access_token"]
+
         admin_resp = await client.get(
             "/v1/admin/basalt/users",
-            headers={"X-Admin-Token": settings.admin_token},
+            headers={"X-Admin-Authorization": f"Bearer {admin_access_token}"},
         )
         assert admin_resp.status_code == 200
         assert admin_resp.json()["data"]["path"] == "/api/v1/admin/users/"
 
-    assert len(fake.calls) == 2
-    assert fake.calls[0]["method"] == "S2S_WALLET"
-    assert fake.calls[0]["user_id"] == "bp-user-1"
-    assert fake.calls[1]["upstream_path"] == "/api/v1/admin/users/"
+    assert any(call.get("method") == "S2S_WALLET" and call.get("user_id") == "bp-user-1" for call in fake.calls)
+    assert any(call.get("upstream_path") == "/api/v1/admin/users/" for call in fake.calls)
 
 
 @pytest.mark.asyncio
@@ -145,9 +154,9 @@ async def test_basalt_admin_requires_valid_admin_token(db_session):
     app.dependency_overrides[get_db] = _override_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        bad = await client.get("/v1/admin/basalt/users", headers={"X-Admin-Token": "bad-token"})
-        assert bad.status_code == 403
-        assert bad.json()["error"]["code"] == "admin_unauthorized"
+        bad = await client.get("/v1/admin/basalt/users", headers={"X-Admin-Authorization": "Bearer bad-token"})
+        assert bad.status_code == 401
+        assert bad.json()["error"]["code"] == "admin_token_invalid"
 
 
 @pytest.mark.asyncio
@@ -165,6 +174,7 @@ async def test_basalt_admin_allows_tenant_admin_bearer(db_session):
 
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt
+    app.dependency_overrides[get_auth_basalt_client] = _override_basalt
 
     user = await register_user(db_session, "tenant-admin@example.com", "pass")
     user.basalt_user_id = "bp-admin-user"
@@ -174,9 +184,16 @@ async def test_basalt_admin_allows_tenant_admin_bearer(db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token_resp = await client.get(
+            "/v1/auth/admin-token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert admin_token_resp.status_code == 200
+        admin_access_token = admin_token_resp.json()["admin_access_token"]
+
         resp = await client.get(
             "/v1/admin/basalt/users",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"X-Admin-Authorization": f"Bearer {admin_access_token}"},
         )
         assert resp.status_code == 200
         assert resp.json()["data"]["path"] == "/api/v1/admin/users/"

@@ -1,23 +1,22 @@
 import { Badge, Card, Grid, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro } from "./adminCommon";
+import { AdminIcon, AdminPageIntro } from "./adminCommon";
 
 const AdminOverviewPage = () => {
   const [dashboard, setDashboard] = useState<any | null>(null);
-  const adminToken = localStorage.getItem("admin_token") ?? "";
 
   useEffect(() => {
     const load = async () => {
-      if (!adminToken) {
+      try {
+        const resp = await adminApi.get("/admin/dashboard");
+        setDashboard(resp.data);
+      } catch {
         setDashboard(null);
-        return;
       }
-      const resp = await adminApi.get("/admin/dashboard");
-      setDashboard(resp.data);
     };
     load();
-  }, [adminToken]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -26,6 +25,7 @@ const AdminOverviewPage = () => {
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}>
             <Card className="p-6">
+              <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="users" /></div>
               <Typography variant="body2" color="textSecondary">用户</Typography>
               <Typography variant="h3" className="mt-2">{dashboard.total_users}</Typography>
               <Typography variant="caption" color="textSecondary">活跃 {dashboard.active_users}</Typography>
@@ -33,6 +33,7 @@ const AdminOverviewPage = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <Card className="p-6">
+              <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="models" /></div>
               <Typography variant="body2" color="textSecondary">模型</Typography>
               <Typography variant="h3" className="mt-2">{dashboard.total_models}</Typography>
               <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_models}</Typography>
@@ -40,6 +41,7 @@ const AdminOverviewPage = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <Card className="p-6">
+              <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="provider" /></div>
               <Typography variant="body2" color="textSecondary">服务商 Key</Typography>
               <Typography variant="h3" className="mt-2">{dashboard.provider_keys}</Typography>
               <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_provider_keys}</Typography>
@@ -47,6 +49,7 @@ const AdminOverviewPage = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <Card className="p-6">
+              <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="usage" /></div>
               <Typography variant="body2" color="textSecondary">调用会话</Typography>
               <Typography variant="h3" className="mt-2">{dashboard.usage_sessions}</Typography>
               <Typography variant="caption" color="textSecondary">完成 {dashboard.completed_usage_sessions}</Typography>

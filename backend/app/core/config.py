@@ -8,11 +8,14 @@ class Settings(BaseSettings):
     token_salt: str = "dev-token-salt"
     jwt_issuer: str = "apicred"
     jwt_exp_minutes: int = 60 * 24
+    auth_cookie_name: str = "apicred_access_token"
+    auth_cookie_samesite: str = "lax"
 
     database_url: str = "postgresql+asyncpg://apicred:apicred@localhost:5403/apicred"
     redis_url: str = "redis://localhost:6303/0"
 
-    admin_token: str = "dev-admin-token"
+    admin_jwt_audience: str = "apicred-admin"
+    admin_jwt_exp_minutes: int = 15
     admin_email: str = "admin@example.com"
     admin_password: str = "admin123"
 
@@ -35,6 +38,8 @@ class Settings(BaseSettings):
     basalt_oauth_audience: str = ""
     basalt_s2s_client_id: str = ""
     basalt_s2s_client_secret: str = ""
+    basalt_credit_currency: str = "CREDIT"
+    basalt_credit_scale: int = 1000000
     basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin"
     basalt_rbac_enforce: bool = True
     basalt_rbac_strict_user_binding: bool = False
@@ -55,7 +60,6 @@ def validate_production_settings(current: Settings) -> None:
     insecure_values = {
         "app_secret": {"", "dev-secret"},
         "token_salt": {"", "dev-token-salt"},
-        "admin_token": {"", "dev-admin-token"},
     }
     bad = [name for name, blocked in insecure_values.items() if getattr(current, name) in blocked]
     if bad:

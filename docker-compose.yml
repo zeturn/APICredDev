@@ -4,9 +4,9 @@ services:
     mem_limit: 1g
     cpus: 1.0
     environment:
-      POSTGRES_DB: apicred
-      POSTGRES_USER: apicred
-      POSTGRES_PASSWORD: ZHxXmRf8ApKAXWh7
+      POSTGRES_DB: ${POSTGRES_DB:-apicred}
+      POSTGRES_USER: ${POSTGRES_USER:-apicred}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "5403:5432"
     volumes:
@@ -21,13 +21,13 @@ services:
     image: redis:7
     mem_limit: 512m
     cpus: 0.5
-    command: ["redis-server", "--requirepass", "jynthbgrvfecs22650"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
     ports:
       - "6303:6379"
     volumes:
       - ./data/redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "jynthbgrvfecs22650", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:?REDIS_PASSWORD is required}\" ping"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -39,11 +39,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://apicred:ZHxXmRf8ApKAXWh7@postgres:5432/apicred
-      REDIS_URL: redis://:jynthbgrvfecs22650@redis:6379/0
-      ADMIN_TOKEN: dev-admin-token
-      APP_SECRET: dev-secret
-      TOKEN_SALT: dev-token-salt
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-apicred}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-apicred}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      TOKEN_SALT: ${TOKEN_SALT:?TOKEN_SALT is required}
       DEBUG_ENDPOINTS_ENABLED: "true"
       STARTUP_CREATE_TABLES_ENABLED: "true"
       STARTUP_SCHEMA_COMPAT_ENABLED: "true"

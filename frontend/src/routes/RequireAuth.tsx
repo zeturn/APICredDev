@@ -1,10 +1,36 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import api from "../api/client";
 
 const RequireAuth = () => {
   const location = useLocation();
-  const token = localStorage.getItem("access_token");
+  const [state, setState] = useState<"checking" | "ok" | "unauthorized">("checking");
 
-  if (!token) {
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      try {
+        await api.get("/auth/me");
+        if (active) {
+          setState("ok");
+        }
+      } catch {
+        if (active) {
+          setState("unauthorized");
+        }
+      }
+    };
+    check();
+    return () => {
+      active = false;
+    };
+  }, [location.pathname]);
+
+  if (state === "checking") {
+    return null;
+  }
+
+  if (state !== "ok") {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

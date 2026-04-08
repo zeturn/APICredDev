@@ -4,7 +4,9 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.secrets import decrypt_secret
+from app.core.time import utc_now
 from app.db.models.brand import Brand
 from app.db.models.model import Model
 from app.db.models.provider import Provider
@@ -13,6 +15,7 @@ from app.db.models.model_provider_key import ModelProviderKey
 from app.db.models.user import User
 from app.db.models.usage_session import UsageSession
 from app.db.models.wallet import Wallet
+from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.factory import OPENAI_COMPAT_PROVIDERS
 from app.services.providers.presets import get_provider_default_base_url
 from app.core.secrets import encrypt_secret
@@ -291,4 +294,170 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
 async def list_usage_sessions(db: AsyncSession) -> list[UsageSession]:
     result = await db.execute(select(UsageSession))
     return list(result.scalars().all())
+
+
+async def list_user_chat_sessions(db: AsyncSession, user_id: str, limit: int = 50) -> list[dict]:
+    result = await db.execute(
+        select(UsageSession)
+        .where(UsageSession.user_id == user_id)
+        .order_by(UsageSession.created_at.desc())
+        .limit(limit)
+    )
+    sessions = list(result.scalars().all())
+    return [
+        {
+            "id": item.id,
+            "request_id": item.request_id,
+            "user_id": item.user_id,
+            "model_name": item.model_name,
+            "upstream_provider": item.upstream_provider,
+            "status": item.status,
+            "request_messages": item.request_messages or [],
+            "request_text": item.request_text,
+            "response_text": item.response_text,
+            "prompt_tokens": item.prompt_tokens,
+            "completion_tokens": item.completion_tokens,
+            "total_tokens": item.total_tokens,
+            "final_cost_credits": float(item.final_cost_credits or 0),
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+        }
+        for item in sessions
+    ]
+
+
+async def list_api_supported_models(db: AsyncSession) -> list[dict]:
+    provider_keys = await list_provider_keys(db)
+    if not provider_keys:
+        return []
+
+    provider_map: dict[str, Provider] = {}
+    provider_rows = await db.execute(select(Provider))
+    for item in provider_rows.scalars().all():
+        provider_map[item.id] = item
+
+    model_rows = await db.execute(select(Model))
+    model_map = {item.id: item for item in model_rows.scalars().all()}
+
+    links_rows = await db.execute(select(ModelProviderKey).order_by(ModelProviderKey.priority.asc(), ModelProviderKey.weight.desc()))
+    links = list(links_rows.scalars().all())
+
+    links_by_key: dict[str, list[ModelProviderKey]] = {}
+    for link in links:
+        links_by_key.setdefault(link.provider_key_id, []).append(link)
+
+    result: list[dict] = []
+    for pkey in provider_keys:
+        provider = provider_map.get(pkey.provider_id or "")
+        linked = links_by_key.get(pkey.id, [])
+        models = []
+        for link in linked:
+            model = model_map.get(link.model_id)
+            if not model:
+                continue
+            models.append(
+                {
+                    "model_id": model.id,
+                    "model_name": model.name,
+                    "enabled": bool(link.enabled and model.enabled),
+                    "priority": link.priority,
+                    "weight": link.weight,
+                    "base_url": link.base_url,
+                }
+            )
+
+        result.append(
+            {
+                "api_id": pkey.id,
+                "provider": pkey.provider,
+                "provider_name": provider.name if provider else pkey.provider,
+                "enabled": pkey.enabled,
+                "health_state": pkey.health_state,
+                "default_base_url": pkey.key_name,
+                "supported_models": models,
+            }
+        )
+
+    return result
+
+
+def _smallest_to_credit(amount_smallest: int | float | str | None) -> Decimal:
+    scale = max(int(settings.basalt_credit_scale or 1), 1)
+    return Decimal(str(amount_smallest or 0)) / Decimal(scale)
+
+
+async def sync_wallets_from_basalt(
+    db: AsyncSession,
+    user_id: str | None = None,
+    dry_run: bool = False,
+) -> dict:
+    query = select(User).where(User.basalt_user_id.is_not(None))
+    if user_id:
+        query = query.where(User.id == user_id)
+    rows = await db.execute(query.order_by(User.created_at.desc()))
+    users = list(rows.scalars().all())
+
+    client = BasaltPassClient()
+    synced = 0
+    failed = 0
+    skipped = 0
+    errors: list[dict] = []
+
+    for user in users:
+        basalt_user_id = (user.basalt_user_id or "").strip()
+        if not basalt_user_id:
+            skipped += 1
+            continue
+
+        tenant_id = (user.basalt_tenant_id or "").strip() or None
+        payload = await client.s2s_get_user_wallet(
+            user_id=basalt_user_id,
+            currency=settings.basalt_credit_currency,
+            limit=1,
+            tenant_id=tenant_id,
+        )
+        if isinstance(payload, dict) and payload.get("error"):
+            failed += 1
+            errors.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "error": payload.get("error"),
+                }
+            )
+            continue
+
+        if not isinstance(payload, dict):
+            failed += 1
+            errors.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "error": "invalid_response",
+                }
+            )
+            continue
+
+        remote_balance = _smallest_to_credit(payload.get("balance"))
+        if not dry_run:
+            wallet = await db.get(Wallet, user.id)
+            if not wallet:
+                wallet = Wallet(user_id=user.id, balance_credits=remote_balance, updated_at=utc_now())
+                db.add(wallet)
+            else:
+                wallet.balance_credits = remote_balance
+                wallet.updated_at = utc_now()
+        synced += 1
+
+    if not dry_run:
+        await db.commit()
+
+    return {
+        "total": len(users),
+        "synced": synced,
+        "failed": failed,
+        "skipped": skipped,
+        "dry_run": dry_run,
+        "errors": errors,
+    }
 

@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.core.deps import get_current_user, get_optional_current_user
+from app.core.deps import get_current_user, get_db
 from app.core.errors import AppError
 from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["basalt"])
 
@@ -29,14 +30,18 @@ def get_basalt_client() -> BasaltPassClient:
 
 async def _require_admin_access(
     request: Request,
-    x_admin_token: str | None = Header(default=None),
-    user=Depends(get_optional_current_user),
+    authorization: str | None = Header(default=None),
+    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    db: AsyncSession = Depends(get_db),
     client: BasaltPassClient = Depends(get_basalt_client),
 ) -> None:
     await assert_admin_access(
         request=request,
+        authorization=authorization,
+        x_admin_authorization=x_admin_authorization,
         x_admin_token=x_admin_token,
-        user=user,
+        db=db,
         client=client,
     )
 
@@ -180,6 +185,36 @@ def _get_basalt_identity(user: Any, request: Request) -> tuple[str, str | None]:
     if not basalt_user_id:
         raise AppError("basalt_identity_missing", "current user is not linked to BasaltPass", request.state.request_id, 400)
     return str(basalt_user_id), (str(getattr(user, "basalt_tenant_id", "")) or None)
+
+
+@router.get("/basalt/tenant-hint")
+async def basalt_tenant_hint(
+    request: Request,
+    client: BasaltPassClient = Depends(get_basalt_client),
+    user=Depends(get_current_user),
+) -> JSONResponse:
+    if not getattr(user, "basalt_user_id", None):
+        raise AppError("basalt_identity_missing", "current user is not linked to BasaltPass", request.state.request_id, 400)
+
+    try:
+        s2s_me = await client.s2s_get_me()
+    except ValueError as exc:
+        raise AppError("s2s_config_missing", str(exc), request.state.request_id, 500)
+
+    tenant_code = None
+    tenant_id = None
+    if isinstance(s2s_me, dict):
+        tenant_code = (s2s_me.get("tenant_code") or "").strip() or None
+        tenant_id = s2s_me.get("tenant_id")
+
+    return JSONResponse(
+        content={
+            "data": {
+                "tenant_code": tenant_code,
+                "tenant_id": tenant_id,
+            }
+        }
+    )
 
 
 @router.get("/basalt/debug/context")

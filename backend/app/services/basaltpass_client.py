@@ -116,6 +116,38 @@ class BasaltPassClient:
             return payload.get("data")
         return payload
 
+    async def _s2s_request(
+        self,
+        method: str,
+        upstream_path: str,
+        *,
+        query: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+    ) -> Any:
+        self._require_s2s_credentials()
+        response = await self.proxy(
+            method=method,
+            upstream_path=upstream_path,
+            query=query,
+            body=body,
+            headers={
+                "client_id": self.s2s_client_id,
+                "client_secret": self.s2s_client_secret,
+            },
+        )
+        if response.status_code >= 400:
+            return {
+                "error": {
+                    "code": "s2s_request_failed",
+                    "message": f"upstream status {response.status_code}",
+                    "details": response.payload,
+                }
+            }
+        payload = response.payload
+        if isinstance(payload, dict) and "data" in payload:
+            return payload.get("data")
+        return payload
+
     async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None) -> Any:
         params: dict[str, Any] = {}
         if tenant_id:
@@ -142,4 +174,30 @@ class BasaltPassClient:
         if tenant_id:
             params["tenant_id"] = tenant_id
         return await self._s2s_get(f"/api/v1/s2s/users/{user_id}/wallets", query=params)
+
+    async def s2s_adjust_user_wallet(
+        self,
+        user_id: str,
+        *,
+        currency: str,
+        operation: str,
+        amount: int,
+        reference: str,
+        tenant_id: str | None = None,
+    ) -> Any:
+        params: dict[str, Any] = {}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        payload = {
+            "operation": operation,
+            "amount": amount,
+            "currency": currency,
+            "reference": reference,
+        }
+        return await self._s2s_request(
+            method="POST",
+            upstream_path=f"/api/v1/s2s/users/{user_id}/wallets/adjust",
+            query=params or None,
+            body=payload,
+        )
 

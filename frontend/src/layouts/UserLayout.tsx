@@ -1,21 +1,33 @@
 import { Button, Card, List, ListItem, Typography } from "../lib/watercolor";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { userConsoleRoutes } from "../navigation/consoleRoutes";
+import { AdminIcon } from "../pages/admin/adminCommon";
+import api from "../api/client";
 
 const UserLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: item.label }));
+  const iconByPath: Record<string, "home" | "usage" | "key" | "models" | "wallet"> = {
+    "/workspace/dashboard": "home",
+    "/workspace/usage": "usage",
+    "/workspace/tokens": "key",
+    "/workspace/models": "models",
+    "/workspace/topup": "wallet",
+  };
 
-  const logout = () => {
-    localStorage.removeItem("access_token");
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+    }
     navigate("/login");
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-6xl gap-6 px-6 py-6">
-        <aside className="w-64 shrink-0">
+      <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
+        <aside className="sticky top-4 h-fit w-64 shrink-0 self-start">
           <Card className="p-5">
             <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
               apicred
@@ -36,22 +48,31 @@ const UserLayout = () => {
                   to={item.to}
                   selected={location.pathname === item.to}
                 >
-                  {item.label}
+                  <span className="inline-flex items-center gap-2">
+                    <AdminIcon icon={iconByPath[item.to] ?? "home"} className="h-4 w-4" />
+                    {item.label}
+                  </span>
                 </ListItem>
               ))}
             </List>
 
             <div className="mt-6 space-y-2">
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")}>
-                进入管理后台
+                <span className="inline-flex items-center gap-2">
+                  <AdminIcon icon="shield" className="h-4 w-4" />
+                  进入管理后台
+                </span>
               </Button>
               <Button buttonStyle="text" variant="error" fullWidth onClick={logout}>
-                退出登录
+                <span className="inline-flex items-center gap-2">
+                  <AdminIcon icon="provider" className="h-4 w-4" />
+                  退出登录
+                </span>
               </Button>
             </div>
           </Card>
         </aside>
-        <main className="flex-1">
+        <main className="min-w-0 flex-1">
           <Outlet />
         </main>
       </div>

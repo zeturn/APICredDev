@@ -31,8 +31,42 @@ def create_access_token(subject: str) -> str:
     return jwt.encode(payload, settings.app_secret, algorithm="HS256")
 
 
+def create_admin_access_token(
+    *,
+    subject: str,
+    basalt_user_id: str,
+    basalt_tenant_id: str | None,
+    admin_roles: list[str],
+) -> str:
+    now = datetime.now(timezone.utc)
+    payload: Dict[str, Any] = {
+        "sub": subject,
+        "iss": settings.jwt_issuer,
+        "aud": settings.admin_jwt_audience,
+        "typ": "admin_access",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=settings.admin_jwt_exp_minutes)).timestamp()),
+        "jti": secrets.token_urlsafe(16),
+        "basalt_user_id": basalt_user_id,
+        "admin_roles": sorted({code.strip().lower() for code in admin_roles if code and code.strip()}),
+    }
+    if basalt_tenant_id:
+        payload["basalt_tenant_id"] = basalt_tenant_id
+    return jwt.encode(payload, settings.app_secret, algorithm="HS256")
+
+
 def decode_access_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, settings.app_secret, algorithms=["HS256"], issuer=settings.jwt_issuer)
+
+
+def decode_admin_access_token(token: str) -> Dict[str, Any]:
+    return jwt.decode(
+        token,
+        settings.app_secret,
+        algorithms=["HS256"],
+        issuer=settings.jwt_issuer,
+        audience=settings.admin_jwt_audience,
+    )
 
 
 def generate_api_token() -> str:

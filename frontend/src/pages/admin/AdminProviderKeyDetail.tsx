@@ -16,7 +16,6 @@ type Provider = {
 const AdminProviderKeyDetailPage = () => {
   const { providerKeyId = "" } = useParams();
   const navigate = useNavigate();
-  const adminToken = localStorage.getItem("admin_token") ?? "";
   const [providers, setProviders] = useState<Provider[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [providerKey, setProviderKey] = useState<any | null>(null);
@@ -31,28 +30,35 @@ const AdminProviderKeyDetailPage = () => {
   const [mappingEnabled, setMappingEnabled] = useState(true);
 
   const load = async () => {
-    if (!adminToken || !providerKeyId) {
+    if (!providerKeyId) {
       setProviders([]);
       setModels([]);
       setProviderKey(null);
       setModelLinks([]);
       return;
     }
-    const [providersResp, modelsResp, detailResp] = await Promise.all([
-      adminApi.get("/admin/providers"),
-      adminApi.get("/admin/models"),
-      adminApi.get(`/admin/provider-keys/${providerKeyId}`),
-    ]);
-    setProviders(providersResp.data);
-    setModels(modelsResp.data);
-    setProviderKey(detailResp.data.provider_key);
-    setKeyBaseUrl(detailResp.data.provider_key?.key_name || "");
-    setModelLinks(detailResp.data.model_links ?? []);
+    try {
+      const [providersResp, modelsResp, detailResp] = await Promise.all([
+        adminApi.get("/admin/providers"),
+        adminApi.get("/admin/models"),
+        adminApi.get(`/admin/provider-keys/${providerKeyId}`),
+      ]);
+      setProviders(providersResp.data);
+      setModels(modelsResp.data);
+      setProviderKey(detailResp.data.provider_key);
+      setKeyBaseUrl(detailResp.data.provider_key?.key_name || "");
+      setModelLinks(detailResp.data.model_links ?? []);
+    } catch {
+      setProviders([]);
+      setModels([]);
+      setProviderKey(null);
+      setModelLinks([]);
+    }
   };
 
   useEffect(() => {
     load();
-  }, [adminToken, providerKeyId]);
+  }, [providerKeyId]);
 
   const createModelLink = async () => {
     if (!providerKey) return;

@@ -35,20 +35,45 @@ async def get_or_create_oauth_user(
     basalt_user_id: str | None = None,
     basalt_tenant_id: str | None = None,
 ) -> User:
+    email_result = await db.execute(
+        select(User)
+        .where(User.email == email)
+        .order_by(User.created_at.desc(), User.id.desc())
+    )
+    email_user = email_result.scalars().first()
+
     user = None
     if basalt_user_id:
-        by_basalt = await db.execute(select(User).where(User.basalt_user_id == basalt_user_id))
-        user = by_basalt.scalar_one_or_none()
+        by_basalt = await db.execute(
+            select(User)
+            .where(User.basalt_user_id == basalt_user_id)
+            .order_by(User.created_at.desc(), User.id.desc())
+        )
+        basalt_matches = by_basalt.scalars().all()
+        if basalt_matches:
+            if basalt_tenant_id:
+                user = next((candidate for candidate in basalt_matches if candidate.basalt_tenant_id == basalt_tenant_id), None)
+            if not user and email_user:
+                user = next((candidate for candidate in basalt_matches if candidate.id == email_user.id), None)
+            if not user:
+                user = next((candidate for candidate in basalt_matches if candidate.email == email), None)
+            if not user:
+                user = basalt_matches[0]
 
     if not user:
-        result = await db.execute(select(User).where(User.email == email))
-        user = result.scalar_one_or_none()
+        user = email_user
 
     if user:
         changed = False
         if user.email != email:
-            user.email = email
-            changed = True
+            email_conflict = await db.execute(
+                select(User.id)
+                .where(User.email == email, User.id != user.id)
+                .limit(1)
+            )
+            if email_conflict.scalar_one_or_none() is None:
+                user.email = email
+                changed = True
         if user.status != "active":
             user.status = "active"
             changed = True

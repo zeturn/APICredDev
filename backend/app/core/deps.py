@@ -26,9 +26,15 @@ async def get_current_user(
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    elif request.cookies.get(settings.auth_cookie_name):
+        token = request.cookies.get(settings.auth_cookie_name)
+
+    if not token:
         raise AppError("auth_missing", "missing bearer token", request.state.request_id, 401)
-    token = authorization.split(" ", 1)[1]
+
     try:
         payload = decode_access_token(token)
     except Exception:
@@ -43,12 +49,17 @@ async def get_current_user(
 
 
 async def get_optional_current_user(
+    request: Request,
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
-    if not authorization or not authorization.startswith("Bearer "):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    else:
+        token = request.cookies.get(settings.auth_cookie_name)
+    if not token:
         return None
-    token = authorization.split(" ", 1)[1]
     try:
         payload = decode_access_token(token)
     except Exception:

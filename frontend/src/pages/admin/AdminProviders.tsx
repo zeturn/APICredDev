@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "../../lib/watercolor";
+import { Badge, Button, Card, Grid, TextField, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminApi from "../../api/adminClient";
@@ -22,7 +22,6 @@ type Provider = {
 
 const AdminProvidersPage = () => {
   const navigate = useNavigate();
-  const adminToken = localStorage.getItem("admin_token") ?? "";
   const [providers, setProviders] = useState<Provider[]>([]);
   const [providerKeys, setProviderKeys] = useState<any[]>([]);
   const [providerPresets, setProviderPresets] = useState<ProviderPreset[]>([]);
@@ -37,25 +36,25 @@ const AdminProvidersPage = () => {
   const activePreset = providerPresets.find((item) => item.provider === selectedPreset) ?? null;
 
   const load = async () => {
-    if (!adminToken) {
+    try {
+      const [providersResp, keysResp, presetsResp] = await Promise.all([
+        adminApi.get("/admin/providers"),
+        adminApi.get("/admin/provider-keys"),
+        adminApi.get("/admin/provider-presets"),
+      ]);
+      setProviders(providersResp.data);
+      setProviderKeys(keysResp.data);
+      setProviderPresets(presetsResp.data);
+    } catch {
       setProviders([]);
       setProviderKeys([]);
       setProviderPresets([]);
-      return;
     }
-    const [providersResp, keysResp, presetsResp] = await Promise.all([
-      adminApi.get("/admin/providers"),
-      adminApi.get("/admin/provider-keys"),
-      adminApi.get("/admin/provider-presets"),
-    ]);
-    setProviders(providersResp.data);
-    setProviderKeys(keysResp.data);
-    setProviderPresets(presetsResp.data);
   };
 
   useEffect(() => {
     load();
-  }, [adminToken]);
+  }, []);
 
   const applyPreset = (presetProvider: string) => {
     setSelectedPreset(presetProvider);
@@ -163,37 +162,27 @@ const AdminProvidersPage = () => {
           <Typography variant="h6">现有 Keys</Typography>
           <Badge variant="primary">{providerKeys.length}</Badge>
         </div>
-        <Table className="mt-4">
-          <TableHead>
-            <TableRow>
-              <TableCell>服务商</TableCell>
-              <TableCell>默认 URL</TableCell>
-              <TableCell>密钥</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell align="right">操作</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {providerKeys.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{providers.find((provider) => provider.slug === item.provider)?.name || item.provider}</TableCell>
-                <TableCell>{item.key_name}</TableCell>
-                <TableCell>{item.has_secret ? (item.secret_last4 ? `已加密保存 · ****${item.secret_last4}` : "已加密保存") : "未设置"}</TableCell>
-                <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
-                <TableCell align="right">
-                  <Button buttonStyle="text" variant="secondary" onClick={() => navigate(`/admin/providers/${item.id}`)}>
-                    详情
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {providerKeys.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5}>暂无服务商 Key</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {providerKeys.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">{providers.find((provider) => provider.slug === item.provider)?.name || item.provider}</div>
+                  <div className="mt-1 break-all text-xs text-slate-500">{item.key_name || "-"}</div>
+                </div>
+                <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? "enabled" : "disabled"}</Badge>
+              </div>
+              <div className="mt-3 text-sm text-slate-600">{item.has_secret ? (item.secret_last4 ? `已加密保存 · ****${item.secret_last4}` : "已加密保存") : "未设置"}</div>
+              <div className="mt-3">
+                <Button buttonStyle="text" variant="secondary" onClick={() => navigate(`/admin/providers/${item.id}`)}>
+                  详情
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          {providerKeys.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无服务商 Key</div>}
+        </div>
       </Card>
     </div>
   );

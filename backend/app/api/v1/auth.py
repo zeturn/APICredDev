@@ -2,10 +2,9 @@ import base64
 import hashlib
 import secrets
 from typing import Any
-from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,9 +13,9 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db, permission
 from app.core.errors import AppError
 from app.core.security import create_access_token
-from app.schemas.auth import LoginRequest, MeResponse, RegisterRequest, TokenResponse
+from app.schemas.auth import AdminTokenResponse, LoginRequest, MeResponse, RegisterRequest, TokenResponse
 from app.services.auth_service import get_or_create_oauth_user, login_user, register_user
-from app.services.admin_access import is_tenant_admin
+from app.services.admin_access import issue_admin_access_token
 from app.services.basaltpass_client import BasaltPassClient
 
 
@@ -26,6 +25,30 @@ OAUTH_VERIFIER_COOKIE = 'apicred_basalt_oauth_verifier'
 OAUTH_NEXT_COOKIE = 'apicred_basalt_oauth_next'
 OAUTH_COOKIE_PATH = '/v1/auth/basalt'
 OAUTH_COOKIE_MAX_AGE = 600
+
+
+def get_basalt_client() -> BasaltPassClient:
+    return BasaltPassClient()
+
+
+def _auth_cookie_secure() -> bool:
+    return settings.apicred_public_base_url.startswith('https://')
+
+
+def _set_access_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        settings.auth_cookie_name,
+        token,
+        httponly=True,
+        samesite=settings.auth_cookie_samesite,
+        secure=_auth_cookie_secure(),
+        max_age=settings.jwt_exp_minutes * 60,
+        path='/',
+    )
+
+
+def _clear_access_cookie(response: Response) -> None:
+    response.delete_cookie(settings.auth_cookie_name, path='/')
 
 
 @router.post('/register', response_model=MeResponse)
@@ -39,13 +62,20 @@ async def register(payload: RegisterRequest, request: Request, db: AsyncSession 
 
 
 @router.post('/login', response_model=TokenResponse)
-async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def login(payload: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     request_id = request.state.request_id
     try:
         token = await login_user(db, payload.email, payload.password)
     except ValueError:
         raise AppError('invalid_credentials', 'invalid credentials', request_id, 401)
+    _set_access_cookie(response, token)
     return TokenResponse(access_token=token)
+
+
+@router.post('/logout')
+async def logout(response: Response) -> dict[str, bool]:
+    _clear_access_cookie(response)
+    return {'ok': True}
 
 
 @router.get('/me', response_model=MeResponse)
@@ -56,19 +86,22 @@ async def me(
     return MeResponse(id=user.id, email=user.email, status=user.status)
 
 
-@router.get('/admin-token')
+@router.get('/admin-token', response_model=AdminTokenResponse)
 async def admin_token(
     request: Request,
     user=Depends(get_current_user),
-    client: BasaltPassClient = Depends(BasaltPassClient),
-) -> dict[str, str]:
+    client: BasaltPassClient = Depends(get_basalt_client),
+) -> AdminTokenResponse:
     try:
-        allowed = await is_tenant_admin(user, client)
+        admin_access_token = await issue_admin_access_token(user, client)
+    except PermissionError:
+        raise AppError('admin_unauthorized', 'missing admin role', request.state.request_id, 403)
     except ValueError as exc:
         raise AppError('admin_check_unavailable', str(exc), request.state.request_id, 503)
-    if not allowed:
-        raise AppError('admin_unauthorized', 'missing admin role', request.state.request_id, 403)
-    return {'admin_token': settings.admin_token}
+    return AdminTokenResponse(
+        admin_access_token=admin_access_token,
+        expires_in=settings.admin_jwt_exp_minutes * 60,
+    )
 
 
 def _safe_next(next_path: str | None) -> str:
@@ -258,11 +291,9 @@ async def _handle_oauth_callback(
         basalt_tenant_id=basalt_tenant_id,
     )
     token = create_access_token(user.id)
-    frontend_login_url = (
-        f"{settings.frontend_base_url.rstrip('/')}/login?"
-        f"{urlencode({'token': token, 'next': next_path, 'source': 'basaltpass'})}"
-    )
-    resp = RedirectResponse(url=frontend_login_url, status_code=302)
+    frontend_next_url = f"{settings.frontend_base_url.rstrip('/')}{next_path}"
+    resp = RedirectResponse(url=frontend_next_url, status_code=302)
+    _set_access_cookie(resp, token)
     _clear_oauth_cookies(resp)
     return resp
 

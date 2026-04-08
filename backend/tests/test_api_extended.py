@@ -5,9 +5,9 @@ from httpx import ASGITransport, AsyncClient
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
-from app.core.config import settings
 from app.core.deps import get_db
 from app.api.v1.admin import get_basalt_client
+from app.api.v1.auth import get_basalt_client as get_auth_basalt_client
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
 from app.main import create_app
@@ -82,7 +82,7 @@ async def test_auth_and_tokens_and_billing_and_models_branches(db_session):
 
 
 @pytest.mark.asyncio
-async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch):
+async def test_cookie_auth_login_me_logout_flow(db_session):
     app = create_app()
 
     async def _override_db():
@@ -92,10 +92,53 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        unauthorized = await client.get("/v1/admin/models")
-        assert unauthorized.status_code == 403
+        reg = await client.post("/v1/auth/register", json={"email": "cookie-auth@example.com", "password": "pass"})
+        assert reg.status_code == 200
 
-        admin_headers = {"X-Admin-Token": settings.admin_token}
+        login = await client.post("/v1/auth/login", json={"email": "cookie-auth@example.com", "password": "pass"})
+        assert login.status_code == 200
+        assert "set-cookie" in {k.lower(): v for k, v in login.headers.items()}
+
+        me_with_cookie = await client.get("/v1/auth/me")
+        assert me_with_cookie.status_code == 200
+        assert me_with_cookie.json()["email"] == "cookie-auth@example.com"
+
+        logout = await client.post("/v1/auth/logout")
+        assert logout.status_code == 200
+
+        me_after_logout = await client.get("/v1/auth/me")
+        assert me_after_logout.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch):
+    app = create_app()
+
+    async def _override_db():
+        yield db_session
+
+    def _override_basalt_client():
+        return _TenantAdminBasaltClient()
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_basalt_client] = _override_basalt_client
+    app.dependency_overrides[get_auth_basalt_client] = _override_basalt_client
+    transport = ASGITransport(app=app)
+
+    admin_user = await register_user(db_session, "admin-ext@example.com", "pass")
+    admin_user.basalt_user_id = "bp-admin-ext"
+    admin_user.basalt_tenant_id = "bp-tenant-ext"
+    await db_session.commit()
+    admin_user_token = await login_user(db_session, "admin-ext@example.com", "pass")
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        unauthorized = await client.get("/v1/admin/models")
+        assert unauthorized.status_code == 401
+
+        admin_token_resp = await client.get("/v1/auth/admin-token", headers={"Authorization": f"Bearer {admin_user_token}"})
+        assert admin_token_resp.status_code == 200
+        admin_access_token = admin_token_resp.json()["admin_access_token"]
+        admin_headers = {"X-Admin-Authorization": f"Bearer {admin_access_token}"}
         model_payload = {
             "name": "admin-model",
             "category": "llm",
@@ -201,7 +244,7 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_admin_routes_allow_tenant_admin_bearer(db_session):
+async def test_admin_routes_allow_tenant_admin_jwt(db_session):
     app = create_app()
 
     async def _override_db():
@@ -212,6 +255,7 @@ async def test_admin_routes_allow_tenant_admin_bearer(db_session):
 
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt_client
+    app.dependency_overrides[get_auth_basalt_client] = _override_basalt_client
 
     user = await register_user(db_session, "tenant-admin-api@example.com", "pass")
     user.basalt_user_id = "bp-user-admin"
@@ -221,9 +265,12 @@ async def test_admin_routes_allow_tenant_admin_bearer(db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token_resp = await client.get("/v1/auth/admin-token", headers={"Authorization": f"Bearer {token}"})
+        assert admin_token_resp.status_code == 200
+        admin_access_token = admin_token_resp.json()["admin_access_token"]
         resp = await client.get(
             "/v1/admin/models",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"X-Admin-Authorization": f"Bearer {admin_access_token}"},
         )
         assert resp.status_code == 200
 

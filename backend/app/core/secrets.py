@@ -3,11 +3,23 @@ import hashlib
 import hmac
 import secrets
 
+from cryptography.fernet import Fernet, InvalidToken
+
 from app.core.config import settings
 
 
+LEGACY_PREFIX = b"v1:"
+CURRENT_PREFIX = "v2:"
+
+
 def _root_key() -> bytes:
-    return hashlib.sha256(settings.app_secret.encode("utf-8")).digest()
+    material = f"{settings.app_secret}:{settings.token_salt}".encode("utf-8")
+    return hashlib.sha256(material).digest()
+
+
+def _fernet() -> Fernet:
+    key = base64.urlsafe_b64encode(_root_key())
+    return Fernet(key)
 
 
 def _keystream(root_key: bytes, nonce: bytes, length: int) -> bytes:
@@ -21,23 +33,15 @@ def _keystream(root_key: bytes, nonce: bytes, length: int) -> bytes:
 
 
 def encrypt_secret(value: str) -> str:
-    plaintext = value.encode("utf-8")
-    nonce = secrets.token_bytes(16)
-    root_key = _root_key()
-    stream = _keystream(root_key, nonce, len(plaintext))
-    ciphertext = bytes(left ^ right for left, right in zip(plaintext, stream))
-    tag = hmac.new(root_key, b"tag" + nonce + ciphertext, hashlib.sha256).digest()
-    packed = b"v1:" + nonce + ciphertext + tag
-    return base64.urlsafe_b64encode(packed).decode("ascii")
+    token = _fernet().encrypt(value.encode("utf-8")).decode("ascii")
+    return f"{CURRENT_PREFIX}{token}"
 
 
-def decrypt_secret(token: str | None) -> str:
-    if not token:
-        return ""
+def _decrypt_legacy_v1(token: str) -> str:
     packed = base64.urlsafe_b64decode(token.encode("ascii"))
-    if not packed.startswith(b"v1:"):
+    if not packed.startswith(LEGACY_PREFIX):
         raise ValueError("unsupported_secret_version")
-    payload = packed[3:]
+    payload = packed[len(LEGACY_PREFIX):]
     nonce = payload[:16]
     tag = payload[-32:]
     ciphertext = payload[16:-32]
@@ -48,3 +52,15 @@ def decrypt_secret(token: str | None) -> str:
     stream = _keystream(root_key, nonce, len(ciphertext))
     plaintext = bytes(left ^ right for left, right in zip(ciphertext, stream))
     return plaintext.decode("utf-8")
+
+
+def decrypt_secret(token: str | None) -> str:
+    if not token:
+        return ""
+    if token.startswith(CURRENT_PREFIX):
+        fernet_token = token[len(CURRENT_PREFIX):]
+        try:
+            return _fernet().decrypt(fernet_token.encode("ascii")).decode("utf-8")
+        except (InvalidToken, ValueError, UnicodeDecodeError) as exc:
+            raise ValueError("secret_integrity_check_failed") from exc
+    return _decrypt_legacy_v1(token)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_optional_current_user
+from app.core.deps import get_db
 from app.core.errors import AppError
 from app.schemas.admin import BrandUpsert, ModelUpsert, ProviderUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
 from app.services.admin_access import assert_admin_access
@@ -25,7 +25,10 @@ from app.services.admin_service import (
     upsert_model_provider_key,
     list_users,
     list_usage_sessions,
+    list_user_chat_sessions,
+    list_api_supported_models,
     update_user_status,
+    sync_wallets_from_basalt,
 )
 
 
@@ -35,14 +38,18 @@ def get_basalt_client() -> BasaltPassClient:
 
 async def require_admin_access(
     request: Request,
-    x_admin_token: str | None = Header(default=None),
-    user=Depends(get_optional_current_user),
+    authorization: str | None = Header(default=None),
+    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    db: AsyncSession = Depends(get_db),
     client: BasaltPassClient = Depends(get_basalt_client),
 ) -> None:
     await assert_admin_access(
         request=request,
+        authorization=authorization,
+        x_admin_authorization=x_admin_authorization,
         x_admin_token=x_admin_token,
-        user=user,
+        db=db,
         client=client,
     )
 
@@ -174,6 +181,12 @@ async def admin_users(db: AsyncSession = Depends(get_db)) -> list:
     return [_to_dict(u) for u in users]
 
 
+@router.get("/users/{user_id}/chat-sessions")
+async def admin_user_chat_sessions(user_id: str, db: AsyncSession = Depends(get_db)) -> list:
+    sessions = await list_user_chat_sessions(db, user_id)
+    return sessions
+
+
 @router.post("/users/{user_id}/status")
 async def admin_user_status_update(
     user_id: str,
@@ -197,4 +210,16 @@ async def admin_usage_sessions(db: AsyncSession = Depends(get_db)) -> list:
 @router.get("/usage-summary")
 async def admin_usage_summary(db: AsyncSession = Depends(get_db)) -> dict:
     return await get_admin_usage_summary(db)
+
+
+@router.get("/api-supported-models")
+async def admin_api_supported_models(db: AsyncSession = Depends(get_db)) -> list:
+    return await list_api_supported_models(db)
+
+
+@router.post("/wallets/sync")
+async def admin_wallets_sync(payload: dict, db: AsyncSession = Depends(get_db)) -> dict:
+    user_id = str(payload.get("user_id") or "").strip() or None
+    dry_run = bool(payload.get("dry_run", False))
+    return await sync_wallets_from_basalt(db, user_id=user_id, dry_run=dry_run)
 

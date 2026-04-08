@@ -8,7 +8,6 @@ services:
       PRODUCTION_MODE: "true"
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
-      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
       TOKEN_SALT: ${TOKEN_SALT:?TOKEN_SALT is required}
       DEBUG_ENDPOINTS_ENABLED: "false"

@@ -10,20 +10,20 @@ const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(
 
 const COLOR_CLASS: Record<string, string> = {
   textSecondary: "text-slate-500",
-  primary: "text-sky-700",
+  primary: "text-slate-800",
   secondary: "text-slate-700",
-  warning: "text-amber-700",
-  error: "text-rose-700",
+  warning: "text-slate-700",
+  error: "text-slate-700",
 };
 
 const TYPOGRAPHY_CLASS: Record<string, string> = {
-  overline: "text-[11px] font-semibold uppercase tracking-[0.28em]",
-  h3: "text-3xl font-semibold tracking-tight",
-  h5: "text-2xl font-semibold tracking-tight",
-  h6: "text-lg font-semibold tracking-tight",
+  overline: "text-[11px] font-semibold uppercase tracking-[0.22em]",
+  h3: "text-[30px] font-semibold",
+  h5: "text-[26px] font-semibold",
+  h6: "text-[18px] font-semibold",
   subtitle1: "text-base font-semibold",
   subtitle2: "text-sm font-semibold",
-  body2: "text-sm leading-6",
+  body2: "text-sm leading-[1.6]",
   caption: "text-xs leading-5",
 };
 
@@ -57,18 +57,18 @@ export const Button = ({
   const palette =
     variant === "primary"
       ? buttonStyle === "filled"
-        ? "border-sky-600 bg-sky-600 text-white hover:bg-sky-700"
-        : "border-sky-200 text-sky-700 hover:bg-sky-50"
+        ? "border-slate-700 bg-slate-800 text-white hover:bg-slate-900"
+        : "border-slate-300 text-slate-700 hover:bg-slate-100"
       : variant === "error"
-        ? "border-rose-200 text-rose-700 hover:bg-rose-50"
+        ? "border-slate-300 text-slate-700 hover:bg-slate-100"
         : variant === "warning"
-          ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-          : "border-slate-200 text-slate-700 hover:bg-slate-50";
-  const surface = buttonStyle === "text" ? "border-transparent bg-transparent shadow-none" : "bg-white/80 shadow-sm";
+          ? "border-slate-300 text-slate-700 hover:bg-slate-100"
+          : "border-slate-300 text-slate-700 hover:bg-slate-100";
+  const surface = buttonStyle === "text" ? "border-transparent bg-transparent" : "bg-white";
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center justify-center border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60",
         surface,
         palette,
         fullWidth && "w-full",
@@ -90,15 +90,15 @@ export const Alert = ({
 }: CommonProps & { type?: string; variant?: string; title?: string; showIcon?: boolean }) => {
   const tone =
     type === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      ? "border-slate-300 bg-white text-slate-800"
       : type === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-900"
+        ? "border-slate-300 bg-white text-slate-800"
         : type === "error"
-          ? "border-rose-200 bg-rose-50 text-rose-900"
-          : "border-sky-200 bg-sky-50 text-sky-900";
+          ? "border-slate-300 bg-white text-slate-800"
+          : "border-slate-300 bg-white text-slate-800";
   const icon = type === "success" ? "✓" : type === "warning" ? "!" : type === "error" ? "×" : "i";
   return (
-    <div className={cx("rounded-2xl border px-4 py-3 text-sm", tone, className)}>
+    <div className={cx("border px-4 py-3 text-sm", tone, className)}>
       <div className="flex gap-3">
         {showIcon && <div className="pt-0.5 text-sm font-semibold">{icon}</div>}
         <div className="min-w-0">
@@ -113,11 +113,11 @@ export const Alert = ({
 export const Badge = ({ variant = "primary", className, children }: CommonProps & { variant?: string }) => {
   const tone =
     variant === "warning"
-      ? "bg-amber-100 text-amber-800"
+      ? "border-slate-300 bg-white text-slate-700"
       : variant === "secondary"
-        ? "bg-slate-100 text-slate-700"
-        : "bg-sky-100 text-sky-800";
-  return <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold", tone, className)}>{children}</span>;
+        ? "border-slate-300 bg-white text-slate-700"
+        : "border-slate-300 bg-white text-slate-700";
+  return <span className={cx("inline-flex items-center border px-2.5 py-1 text-xs font-semibold", tone, className)}>{children}</span>;
 };
 
 export const TextField = ({
@@ -130,7 +130,7 @@ export const TextField = ({
     {label && <span className="mb-2 block text-sm font-medium text-slate-600">{label}</span>}
     <input
       className={cx(
-        "w-full rounded-xl border border-ink-100 bg-white/70 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200",
+        "w-full border border-slate-300 bg-white px-3 py-3 text-sm text-ink-800 focus:outline-none focus:ring-1 focus:ring-slate-300",
         className,
       )}
       {...rest}
@@ -149,22 +149,62 @@ export const Grid = ({
   style,
   children,
 }: CommonProps & { container?: boolean; item?: boolean; spacing?: number; xs?: number | boolean; md?: number | boolean; alignItems?: string }) => {
-  const widthClass = (value?: number | boolean, prefix = "") => {
-    if (value === undefined || value === false) return "";
-    if (value === true || value === 12) return `${prefix}w-full`;
-    if (value === 9) return `${prefix}w-3/4`;
-    if (value === 8) return `${prefix}w-2/3`;
-    if (value === 6) return `${prefix}w-1/2`;
-    if (value === 4) return `${prefix}w-1/3`;
-    if (value === 3) return `${prefix}w-1/4`;
-    if (value === 2) return `${prefix}w-1/6`;
-    return `${prefix}w-full`;
+  const XS_SPAN_CLASS: Record<number, string> = {
+    1: "col-span-1",
+    2: "col-span-2",
+    3: "col-span-3",
+    4: "col-span-4",
+    5: "col-span-5",
+    6: "col-span-6",
+    7: "col-span-7",
+    8: "col-span-8",
+    9: "col-span-9",
+    10: "col-span-10",
+    11: "col-span-11",
+    12: "col-span-12",
   };
+  const MD_SPAN_CLASS: Record<number, string> = {
+    1: "md:col-span-1",
+    2: "md:col-span-2",
+    3: "md:col-span-3",
+    4: "md:col-span-4",
+    5: "md:col-span-5",
+    6: "md:col-span-6",
+    7: "md:col-span-7",
+    8: "md:col-span-8",
+    9: "md:col-span-9",
+    10: "md:col-span-10",
+    11: "md:col-span-11",
+    12: "md:col-span-12",
+  };
+
+  const spanClass = (value?: number | boolean, prefix = "") => {
+    if (value === undefined || value === false) return "";
+    if (value === true) return prefix ? "md:col-span-12" : "col-span-12";
+    const numberValue = typeof value === "number" ? value : 12;
+    if (prefix === "md:") {
+      return MD_SPAN_CLASS[numberValue] ?? "md:col-span-12";
+    }
+    return XS_SPAN_CLASS[numberValue] ?? "col-span-12";
+  };
+
+  const gapClass =
+    spacing <= 0
+      ? ""
+      : spacing === 1
+        ? "gap-1"
+        : spacing === 2
+          ? "gap-2"
+          : spacing === 3
+            ? "gap-3"
+            : spacing === 4
+              ? "gap-4"
+              : "gap-4";
 
   if (container) {
     return (
       <div
-        className={cx("flex flex-wrap", spacing ? "gap-4" : "", alignItems === "flex-end" && "items-end", className)}
+        className={cx("grid grid-cols-12", gapClass, alignItems === "flex-end" && "items-end", className)}
         style={style}
       >
         {children}
@@ -174,7 +214,7 @@ export const Grid = ({
 
   if (item) {
     return (
-      <div className={cx("w-full", widthClass(xs), widthClass(md, "md:"), className)} style={style}>
+      <div className={cx("col-span-12", spanClass(xs), spanClass(md, "md:"), className)} style={style}>
         {children}
       </div>
     );
@@ -226,9 +266,9 @@ export const ListItem = ({
   return (
     <Tag
       className={cx(
-        "block rounded-xl px-3 py-2 text-sm text-slate-700 transition",
-        button && "cursor-pointer hover:bg-slate-50",
-        selected && "bg-sky-50 text-sky-700",
+        "block border border-transparent px-3 py-2 text-sm text-slate-700 transition",
+        button && "cursor-pointer hover:border-slate-200 hover:bg-slate-50",
+        selected && "border-slate-300 bg-slate-100 font-semibold text-slate-900",
         className,
       )}
       {...rest}

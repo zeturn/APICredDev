@@ -27,8 +27,11 @@ APICred/
 
 ```bash
 cd APICred
+cp .env.compose.example .env
 docker compose up -d --build
 ```
+
+> `docker-compose.yml` 不再内置数据库/Redis/应用密钥；未提供 `.env` 中的必填变量会直接启动失败。
 
 - Backend: `http://localhost:8103`
 - Frontend: `http://localhost:5106`
@@ -53,11 +56,14 @@ npm run dev
 
 常用环境变量：
 
+- `POSTGRES_PASSWORD`
+- `REDIS_PASSWORD`
 - `DATABASE_URL`
 - `REDIS_URL`
 - `APP_SECRET`
 - `TOKEN_SALT`
-- `ADMIN_TOKEN`
+- `ADMIN_JWT_AUDIENCE`
+- `ADMIN_JWT_EXP_MINUTES`
 - `BASALT_BASE_URL`
 - `BASALT_OAUTH_CLIENT_ID`
 - `BASALT_OAUTH_CLIENT_SECRET`
@@ -80,6 +86,8 @@ npm run dev
 - `gemini` -> `https://generativelanguage.googleapis.com`
 
 `provider_keys` 现在会把管理员录入的 API Key 加密后存库，`key_name` 填默认 `base_url`，详情页里的模型绑定可以再覆盖单模型 `base_url`。
+
+加密实现使用标准 AEAD（`Fernet`），并保留历史密文格式的解密兼容。
 
 ## Persistence Mounts
 
@@ -107,6 +115,12 @@ npm run start
 cd backend
 pytest -q
 ```
+
+## Authentication Session
+
+- 用户登录后，后端会下发 `HttpOnly` 会话 Cookie（默认名 `apicred_access_token`）。
+- 前端不再在 `localStorage` 持久化 `access_token`。
+- 管理端 JWT 通过已登录会话换取，并仅保存在前端内存中。
 
 ## Deployment
 

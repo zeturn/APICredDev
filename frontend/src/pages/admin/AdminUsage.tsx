@@ -1,7 +1,7 @@
-import { Badge, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "../../lib/watercolor";
+import { Badge, Card, Grid, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
-import { AdminPageIntro } from "./adminCommon";
+import { AdminIcon, AdminPageIntro } from "./adminCommon";
 
 const AdminUsagePage = () => {
   const [usage, setUsage] = useState<{ recent_sessions: any[]; by_model: any[]; by_provider: any[] }>({
@@ -9,19 +9,18 @@ const AdminUsagePage = () => {
     by_model: [],
     by_provider: [],
   });
-  const adminToken = localStorage.getItem("admin_token") ?? "";
 
   useEffect(() => {
     const load = async () => {
-      if (!adminToken) {
+      try {
+        const resp = await adminApi.get("/admin/usage-summary");
+        setUsage(resp.data);
+      } catch {
         setUsage({ recent_sessions: [], by_model: [], by_provider: [] });
-        return;
       }
-      const resp = await adminApi.get("/admin/usage-summary");
-      setUsage(resp.data);
     };
     load();
-  }, [adminToken]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -31,101 +30,70 @@ const AdminUsagePage = () => {
         <Grid item xs={12} md={6}>
           <Card className="p-6">
             <div className="flex items-center justify-between gap-3">
-              <Typography variant="h6">按模型汇总</Typography>
+              <div className="flex items-center gap-2">
+                <AdminIcon icon="models" className="h-5 w-5" />
+                <Typography variant="h6">按模型汇总</Typography>
+              </div>
               <Badge variant="primary">{usage.by_model.length}</Badge>
             </div>
-            <Table className="mt-4">
-              <TableHead>
-                <TableRow>
-                  <TableCell>模型</TableCell>
-                  <TableCell align="right">请求数</TableCell>
-                  <TableCell align="right">已用额度</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {usage.by_model.map((item) => (
-                  <TableRow key={item.model_id}>
-                    <TableCell>{item.model_name}</TableCell>
-                    <TableCell align="right">{item.requests}</TableCell>
-                    <TableCell align="right">{item.used_credits}</TableCell>
-                  </TableRow>
-                ))}
-                {usage.by_model.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3}>暂无统计数据</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <div className="mt-4 space-y-2">
+              {usage.by_model.map((item) => (
+                <div key={item.model_id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-slate-900">{item.model_name}</span>
+                    <span className="text-slate-500">请求 {item.requests} · 额度 {item.used_credits}</span>
+                  </div>
+                </div>
+              ))}
+              {usage.by_model.length === 0 && <div className="text-sm text-slate-500">暂无统计数据</div>}
+            </div>
           </Card>
         </Grid>
         <Grid item xs={12} md={6}>
           <Card className="p-6">
             <div className="flex items-center justify-between gap-3">
-              <Typography variant="h6">按服务商汇总</Typography>
+              <div className="flex items-center gap-2">
+                <AdminIcon icon="provider" className="h-5 w-5" />
+                <Typography variant="h6">按服务商汇总</Typography>
+              </div>
               <Badge variant="warning">{usage.by_provider.length}</Badge>
             </div>
-            <Table className="mt-4">
-              <TableHead>
-                <TableRow>
-                  <TableCell>服务商</TableCell>
-                  <TableCell align="right">请求数</TableCell>
-                  <TableCell align="right">已用额度</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {usage.by_provider.map((item) => (
-                  <TableRow key={item.provider}>
-                    <TableCell>{item.provider}</TableCell>
-                    <TableCell align="right">{item.requests}</TableCell>
-                    <TableCell align="right">{item.used_credits}</TableCell>
-                  </TableRow>
-                ))}
-                {usage.by_provider.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3}>暂无统计数据</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <div className="mt-4 space-y-2">
+              {usage.by_provider.map((item) => (
+                <div key={item.provider} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-slate-900">{item.provider}</span>
+                    <span className="text-slate-500">请求 {item.requests} · 额度 {item.used_credits}</span>
+                  </div>
+                </div>
+              ))}
+              {usage.by_provider.length === 0 && <div className="text-sm text-slate-500">暂无统计数据</div>}
+            </div>
           </Card>
         </Grid>
       </Grid>
 
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
-          <Typography variant="h6">最近调用记录</Typography>
+          <div className="flex items-center gap-2">
+            <AdminIcon icon="usage" className="h-5 w-5" />
+            <Typography variant="h6">最近调用记录</Typography>
+          </div>
           <Badge variant="secondary">{usage.recent_sessions.length}</Badge>
         </div>
-        <Table className="mt-4">
-          <TableHead>
-            <TableRow>
-              <TableCell>用户</TableCell>
-              <TableCell>模型</TableCell>
-              <TableCell>服务商</TableCell>
-              <TableCell align="right">Tokens</TableCell>
-              <TableCell align="right">费用</TableCell>
-              <TableCell align="right">状态</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {usage.recent_sessions.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.user_email}</TableCell>
-                <TableCell>{item.model_name}</TableCell>
-                <TableCell>{item.provider ?? "-"}</TableCell>
-                <TableCell align="right">{item.total_tokens}</TableCell>
-                <TableCell align="right">{item.final_cost_credits}</TableCell>
-                <TableCell align="right">{item.status}</TableCell>
-              </TableRow>
-            ))}
-            {usage.recent_sessions.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6}>暂无调用记录</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <div className="mt-4 space-y-2">
+          {usage.recent_sessions.map((item) => (
+            <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium text-slate-900">{item.user_email}</div>
+                <Badge variant={item.status === "completed" ? "primary" : "warning"}>{item.status}</Badge>
+              </div>
+              <div className="mt-1 text-sm text-slate-700">{item.model_name} · {item.provider ?? "-"}</div>
+              <div className="mt-1 text-xs text-slate-500">tokens: {item.total_tokens} · fee: {item.final_cost_credits}</div>
+            </div>
+          ))}
+          {usage.recent_sessions.length === 0 && <div className="text-sm text-slate-500">暂无调用记录</div>}
+        </div>
       </Card>
     </div>
   );

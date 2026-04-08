@@ -1,4 +1,4 @@
-import { Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField } from "../../lib/watercolor";
+import { Badge, Button, Card, Grid, TextField } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
@@ -27,25 +27,24 @@ const AdminModelsPage = () => {
   const [cachedInputPrice, setCachedInputPrice] = useState("");
   const [outputPrice, setOutputPrice] = useState("0");
   const [modelEnabled, setModelEnabled] = useState(true);
-  const adminToken = localStorage.getItem("admin_token") ?? "";
 
   const load = async () => {
-    if (!adminToken) {
+    try {
+      const [brandsResp, modelsResp] = await Promise.all([
+        adminApi.get("/admin/brands"),
+        adminApi.get("/admin/models"),
+      ]);
+      setBrands(brandsResp.data);
+      setModels(modelsResp.data);
+    } catch {
       setBrands([]);
       setModels([]);
-      return;
     }
-    const [brandsResp, modelsResp] = await Promise.all([
-      adminApi.get("/admin/brands"),
-      adminApi.get("/admin/models"),
-    ]);
-    setBrands(brandsResp.data);
-    setModels(modelsResp.data);
   };
 
   useEffect(() => {
     load();
-  }, [adminToken]);
+  }, []);
 
   const createModel = async () => {
     const pricing =
@@ -173,49 +172,41 @@ const AdminModelsPage = () => {
 
       <Card className="p-6">
         <div className="text-lg font-semibold text-slate-900">模型列表</div>
-        <Table className="mt-4">
-          <TableHead>
-            <TableRow>
-              <TableCell>模型</TableCell>
-              <TableCell>品牌</TableCell>
-              <TableCell>图标</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell>定价</TableCell>
-              <TableCell align="right">倍率</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {models.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>{item.brand_name || brands.find((brand) => brand.id === item.brand_id)?.name || "-"}</TableCell>
-                <TableCell>
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {models.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
                   {item.effective_icon_url ? (
-                    <img src={item.effective_icon_url} alt={item.name} className="h-6 w-6 rounded-md object-contain" />
+                    <img src={item.effective_icon_url} alt={item.name} className="h-8 w-8 rounded-md object-contain" />
                   ) : (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-600">
                       {(item.name || "?").slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                </TableCell>
-                <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
-                <TableCell>
-                  <div className="space-y-1 text-sm text-slate-700">
-                    {formatPricingSummary(item.pricing).map((line) => (
-                      <div key={`${item.id}-${line}`}>{line}</div>
-                    ))}
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">{item.name}</div>
+                    <div className="text-xs text-slate-500">{item.brand_name || brands.find((brand) => brand.id === item.brand_id)?.name || "-"}</div>
                   </div>
-                </TableCell>
-                <TableCell align="right">x{item.multiplier}</TableCell>
-              </TableRow>
-            ))}
-            {models.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6}>暂无模型</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? "enabled" : "disabled"}</Badge>
+                  <Badge variant="secondary">x{item.multiplier}</Badge>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="space-y-1 text-sm text-slate-700">
+                  {formatPricingSummary(item.pricing).map((line) => (
+                    <div key={`${item.id}-${line}`}>{line}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {models.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无模型</div>}
+        </div>
       </Card>
     </div>
   );

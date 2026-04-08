@@ -14,6 +14,7 @@ import AdminModelsPage from "./pages/admin/AdminModels";
 import AdminProvidersPage from "./pages/admin/AdminProviders";
 import AdminProviderKeyDetailPage from "./pages/admin/AdminProviderKeyDetail";
 import AdminUsagePage from "./pages/admin/AdminUsage";
+import AdminApiModelsPage from "./pages/admin/AdminApiModels";
 import RequireAuth from "./routes/RequireAuth";
 
 const App = () => {
@@ -46,6 +47,7 @@ const App = () => {
           <Route path="/admin/models" element={<AdminModelsPage />} />
           <Route path="/admin/providers" element={<AdminProvidersPage />} />
           <Route path="/admin/providers/:providerKeyId" element={<AdminProviderKeyDetailPage />} />
+          <Route path="/admin/api-models" element={<AdminApiModelsPage />} />
           <Route path="/admin/usage" element={<AdminUsagePage />} />
         </Route>
       </Route>

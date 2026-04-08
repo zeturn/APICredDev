@@ -16,17 +16,15 @@ const LoginPage = () => {
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
-    const callbackToken = query.get("token");
     const nextPath = query.get("next") || "/workspace/dashboard";
-    if (callbackToken) {
-      localStorage.setItem("access_token", callbackToken);
+    const source = query.get("source");
+    if (source === "basaltpass") {
       navigate(nextPath, { replace: true });
     }
   }, [location.search, navigate]);
 
   const handleLogin = async () => {
-    const resp = await api.post("/auth/login", { email, password });
-    localStorage.setItem("access_token", resp.data.access_token);
+    await api.post("/auth/login", { email, password });
     navigate(from, { replace: true });
   };
 

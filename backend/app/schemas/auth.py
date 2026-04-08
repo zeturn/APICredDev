@@ -16,6 +16,12 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class AdminTokenResponse(BaseModel):
+    admin_access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
 class MeResponse(BaseModel):
     id: str
     email: EmailStr

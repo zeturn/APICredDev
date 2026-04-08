@@ -20,6 +20,7 @@ export const adminConsoleRoutes: ConsoleRoute[] = [
   { path: "/admin/users", label: "用户管理", mode: "admin", description: "查看用户与启停账号", apiPath: "/admin/users" },
   { path: "/admin/models", label: "模型管理", mode: "admin", description: "维护可用模型和定价", apiPath: "/admin/models" },
   { path: "/admin/providers", label: "服务商管理", mode: "admin", description: "服务商 Key 与模型绑定", apiPath: "/admin/provider-keys" },
+  { path: "/admin/api-models", label: "API 模型支持", mode: "admin", description: "查看任意 API 支持模型", apiPath: "/admin/api-supported-models" },
   { path: "/admin/usage", label: "使用统计", mode: "admin", description: "全站调用记录与消费汇总", apiPath: "/admin/usage-summary" },
 ];
 
