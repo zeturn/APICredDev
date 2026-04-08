@@ -93,9 +93,7 @@ def _build_user_permission_dependency(required_code: str):
 
         basalt_user_id = (getattr(user, "basalt_user_id", None) or "").strip()
         if not basalt_user_id:
-            if settings.basalt_rbac_strict_user_binding:
-                raise AppError("rbac_user_unbound", "user is not linked to BasaltPass", request.state.request_id, 403)
-            return
+            raise AppError("rbac_user_unbound", "user is not linked to BasaltPass", request.state.request_id, 403)
 
         tenant_id = (getattr(user, "basalt_tenant_id", None) or settings.basalt_default_tenant_id or "").strip() or None
         try:
@@ -158,9 +156,14 @@ def _build_user_handler(spec: ProxyRouteSpec):
         user=Depends(get_current_user),
         x_basalt_access_token: str | None = Header(default=None),
     ) -> JSONResponse:
+        basalt_user_id = str(getattr(user, "basalt_user_id", "") or "").strip()
+        route_user_id = str(request.path_params.get("user_id") or "").strip()
+        if route_user_id and (not basalt_user_id or route_user_id != basalt_user_id):
+            raise AppError("forbidden_user_scope", "user scope mismatch", request.state.request_id, 403)
         headers: dict[str, str] = {
             "X-APICRED-USER-ID": str(user.id),
             "X-APICRED-USER-EMAIL": str(user.email),
+            "X-APICRED-BASALT-USER-ID": basalt_user_id,
         }
         if x_basalt_access_token:
             headers["Authorization"] = f"Bearer {x_basalt_access_token}"
@@ -347,8 +350,6 @@ USER_PROXY_SPECS: list[ProxyRouteSpec] = [
     ProxyRouteSpec("GET", "/basalt/apps", "/api/v1/user/apps"),
     ProxyRouteSpec("GET", "/basalt/apps/{app_id}/permissions", "/api/v1/tenant/apps/{app_id}/permissions"),
     ProxyRouteSpec("GET", "/basalt/apps/{app_id}/roles", "/api/v1/tenant/apps/{app_id}/roles"),
-    ProxyRouteSpec("GET", "/basalt/users/{user_id}/permissions", "/api/v1/s2s/users/{user_id}/permissions"),
-    ProxyRouteSpec("GET", "/basalt/users/{user_id}/roles", "/api/v1/s2s/users/{user_id}/roles"),
     ProxyRouteSpec("POST", "/basalt/wallet/recharge", "/api/v1/wallet/recharge"),
     ProxyRouteSpec("POST", "/basalt/wallet/withdraw", "/api/v1/wallet/withdraw"),
     ProxyRouteSpec("GET", "/basalt/user/profile", "/api/v1/user/profile"),

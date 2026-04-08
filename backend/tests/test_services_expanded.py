@@ -404,7 +404,8 @@ async def test_quota_try_reserve_and_redis_client(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_token_routing_and_bootstrap_services(db_session):
+async def test_admin_token_routing_and_bootstrap_services(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "StrongAdminPass123!")
     await ensure_admin_user(db_session)
     await ensure_admin_user(db_session)
     await ensure_default_brands(db_session)

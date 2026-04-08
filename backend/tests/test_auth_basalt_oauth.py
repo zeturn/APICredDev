@@ -83,10 +83,9 @@ async def test_basalt_oauth_login_redirect_and_callback_success(db_session, monk
         )
         assert callback.status_code in (302, 307)
         location = callback.headers["location"]
-        assert "/login?" in location
-        assert "token=" in location
-        assert "source=basaltpass" in location
-        assert "next=%2Fworkspace%2Fdashboard" in location
+        assert location.endswith("/workspace/dashboard")
+        assert "token=" not in location
+        assert "source=basaltpass" not in location
 
 
 @pytest.mark.asyncio

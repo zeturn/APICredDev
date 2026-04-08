@@ -14,19 +14,35 @@ from app.db.models.recharge_code import RechargeCode
 from app.db.models.user import User
 from app.db.models.usage_session import UsageSession
 from app.main import create_app
+from app.services.basaltpass_client import BasaltPassClient
 
 
 class _TenantAdminBasaltClient:
     async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None):
-        return {"permission_codes": ["entry.read"], "role_codes": ["tenant"]}
+        return {"permission_codes": ["user_console", "entry.read"], "role_codes": ["tenant"]}
 
     async def s2s_get_user_roles(self, user_id: str, tenant_id: str | None = None):
         return {"roles": [{"code": "tenant"}]}
 
+    async def s2s_get_user_wallet(self, user_id: str, currency: str, limit: int = 1, tenant_id: str | None = None):
+        return {"balance": 0}
+
+    async def s2s_adjust_user_wallet(
+        self,
+        user_id: str,
+        currency: str,
+        operation: str,
+        amount: int,
+        reference: str,
+        tenant_id: str | None = None,
+    ):
+        return {"ok": True}
+
 
 @pytest.mark.asyncio
-async def test_api_smoke(db_session):
+async def test_api_smoke(db_session, monkeypatch):
     app = create_app()
+    monkeypatch.setattr("app.services.billing_service.BasaltPassClient", _TenantAdminBasaltClient)
 
     async def _override_db():
         yield db_session
@@ -37,6 +53,7 @@ async def test_api_smoke(db_session):
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt_client
     app.dependency_overrides[get_auth_basalt_client] = _override_basalt_client
+    app.dependency_overrides[BasaltPassClient] = _override_basalt_client
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -50,6 +67,11 @@ async def test_api_smoke(db_session):
         login = await client.post("/v1/auth/login", json={"email": "u1@example.com", "password": "pass"})
         assert login.status_code == 200
         access_token = login.json()["access_token"]
+
+        bound_user = await db_session.get(User, reg.json()["id"])
+        bound_user.basalt_user_id = "bp-smoke-user"
+        bound_user.basalt_tenant_id = "bp-smoke-tenant"
+        await db_session.commit()
 
         # me
         me = await client.get("/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"})

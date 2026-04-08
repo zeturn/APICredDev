@@ -10,26 +10,47 @@ from app.api.v1.admin import get_basalt_client
 from app.api.v1.auth import get_basalt_client as get_auth_basalt_client
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
+from app.db.models.user import User
 from app.main import create_app
 from app.services.auth_service import register_user, login_user
+from app.services.basaltpass_client import BasaltPassClient
 
 
 class _TenantAdminBasaltClient:
     async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None):
-        return {"permission_codes": ["entry.read"], "role_codes": ["tenant"]}
+        return {"permission_codes": ["user_console", "entry.read"], "role_codes": ["tenant"]}
 
     async def s2s_get_user_roles(self, user_id: str, tenant_id: str | None = None):
         return {"roles": [{"code": "tenant"}]}
 
+    async def s2s_get_user_wallet(self, user_id: str, currency: str, limit: int = 1, tenant_id: str | None = None):
+        return {"balance": 0}
+
+    async def s2s_adjust_user_wallet(
+        self,
+        user_id: str,
+        currency: str,
+        operation: str,
+        amount: int,
+        reference: str,
+        tenant_id: str | None = None,
+    ):
+        return {"ok": True}
+
 
 @pytest.mark.asyncio
-async def test_auth_and_tokens_and_billing_and_models_branches(db_session):
+async def test_auth_and_tokens_and_billing_and_models_branches(db_session, monkeypatch):
     app = create_app()
+    monkeypatch.setattr("app.services.billing_service.BasaltPassClient", _TenantAdminBasaltClient)
 
     async def _override_db():
         yield db_session
 
+    def _override_basalt_client():
+        return _TenantAdminBasaltClient()
+
     app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[BasaltPassClient] = _override_basalt_client
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         reg = await client.post("/v1/auth/register", json={"email": "api-ext@example.com", "password": "pass"})
@@ -45,6 +66,11 @@ async def test_auth_and_tokens_and_billing_and_models_branches(db_session):
         login = await client.post("/v1/auth/login", json={"email": "api-ext@example.com", "password": "pass"})
         token = login.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
+
+        bound_user = await db_session.get(User, reg.json()["id"])
+        bound_user.basalt_user_id = "bp-ext-user"
+        bound_user.basalt_tenant_id = "bp-ext-tenant"
+        await db_session.commit()
 
         me = await client.get("/v1/auth/me", headers=headers)
         assert me.status_code == 200
@@ -88,7 +114,11 @@ async def test_cookie_auth_login_me_logout_flow(db_session):
     async def _override_db():
         yield db_session
 
+    def _override_basalt_client():
+        return _TenantAdminBasaltClient()
+
     app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[BasaltPassClient] = _override_basalt_client
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -98,6 +128,11 @@ async def test_cookie_auth_login_me_logout_flow(db_session):
         login = await client.post("/v1/auth/login", json={"email": "cookie-auth@example.com", "password": "pass"})
         assert login.status_code == 200
         assert "set-cookie" in {k.lower(): v for k, v in login.headers.items()}
+
+        bound_user = await db_session.get(User, reg.json()["id"])
+        bound_user.basalt_user_id = "bp-cookie-user"
+        bound_user.basalt_tenant_id = "bp-cookie-tenant"
+        await db_session.commit()
 
         me_with_cookie = await client.get("/v1/auth/me")
         assert me_with_cookie.status_code == 200
@@ -123,6 +158,7 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt_client
     app.dependency_overrides[get_auth_basalt_client] = _override_basalt_client
+    app.dependency_overrides[BasaltPassClient] = _override_basalt_client
     transport = ASGITransport(app=app)
 
     admin_user = await register_user(db_session, "admin-ext@example.com", "pass")
@@ -195,52 +231,8 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
         assert users_resp.status_code == 200
         assert usage_resp.status_code == 200
 
-        # stripe webhook missing signature
-        miss_sig = await client.post("/v1/billing/stripe/webhook", content=b"{}")
-        assert miss_sig.status_code == 400
-
-        # stripe webhook invalid signature
-        def _raise_invalid(payload, signature, secret):
-            raise ValueError("invalid")
-
-        monkeypatch.setattr("app.api.v1.stripe_webhook.stripe.Webhook.construct_event", _raise_invalid)
-        bad_sig = await client.post("/v1/billing/stripe/webhook", headers={"Stripe-Signature": "bad"}, content=b"{}")
-        assert bad_sig.status_code == 400
-
-        # stripe webhook missing user
-        monkeypatch.setattr(
-            "app.api.v1.stripe_webhook.stripe.Webhook.construct_event",
-            lambda payload, signature, secret: {"id": "evt_1", "type": "checkout.session.completed", "data": {"object": {"metadata": {}}}},
-        )
-        missing_user = await client.post("/v1/billing/stripe/webhook", headers={"Stripe-Signature": "ok"}, content=b"{}")
-        assert missing_user.status_code == 400
-
-        recorded = {"called": False}
-
-        async def _record(db, event_id, event_type, user_id, amount_credits, meta):
-            recorded["called"] = True
-            assert event_id == "evt_2"
-            assert event_type == "checkout.session.completed"
-            assert user_id == "u-1"
-            assert float(amount_credits) == 123.0
-            assert "raw" in meta
-
-        monkeypatch.setattr("app.api.v1.stripe_webhook.record_stripe_event", _record)
-        monkeypatch.setattr(
-            "app.api.v1.stripe_webhook.stripe.Webhook.construct_event",
-            lambda payload, signature, secret: {
-                "id": "evt_2",
-                "type": "checkout.session.completed",
-                "data": {"object": {"metadata": {"user_id": "u-1", "amount_credits": "123"}}},
-            },
-        )
-        ok = await client.post(
-            "/v1/billing/stripe/webhook",
-            headers={"Stripe-Signature": "ok"},
-            content=b'{"checkout":"ok"}',
-        )
-        assert ok.status_code == 200
-        assert recorded["called"] is True
+        stripe_disabled = await client.post("/v1/billing/stripe/webhook", content=b"{}")
+        assert stripe_disabled.status_code == 410
 
 
 @pytest.mark.asyncio
@@ -256,6 +248,7 @@ async def test_admin_routes_allow_tenant_admin_jwt(db_session):
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt_client
     app.dependency_overrides[get_auth_basalt_client] = _override_basalt_client
+    app.dependency_overrides[BasaltPassClient] = _override_basalt_client
 
     user = await register_user(db_session, "tenant-admin-api@example.com", "pass")
     user.basalt_user_id = "bp-user-admin"

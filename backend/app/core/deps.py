@@ -151,9 +151,7 @@ def permission(required_code: str):
 
         basalt_user_id = (current_user.basalt_user_id or "").strip()
         if not basalt_user_id:
-            if settings.basalt_rbac_strict_user_binding:
-                raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
-            return
+            raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
 
         tenant_id = (current_user.basalt_tenant_id or settings.basalt_default_tenant_id or "").strip() or None
         payload = await client.s2s_get_user_permissions(basalt_user_id, tenant_id=tenant_id)
@@ -178,9 +176,7 @@ def role(required_code: str):
 
         basalt_user_id = (current_user.basalt_user_id or "").strip()
         if not basalt_user_id:
-            if settings.basalt_rbac_strict_user_binding:
-                raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
-            return
+            raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
 
         tenant_id = (current_user.basalt_tenant_id or settings.basalt_default_tenant_id or "").strip() or None
         payload = await client.s2s_get_user_roles(basalt_user_id, tenant_id=tenant_id)
@@ -210,9 +206,7 @@ def token_permission(required_code: str):
 
         basalt_user_id = (user.basalt_user_id or "").strip()
         if not basalt_user_id:
-            if settings.basalt_rbac_strict_user_binding:
-                raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
-            return
+            raise AppError("rbac_user_unbound", "user is not bound to basalt account", request.state.request_id, 403)
 
         tenant_id = (user.basalt_tenant_id or settings.basalt_default_tenant_id or "").strip() or None
         try:

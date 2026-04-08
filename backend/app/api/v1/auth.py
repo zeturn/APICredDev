@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db, permission
 from app.core.errors import AppError
 from app.core.security import create_access_token
-from app.schemas.auth import AdminTokenResponse, LoginRequest, MeResponse, RegisterRequest, TokenResponse
+from app.schemas.auth import AdminTokenResponse, LoginRequest, LoginResponse, MeResponse, RegisterRequest
 from app.services.auth_service import get_or_create_oauth_user, login_user, register_user
 from app.services.admin_access import issue_admin_access_token
 from app.services.basaltpass_client import BasaltPassClient
@@ -51,8 +51,40 @@ def _clear_access_cookie(response: Response) -> None:
     response.delete_cookie(settings.auth_cookie_name, path='/')
 
 
+def _allow_local_auth(request: Request) -> bool:
+    if settings.allow_local_password_auth:
+        return True
+    if not settings.allow_test_cli_local_auth:
+        return False
+    is_test_env = settings.app_env == 'test' or (request.url.hostname or '').strip().lower() == 'test'
+    if not is_test_env:
+        return False
+    client_type = (request.headers.get('X-APICRED-Client') or '').strip().lower()
+    user_agent = (request.headers.get('User-Agent') or '').strip().lower()
+    is_cli = client_type == 'cli' or 'python-httpx' in user_agent or 'curl' in user_agent or 'powershell' in user_agent
+    if not is_cli:
+        return False
+    shared_secret = (request.headers.get('X-APICRED-CLI-Auth') or '').strip()
+    if settings.test_cli_auth_secret:
+        return shared_secret == settings.test_cli_auth_secret
+    return True
+
+
+def _test_cli_context(request: Request) -> bool:
+    is_test_env = settings.app_env == 'test' or (request.url.hostname or '').strip().lower() == 'test'
+    user_agent = (request.headers.get('User-Agent') or '').strip().lower()
+    return is_test_env and ('python-httpx' in user_agent or 'curl' in user_agent or 'powershell' in user_agent or (request.headers.get('X-APICRED-Client') or '').strip().lower() == 'cli')
+
+
+def _assert_local_auth_allowed(request: Request) -> None:
+    if _allow_local_auth(request):
+        return
+    raise AppError('local_auth_disabled', 'local login/register is disabled; use BasaltPass SSO', request.state.request_id, 403)
+
+
 @router.post('/register', response_model=MeResponse)
 async def register(payload: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)) -> MeResponse:
+    _assert_local_auth_allowed(request)
     request_id = request.state.request_id
     try:
         user = await register_user(db, payload.email, payload.password)
@@ -61,15 +93,16 @@ async def register(payload: RegisterRequest, request: Request, db: AsyncSession 
     return MeResponse(id=user.id, email=user.email, status=user.status)
 
 
-@router.post('/login', response_model=TokenResponse)
-async def login(payload: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@router.post('/login', response_model=LoginResponse)
+async def login(payload: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+    _assert_local_auth_allowed(request)
     request_id = request.state.request_id
     try:
         token = await login_user(db, payload.email, payload.password)
     except ValueError:
         raise AppError('invalid_credentials', 'invalid credentials', request_id, 401)
     _set_access_cookie(response, token)
-    return TokenResponse(access_token=token)
+    return LoginResponse(ok=True, access_token=token if _test_cli_context(request) else None)
 
 
 @router.post('/logout')

@@ -4,6 +4,7 @@ import AuthLayout from "./layouts/AuthLayout";
 import UserLayout from "./layouts/UserLayout";
 import LoginPage from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
+import ProfilePage from "./pages/Profile";
 import ModelsPage from "./pages/Models";
 import TokensPage from "./pages/Tokens";
 import TopupPage from "./pages/Topup";
@@ -30,6 +31,7 @@ const App = () => {
         <Route path="/tokens" element={<Navigate to="/workspace/tokens" replace />} />
         <Route path="/models" element={<Navigate to="/workspace/models" replace />} />
         <Route path="/topup" element={<Navigate to="/workspace/topup" replace />} />
+        <Route path="/profile" element={<Navigate to="/workspace/profile" replace />} />
         <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
 
         <Route element={<UserLayout />}>
@@ -39,6 +41,7 @@ const App = () => {
           <Route path="/workspace/tokens" element={<TokensPage />} />
           <Route path="/workspace/models" element={<ModelsPage />} />
           <Route path="/workspace/topup" element={<TopupPage />} />
+          <Route path="/workspace/profile" element={<ProfilePage />} />
         </Route>
 
         <Route element={<AdminLayout />}>

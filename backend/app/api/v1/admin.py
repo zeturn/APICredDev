@@ -150,8 +150,11 @@ async def admin_provider_presets() -> list[dict]:
 
 
 @router.post("/provider-keys")
-async def admin_provider_keys_upsert(payload: ProviderKeyUpsert, db: AsyncSession = Depends(get_db)) -> dict:
-    key = await upsert_provider_key(db, payload.model_dump())
+async def admin_provider_keys_upsert(payload: ProviderKeyUpsert, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        key = await upsert_provider_key(db, payload.model_dump())
+    except ValueError as exc:
+        raise AppError("invalid_provider_base_url", str(exc), request.state.request_id, 400)
     return _to_dict(key)
 
 
@@ -170,8 +173,11 @@ async def admin_model_provider_keys_list(db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.post("/model-provider-keys")
-async def admin_model_provider_keys_upsert(payload: ModelProviderKeyUpsert, db: AsyncSession = Depends(get_db)) -> dict:
-    item = await upsert_model_provider_key(db, payload.model_dump())
+async def admin_model_provider_keys_upsert(payload: ModelProviderKeyUpsert, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        item = await upsert_model_provider_key(db, payload.model_dump())
+    except ValueError as exc:
+        raise AppError("invalid_provider_base_url", str(exc), request.state.request_id, 400)
     return _to_dict(item)
 
 

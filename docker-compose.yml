@@ -46,7 +46,7 @@ services:
       DEBUG_ENDPOINTS_ENABLED: "true"
       STARTUP_CREATE_TABLES_ENABLED: "true"
       STARTUP_SCHEMA_COMPAT_ENABLED: "true"
-      STARTUP_BOOTSTRAP_ENABLED: "true"
+      STARTUP_BOOTSTRAP_ENABLED: "false"
       BASALT_INTERNAL_BASE_URL: ${BASALT_INTERNAL_BASE_URL:-http://host.docker.internal:8101}
     ports:
       - "8103:8103"

@@ -13,6 +13,7 @@ export const userConsoleRoutes: ConsoleRoute[] = [
   { path: "/workspace/tokens", label: "API Tokens", mode: "user", description: "管理访问令牌与范围", apiPath: "/tokens" },
   { path: "/workspace/models", label: "模型目录", mode: "user", description: "可用模型与定价能力", apiPath: "/models" },
   { path: "/workspace/topup", label: "充值中心", mode: "user", description: "卡密兑换与账本变更", apiPath: "/billing/ledger" },
+  { path: "/workspace/profile", label: "个人信息", mode: "user", description: "查看当前登录账号信息", apiPath: "/auth/me" },
 ];
 
 export const adminConsoleRoutes: ConsoleRoute[] = [

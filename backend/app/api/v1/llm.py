@@ -25,6 +25,7 @@ from app.services.usage_service import estimate_prompt_tokens, estimate_tokens, 
 from app.services.quota_service import try_reserve
 from app.redis.client import get_redis
 from app.core.config import settings
+from app.core.url_safety import normalize_upstream_base_url
 
 
 router = APIRouter(prefix="", tags=["llm"])
@@ -62,18 +63,18 @@ def _extract_response_text(raw: dict | None) -> str | None:
 async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
     model_provider_base_url = getattr(candidate.mpk, "base_url", None)
     if model_provider_base_url:
-        return model_provider_base_url
+        return normalize_upstream_base_url(model_provider_base_url)
     provider_key_base_url = (candidate.provider_key.key_name or "").strip()
     if provider_key_base_url:
-        return provider_key_base_url
+        return normalize_upstream_base_url(provider_key_base_url)
     provider = None
     provider_id = getattr(candidate.provider_key, "provider_id", None)
     if provider_id:
         provider = await db.get(Provider, provider_id)
     provider_default_base_url = (getattr(provider, "default_base_url", None) or "").strip() if provider else ""
     if provider_default_base_url:
-        return provider_default_base_url
-    return get_provider_default_base_url(candidate.provider_key.provider)
+        return normalize_upstream_base_url(provider_default_base_url)
+    return normalize_upstream_base_url(get_provider_default_base_url(candidate.provider_key.provider))
 
 
 def _resolve_api_key(candidate) -> str:

@@ -19,6 +19,7 @@ from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.factory import OPENAI_COMPAT_PROVIDERS
 from app.services.providers.presets import get_provider_default_base_url
 from app.core.secrets import encrypt_secret
+from app.core.url_safety import normalize_upstream_base_url
 
 
 async def list_brands(db: AsyncSession) -> list[Brand]:
@@ -103,6 +104,8 @@ async def upsert_provider_key(db: AsyncSession, payload: dict) -> ProviderKey:
         if provider:
             payload["provider"] = provider.slug
     api_key = (payload.pop("api_key", None) or "").strip()
+    if "key_name" in payload:
+        payload["key_name"] = normalize_upstream_base_url(payload.get("key_name"))
     if api_key:
         payload["secret_encrypted"] = encrypt_secret(api_key)
         payload["secret_last4"] = api_key[-4:]
@@ -128,7 +131,7 @@ async def validate_provider_key(db: AsyncSession, provider_key_id: str) -> dict:
         raise ValueError("provider_key_not_found")
 
     provider = await db.get(Provider, provider_key.provider_id) if provider_key.provider_id else None
-    base_url = (provider_key.key_name or "").strip() or (getattr(provider, "default_base_url", None) or "").strip() or get_provider_default_base_url(provider_key.provider) or ""
+    base_url = normalize_upstream_base_url((provider_key.key_name or "").strip() or (getattr(provider, "default_base_url", None) or "").strip() or get_provider_default_base_url(provider_key.provider) or "")
     api_key = decrypt_secret(provider_key.secret_encrypted) if provider_key.secret_encrypted else ""
     if not api_key:
         return {"ok": False, "provider": provider_key.provider, "base_url": base_url, "message": "missing api key"}
@@ -202,6 +205,8 @@ async def list_model_provider_keys_by_provider_key(db: AsyncSession, provider_ke
 
 
 async def upsert_model_provider_key(db: AsyncSession, payload: dict) -> ModelProviderKey:
+    if "base_url" in payload:
+        payload["base_url"] = normalize_upstream_base_url(payload.get("base_url"))
     item_id = payload.get("id")
     if item_id:
         mpk = await db.get(ModelProviderKey, item_id)

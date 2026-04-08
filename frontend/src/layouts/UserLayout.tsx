@@ -14,6 +14,7 @@ const UserLayout = () => {
     "/workspace/tokens": "key",
     "/workspace/models": "models",
     "/workspace/topup": "wallet",
+    "/workspace/profile": "home",
   };
 
   const logout = async () => {

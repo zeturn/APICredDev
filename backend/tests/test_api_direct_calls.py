@@ -157,7 +157,8 @@ async def test_auth_and_billing_services_remaining_lines(db_session):
         await login_user(db_session, "svc-user@example.com", "bad")
 
     wallet = await get_wallet(db_session, "wallet-user")
-    assert wallet.user_id == "wallet-user"
+    assert wallet.balance_credits == 0
+    assert wallet.updated_at is not None
     ledger_rows = await list_ledger(db_session, "wallet-user", 10)
     assert isinstance(ledger_rows, list)
 

@@ -18,6 +18,7 @@ from app.services.auth_service import register_user, login_user
 class FakeBasaltClient:
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.permission_codes: list[str] = ["entry.read"]
         self.permission_role_codes: list[str] = ["member"]
         self.roles: list[dict] = [{"code": "member"}]
 
@@ -42,7 +43,7 @@ class FakeBasaltClient:
 
     async def s2s_get_user_permissions(self, user_id: str, tenant_id: str | None = None):
         self.calls.append({"method": "S2S_PERMISSIONS", "user_id": user_id, "tenant_id": tenant_id})
-        return {"permission_codes": ["entry.read"], "role_codes": self.permission_role_codes}
+        return {"permission_codes": self.permission_codes, "role_codes": self.permission_role_codes}
 
     async def s2s_get_user_roles(self, user_id: str, tenant_id: str | None = None):
         self.calls.append({"method": "S2S_ROLES", "user_id": user_id, "tenant_id": tenant_id})
@@ -221,7 +222,7 @@ async def test_basalt_proxy_forwards_custom_basalt_token_and_path_params(db_sess
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get(
-            "/v1/basalt/users/u-001/permissions",
+            "/v1/basalt/apps/app-001/permissions",
             headers={
                 "Authorization": f"Bearer {token}",
                 "X-Basalt-Access-Token": "token-from-client",
@@ -230,7 +231,7 @@ async def test_basalt_proxy_forwards_custom_basalt_token_and_path_params(db_sess
         assert resp.status_code == 200
 
     last_call = fake.calls[-1]
-    assert last_call["upstream_path"] == "/api/v1/s2s/users/u-001/permissions"
+    assert last_call["upstream_path"] == "/api/v1/tenant/apps/app-001/permissions"
     assert last_call["headers"]["Authorization"] == "Bearer token-from-client"
 
 
@@ -357,8 +358,11 @@ async def test_basalt_proxy_handles_non_json_body_as_none(db_session):
 
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_basalt_client] = _override_basalt
+    fake.permission_codes = ["write"]
 
-    await register_user(db_session, "body-user@example.com", "pass")
+    user = await register_user(db_session, "body-user@example.com", "pass")
+    user.basalt_user_id = "bp-body-user"
+    await db_session.commit()
     token = await login_user(db_session, "body-user@example.com", "pass")
 
     transport = ASGITransport(app=app)

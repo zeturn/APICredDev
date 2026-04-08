@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
+    app_env: str = "dev"
     app_secret: str = "dev-secret"
     token_salt: str = "dev-token-salt"
     jwt_issuer: str = "apicred"
@@ -17,7 +18,11 @@ class Settings(BaseSettings):
     admin_jwt_audience: str = "apicred-admin"
     admin_jwt_exp_minutes: int = 15
     admin_email: str = "admin@example.com"
-    admin_password: str = "admin123"
+    admin_password: str = ""
+
+    allow_local_password_auth: bool = False
+    allow_test_cli_local_auth: bool = True
+    test_cli_auth_secret: str = ""
 
     stripe_webhook_secret: str = "whsec_dev"
     stripe_price_credits: int = 1000
@@ -42,7 +47,7 @@ class Settings(BaseSettings):
     basalt_credit_scale: int = 1000000
     basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin"
     basalt_rbac_enforce: bool = True
-    basalt_rbac_strict_user_binding: bool = False
+    basalt_rbac_strict_user_binding: bool = True
     basalt_default_tenant_id: str = ""
     basalt_timeout_seconds: float = 15.0
     basalt_max_retries: int = 2

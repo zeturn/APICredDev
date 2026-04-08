@@ -17,6 +17,14 @@ from app.db.models.wallet import Wallet
 logger = logging.getLogger(__name__)
 
 
+def _assert_bootstrap_admin_password() -> None:
+    password = (settings.admin_password or "").strip()
+    lowered = password.lower()
+    weak_values = {"admin123", "password", "123456", "changeme", "admin"}
+    if len(password) < 12 or lowered in weak_values:
+        raise RuntimeError("startup bootstrap requires strong ADMIN_PASSWORD (>=12 chars, non-default)")
+
+
 DEFAULT_BRANDS = [
     {"name": "OpenAI", "slug": "openai", "icon_slug": "openai", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg", "enabled": True},
     {"name": "Google", "slug": "google", "icon_slug": "google", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/google.svg", "enabled": True},
@@ -70,6 +78,7 @@ DEFAULT_MODELS = [
 
 
 async def ensure_admin_user(db: AsyncSession) -> None:
+    _assert_bootstrap_admin_password()
     result = await db.execute(select(User).where(User.email == settings.admin_email))
     user = result.scalar_one_or_none()
     if user:
