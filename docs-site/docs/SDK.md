@@ -1,55 +1,80 @@
-# APICred SDK 文档
+# APICred SDK 与 API 调用指南
 
-## 1. Python SDK 位置
+## 1. 推荐调用方式
 
-- `sdk/python/apicred_sdk`
+当前建议优先使用 OpenAI SDK（通过 `base_url` 指向 APICred），因为 APICred 已兼容 Chat Completions 请求形态。
 
-## 2. 安装
+## 2. OpenAI Python SDK（推荐）
+
+安装：
 
 ```bash
-cd sdk/python
-python -m pip install -e .
+python -m pip install openai
 ```
 
-## 3. 基础用法
+示例：
 
 ```python
-from apicred_sdk import ApiCredClient, ApiCredConfig
+from openai import OpenAI
 
-client = ApiCredClient(ApiCredConfig(base_url="http://localhost:8002/v1"))
-client.login("user@example.com", "password")
-print(client.me())
+client = OpenAI(
+	base_url="http://localhost:8103/v1",
+	api_key="YOUR_APICRED_TOKEN",
+)
+
+resp = client.chat.completions.create(
+	model="gpt-5.4",
+	messages=[{"role": "user", "content": "请给我一段 20 字摘要"}],
+	temperature=0.7,
+)
+
+print(resp.choices[0].message.content)
 ```
 
-## 4. 业务接口
+流式调用示例：
 
 ```python
-client.list_models()
-client.create_token("prod-key", ["llm"])
-client.wallet()
-client.ledger()
-client.redeem("CODE123")
+stream = client.chat.completions.create(
+	model="gpt-5.4",
+	messages=[{"role": "user", "content": "逐步解释什么是向量数据库"}],
+	stream=True,
+)
+
+for event in stream:
+	delta = event.choices[0].delta.content if event.choices and event.choices[0].delta else None
+	if delta:
+		print(delta, end="", flush=True)
 ```
 
-## 5. Basalt 集成接口
+## 3. Token 要求
 
-```python
-client.basalt("GET", "/wallet/balance")
-client.basalt("GET", "/permissions")
-client.basalt("GET", "/roles")
-```
+OpenAI SDK 中的 `api_key` 实际应填 APICred 的 API Token。
 
-## 6. Basalt 管理接口
+要求：
 
-```python
-admin = ApiCredClient(ApiCredConfig(base_url="http://localhost:8002/v1", admin_token="dev-admin-token"))
-admin.admin_basalt("GET", "/dashboard/stats")
-admin.admin_basalt("GET", "/users")
-```
+- Token 状态为 active
+- Token scope 至少包含 `llm`
+- 对应用户具备 Basalt 侧可用权限
 
-## 7. 生产建议
+## 4. 兼容性说明
 
-- 使用短超时 + 重试策略（网关侧）
-- 按场景拆分业务 token 与管理员 token
-- 对外统一封装异常处理与日志追踪
+已兼容：
+
+- `POST /v1/chat/completions`
+- `stream=True` 的 SSE 流式返回
+
+注意：
+
+- 模型名必须来自 APICred 当前可用模型。
+- 若上游 key 不可用或配额受限，可能返回 `502 upstream_failed`。
+
+## 5. 调试建议
+
+- 先在控制台确认模型存在且已启用。
+- 用一个最小请求验证：短 prompt + 非流式。
+- 失败时记录 `X-Request-Id` 便于服务端排查。
+
+## 6. 旧版本地 SDK 说明
+
+仓库中保留了 `sdk/python` 目录用于历史兼容，但在新项目中优先建议使用 OpenAI SDK + APICred `base_url` 模式。
 

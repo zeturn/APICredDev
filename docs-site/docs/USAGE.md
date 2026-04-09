@@ -1,105 +1,112 @@
-# APICred 使用文档
+# APICred 用户使用指南
 
-## 1. 登录与认证
+本文档面向 API 调用方与普通控制台用户，覆盖从登录到调用的完整路径。
 
-1. 调用 `POST /v1/auth/register` 注册账号
-2. 调用 `POST /v1/auth/login` 获取 `access_token`
-3. 后续业务请求使用：
+## 1. 登录方式（当前默认）
 
-```http
-Authorization: Bearer <access_token>
-```
+APICred 当前默认只支持 BasaltPass SSO 登录。
 
-## 2. 用户业务主流程
-
-> 当前已接入统一 RBAC 依赖函数：`permission("read") / permission("write")`。
->
-> 已迁移模块：`/v1/auth/me`、`/v1/models`、`/v1/tokens/*`、`/v1/billing/*`、`/v1/basalt/*(用户代理路由按 GET/写操作自动映射 read/write)`。
-
-### 2.1 Token 管理
-
-- `POST /v1/tokens`
-- `GET /v1/tokens`
-- `DELETE /v1/tokens/{token_id}`
-
-### 2.2 钱包与账本
-
-- `GET /v1/billing/wallet`
-- `GET /v1/billing/ledger`
-- `POST /v1/billing/redeem`
-
-### 2.3 模型列表
-
-- `GET /v1/models`（需要用户 Bearer，且具备 `read` 权限）
-
-### 2.4 Basalt 用户能力（auth / permission / wallet）
-
-主要入口均在 `GET|POST|PUT /v1/basalt/*`，核心分组：
-
-- `auth`: `/v1/basalt/auth/*`
-- `permission`: `/v1/basalt/permissions`、`/v1/basalt/roles`
-- `wallet`: `/v1/basalt/wallet/*`
-
-## 3. 管理后台主流程
-
-管理请求支持两种方式：
-
-```http
-X-Admin-Token: <admin_token>
-```
-
-或使用租户管理员账号登录后得到的用户 Bearer Token（tenant `owner/admin/tenant/tenant_admin/aadmin` 角色会被识别为管理权限）：
-
-```http
-Authorization: Bearer <access_token>
-```
-
-### 3.1 原生管理接口
-
-- `/v1/admin/models`
-- `/v1/admin/provider-keys`
-- `/v1/admin/model-provider-keys`
-- `/v1/admin/users`
-- `/v1/admin/usage-sessions`
-
-### 3.2 Basalt 管理集成
-
-统一入口：`/v1/admin/basalt/*`
-
-常用：
-
-- `/v1/admin/basalt/dashboard/stats`
-- `/v1/admin/basalt/apps`
-- `/v1/admin/basalt/users`
-- `/v1/admin/basalt/roles`
-- `/v1/admin/basalt/permissions`
-- `/v1/admin/basalt/wallets`
-- `/v1/admin/basalt/tenants`
-- `/v1/admin/basalt/subscriptions`
-
-## 4. 前端控制台
-
-页面总数 32：
-
-- 用户端 16 页：`/workspace/*`
-- 管理端 16 页：`/admin*`
-
-每页均支持：
-
-- 主导航链接
-- 上一页/下一页
-- 全量页面链接表
-
-## 5. LLM 调用鉴权（双轨）
-
-`POST /v1/chat/completions` 当前使用双轨校验：
-
-1. API Token scope：必须包含 `llm`
-2. Basalt RBAC：`token_permission("write")`
+- 前端入口：`http://localhost:5106/login`
+- 点击“使用 BasaltPass 登录”
+- 登录成功后进入 `/workspace/dashboard`
 
 说明：
 
-- 这保证了与历史 API Token scope 行为兼容；
-- 同时可以逐步过渡到 Basalt app 权限系统；
-- 若未绑定 Basalt 账号且 `basalt_rbac_strict_user_binding=false`，仍保持兼容放行。
+- 本地 `register/login` 在常规环境默认关闭。
+- 测试环境下仅受控 CLI 场景允许例外。
+
+## 2. 用户端日常操作
+
+登录后你会在用户工作台使用以下页面：
+
+- `/workspace/dashboard`：余额、消费与最近账本
+- `/workspace/models`：可用模型列表与定价
+- `/workspace/tokens`：创建和管理 API Token
+- `/workspace/usage`：按模型和调用记录统计
+- `/workspace/topup`：充值与账本视图
+- `/workspace/profile`：个人信息
+
+## 3. 创建 API Token（给 SDK/服务端使用）
+
+推荐流程：
+
+1. 在控制台打开 Token 页面
+2. 创建一个带 `llm` scope 的 Token
+3. 保存返回的明文 Token（只展示一次）
+
+调用 API 时使用：
+
+```http
+Authorization: Bearer <YOUR_API_TOKEN>
+```
+
+## 4. OpenAI SDK 调用 APICred
+
+APICred 提供 OpenAI 风格的 Chat Completions 接口：
+
+- `POST /v1/chat/completions`
+
+Python 示例：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+	base_url="http://localhost:8103/v1",
+	api_key="YOUR_APICRED_TOKEN",
+)
+
+resp = client.chat.completions.create(
+	model="gpt-5.4",
+	messages=[{"role": "user", "content": "你好，帮我总结今天工作"}],
+	temperature=0.7,
+)
+
+print(resp.choices[0].message.content)
+```
+
+建议：
+
+- 优先使用 `chat.completions` 路径。
+- `model` 必须是 APICred 当前可用模型名。
+
+## 5. 关键接口速查
+
+用户会话接口（浏览器登录态）：
+
+- `GET /v1/auth/me`
+- `GET /v1/models`
+- `GET /v1/billing/wallet`
+- `GET /v1/billing/usage`
+
+API Token 接口（服务间调用）：
+
+- `POST /v1/chat/completions`
+
+## 6. 常见问题
+
+### 6.1 模型列表为空
+
+通常是环境初始化后未导入默认模型。
+
+处理方式：请管理员执行模型种子初始化（brands/providers/models）。
+
+### 6.2 登录后反复跳回登录页
+
+排查：
+
+- 检查浏览器是否拦截 Cookie
+- 检查 APICred 与前端域名/端口是否与配置一致
+- 检查 BasaltPass 回调地址是否配置正确
+
+### 6.3 调用返回 401 或 403
+
+- 401：Token 无效/缺失
+- 403：权限不足（scope 或 Basalt RBAC）
+
+## 7. 安全与行为说明
+
+- Stripe webhook 在 APICred 侧已禁用（统一走 BasaltPass 金融链路）。
+- Provider 的 `base_url` 会执行安全校验，禁止危险 scheme（如 `file://`）。
+- 用户权限校验默认强制 Basalt 身份绑定。
 
