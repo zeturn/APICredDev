@@ -1,0 +1,18 @@
+{
+  "project": "apicred",
+  "namespace": "apicred",
+  "images": [
+    {
+      "name": "backend",
+      "context": "./backend",
+      "dockerfile": "./backend/Dockerfile",
+      "port": 8103
+    },
+    {
+      "name": "frontend",
+      "context": "./frontend",
+      "dockerfile": "./frontend/Dockerfile",
+      "port": 80
+    }
+  ]
+}
