@@ -1,6 +1,14 @@
 import axios from "axios";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+const getApiBaseUrl = () => {
+  const envUrl = (window as any).__env__?.API_BASE_URL;
+  if (envUrl && envUrl !== "%%API_BASE_URL%%") {
+    return envUrl;
+  }
+  return import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+};
+
+const apiBaseUrl = getApiBaseUrl();
 
 const adminApi = axios.create({
   baseURL: apiBaseUrl,

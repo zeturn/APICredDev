@@ -6,7 +6,11 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/workspace/dashboard";
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+
+  const envUrl = (window as any).__env__?.API_BASE_URL;
+  const apiBaseUrl = (envUrl && envUrl !== "%%API_BASE_URL%%")
+    ? envUrl
+    : (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1");
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);

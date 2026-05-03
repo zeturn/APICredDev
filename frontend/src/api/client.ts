@@ -2,7 +2,15 @@ import axios from "axios";
 import { emitErrorToast } from "../ui/toastBus";
 import { beginLoading, endLoading, resetLoading } from "../ui/loadingBus";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+const getApiBaseUrl = () => {
+  const envUrl = (window as any).__env__?.API_BASE_URL;
+  if (envUrl && envUrl !== "%%API_BASE_URL%%") {
+    return envUrl;
+  }
+  return import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+};
+
+const apiBaseUrl = getApiBaseUrl();
 const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,

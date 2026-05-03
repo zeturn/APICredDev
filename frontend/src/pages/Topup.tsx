@@ -3,7 +3,11 @@ import { Button, Card, Typography } from "../lib/watercolor";
 import api from "../api/client";
 
 const TopupPage = () => {
-  const basaltPassBaseUrl = (import.meta as any).env?.VITE_BASALTPASS_BASE_URL ?? "http://localhost:5104";
+  const envUrl = (window as any).__env__?.BASALTPASS_BASE_URL;
+  const basaltPassBaseUrl = (envUrl && envUrl !== "%%BASALTPASS_BASE_URL%%")
+    ? envUrl
+    : ((import.meta as any).env?.VITE_BASALTPASS_BASE_URL ?? "http://localhost:5104");
+
   const redeemPath = "/wallet/gift-cards/redeem";
   const baseRedeemUrl = `${basaltPassBaseUrl.replace(/\/$/, "")}${redeemPath}`;
   const [redeemUrl, setRedeemUrl] = useState(baseRedeemUrl);
