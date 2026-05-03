@@ -1,5 +1,3 @@
-from typing import Optional
-
 from redis.asyncio import Redis
 
 from app.core.time import utc_now, format_bucket
@@ -36,4 +34,3 @@ async def try_reserve(
     args = [delta] + limits + ttls
     result = await redis.eval(LUA_SCRIPT, 4, *keys, *args)
     return int(result) == 1
-
