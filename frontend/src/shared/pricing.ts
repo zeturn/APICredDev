@@ -3,6 +3,16 @@ export const formatPricingSummary = (pricing: any): string[] => {
     return ["未配置"];
   }
 
+  // Support for per_token and per_request from the issue description
+  if (pricing.type === "per_token") {
+    const lines: string[] = [];
+    if (pricing.prompt_token_price) lines.push(`Prompt: $${pricing.prompt_token_price}/1k`);
+    if (pricing.completion_token_price) lines.push(`Completion: $${pricing.completion_token_price}/1k`);
+    return lines;
+  } else if (pricing.type === "per_request") {
+    return [`$${pricing.request_price}/req`];
+  }
+
   if (pricing.mode === "free") {
     return ["免费"];
   }
