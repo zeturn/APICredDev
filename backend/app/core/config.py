@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     basalt_max_retries: int = 2
     apicred_public_base_url: str = "http://localhost:8103"
     frontend_base_url: str = "http://localhost:5106"
+    cors_origins: list[str] = ["http://localhost:5106", "http://127.0.0.1:5106"]
 
 
 settings = Settings()
