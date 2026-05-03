@@ -445,6 +445,12 @@ async def sync_wallets_from_basalt(
 
     results = await asyncio.gather(*active_tasks)
 
+    user_ids = [res[0].id for res in results if isinstance(res[1], dict) and not res[1].get("error")]
+    wallets_map = {}
+    if user_ids and not dry_run:
+        wallets_res = await db.execute(select(Wallet).where(Wallet.user_id.in_(user_ids)))
+        wallets_map = {w.user_id: w for w in wallets_res.scalars().all()}
+
     for user, payload in results:
         if isinstance(payload, dict) and payload.get("error"):
             failed += 1
@@ -470,7 +476,7 @@ async def sync_wallets_from_basalt(
 
         remote_balance = _smallest_to_credit(payload.get("balance"))
         if not dry_run:
-            wallet = await db.get(Wallet, user.id)
+            wallet = wallets_map.get(user.id)
             if not wallet:
                 wallet = Wallet(user_id=user.id, balance_credits=remote_balance, updated_at=utc_now())
                 db.add(wallet)
