@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 
 import httpx
@@ -408,19 +409,43 @@ async def sync_wallets_from_basalt(
     skipped = 0
     errors: list[dict] = []
 
+    active_tasks = []
+    semaphore = asyncio.Semaphore(10)
+
+    async def fetch_wallet(user: User):
+        async with semaphore:
+            basalt_user_id = (user.basalt_user_id or "").strip()
+            tenant_id = (user.basalt_tenant_id or "").strip() or None
+            try:
+                payload = await client.s2s_get_user_wallet(
+                    user_id=basalt_user_id,
+                    currency=settings.basalt_credit_currency,
+                    limit=1,
+                    tenant_id=tenant_id,
+                )
+                return user, payload
+            except Exception as e:
+                return user, {"error": str(e)}
+
     for user in users:
-        basalt_user_id = (user.basalt_user_id or "").strip()
-        if not basalt_user_id:
+        if not (user.basalt_user_id or "").strip():
             skipped += 1
             continue
+        active_tasks.append(fetch_wallet(user))
 
-        tenant_id = (user.basalt_tenant_id or "").strip() or None
-        payload = await client.s2s_get_user_wallet(
-            user_id=basalt_user_id,
-            currency=settings.basalt_credit_currency,
-            limit=1,
-            tenant_id=tenant_id,
-        )
+    if not active_tasks:
+        return {
+            "total": len(users),
+            "synced": synced,
+            "failed": failed,
+            "skipped": skipped,
+            "dry_run": dry_run,
+            "errors": errors,
+        }
+
+    results = await asyncio.gather(*active_tasks)
+
+    for user, payload in results:
         if isinstance(payload, dict) and payload.get("error"):
             failed += 1
             errors.append(
