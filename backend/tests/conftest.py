@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.db.base import Base
-from app.db.models import user, api_token, wallet, ledger, model, provider_key, model_provider_key, usage_session, recharge_code, stripe_event
+from app.db.models import user, api_token, ledger, model, provider_key, model_provider_key, usage_session, recharge_code, stripe_event  # noqa: F401
 
 
 @pytest.fixture(scope="session")
