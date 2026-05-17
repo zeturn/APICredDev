@@ -22,6 +22,7 @@ from app.services.basaltpass_client import BasaltPassClient
 router = APIRouter(prefix='/auth', tags=['auth'])
 OAUTH_STATE_COOKIE = 'apicred_basalt_oauth_state'
 OAUTH_VERIFIER_COOKIE = 'apicred_basalt_oauth_verifier'
+OAUTH_NONCE_COOKIE = 'apicred_basalt_oauth_nonce'
 OAUTH_NEXT_COOKIE = 'apicred_basalt_oauth_next'
 OAUTH_COOKIE_PATH = '/v1/auth/basalt'
 OAUTH_COOKIE_MAX_AGE = 600
@@ -183,7 +184,7 @@ def _build_callback_url(provider: str | None = None) -> str:
     return f'{base}/v1/auth/basalt/callback'
 
 
-def _build_authorize_url(redirect_uri: str, state: str, challenge: str) -> str:
+def _build_authorize_url(redirect_uri: str, state: str, challenge: str, nonce: str) -> str:
     if not settings.basalt_oauth_client_id:
         raise ValueError('missing BASALT_OAUTH_CLIENT_ID')
     params: dict[str, str] = {
@@ -192,6 +193,7 @@ def _build_authorize_url(redirect_uri: str, state: str, challenge: str) -> str:
         'redirect_uri': redirect_uri,
         'scope': settings.basalt_oauth_scopes,
         'state': state,
+        'nonce': nonce,
         'code_challenge': challenge,
         'code_challenge_method': 'S256',
     }
@@ -200,7 +202,7 @@ def _build_authorize_url(redirect_uri: str, state: str, challenge: str) -> str:
     return str(httpx.URL(f"{settings.basalt_base_url.rstrip('/')}/api/v1/oauth/authorize", params=params))
 
 
-def _set_oauth_cookies(resp: RedirectResponse, *, state: str, verifier: str, next_path: str) -> None:
+def _set_oauth_cookies(resp: RedirectResponse, *, state: str, verifier: str, nonce: str, next_path: str) -> None:
     cookie_kwargs = {
         'httponly': True,
         'samesite': 'lax',
@@ -210,12 +212,14 @@ def _set_oauth_cookies(resp: RedirectResponse, *, state: str, verifier: str, nex
     }
     resp.set_cookie(OAUTH_STATE_COOKIE, state, **cookie_kwargs)
     resp.set_cookie(OAUTH_VERIFIER_COOKIE, verifier, **cookie_kwargs)
+    resp.set_cookie(OAUTH_NONCE_COOKIE, nonce, **cookie_kwargs)
     resp.set_cookie(OAUTH_NEXT_COOKIE, next_path, **cookie_kwargs)
 
 
 def _clear_oauth_cookies(resp: RedirectResponse) -> None:
     resp.delete_cookie(OAUTH_STATE_COOKIE, path=OAUTH_COOKIE_PATH)
     resp.delete_cookie(OAUTH_VERIFIER_COOKIE, path=OAUTH_COOKIE_PATH)
+    resp.delete_cookie(OAUTH_NONCE_COOKIE, path=OAUTH_COOKIE_PATH)
     resp.delete_cookie(OAUTH_NEXT_COOKIE, path=OAUTH_COOKIE_PATH)
 
 
@@ -292,6 +296,7 @@ async def _handle_oauth_callback(
 
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
     verifier = request.cookies.get(OAUTH_VERIFIER_COOKIE)
+    expected_nonce = request.cookies.get(OAUTH_NONCE_COOKIE)
     next_path = _safe_next(request.cookies.get(OAUTH_NEXT_COOKIE) or request.query_params.get('next'))
     if not state or not cookie_state or state != cookie_state:
         raise AppError('oauth_state_invalid', 'invalid oauth state', request_id, 400)
@@ -308,6 +313,9 @@ async def _handle_oauth_callback(
 
     userinfo = await _fetch_userinfo(access_token, request_id)
     claims = _claims_from_id_token(token_payload.get('id_token'))
+    token_nonce = claims.get('nonce') if isinstance(claims, dict) else None
+    if isinstance(token_payload.get('id_token'), str) and (not expected_nonce or token_nonce != expected_nonce):
+        raise AppError('oauth_nonce_invalid', 'invalid id_token nonce', request_id, 400)
     email = _extract_email(userinfo) or _extract_claim(claims, 'email')
     basalt_user_id = _extract_claim(userinfo, 'sub', 'id', 'user_id') or _extract_claim(claims, 'sub')
     basalt_tenant_id = _extract_claim(userinfo, 'tid', 'tenant_id') or _extract_claim(claims, 'tid', 'tenant_id')
@@ -335,14 +343,15 @@ async def _handle_oauth_callback(
 async def basalt_oauth_login(request: Request, next: str | None = None) -> RedirectResponse:
     safe_next = _safe_next(next)
     state = secrets.token_urlsafe(24)
+    nonce = secrets.token_urlsafe(24)
     verifier, challenge = _create_pkce_pair()
     callback_url = _build_callback_url(provider=None)
     try:
-        login_url = _build_authorize_url(callback_url, state, challenge)
+        login_url = _build_authorize_url(callback_url, state, challenge, nonce)
     except ValueError as exc:
         raise AppError('config_invalid', str(exc), request.state.request_id, status_code=500)
     resp = RedirectResponse(url=login_url, status_code=302)
-    _set_oauth_cookies(resp, state=state, verifier=verifier, next_path=safe_next)
+    _set_oauth_cookies(resp, state=state, verifier=verifier, nonce=nonce, next_path=safe_next)
     return resp
 
 
@@ -350,14 +359,15 @@ async def basalt_oauth_login(request: Request, next: str | None = None) -> Redir
 async def basalt_oauth_login_legacy(provider: str, request: Request, next: str | None = None) -> RedirectResponse:
     safe_next = _safe_next(next)
     state = secrets.token_urlsafe(24)
+    nonce = secrets.token_urlsafe(24)
     verifier, challenge = _create_pkce_pair()
     callback_url = _build_callback_url(provider=provider)
     try:
-        login_url = _build_authorize_url(callback_url, state, challenge)
+        login_url = _build_authorize_url(callback_url, state, challenge, nonce)
     except ValueError as exc:
         raise AppError('config_invalid', str(exc), request.state.request_id, status_code=500)
     resp = RedirectResponse(url=login_url, status_code=302)
-    _set_oauth_cookies(resp, state=state, verifier=verifier, next_path=safe_next)
+    _set_oauth_cookies(resp, state=state, verifier=verifier, nonce=nonce, next_path=safe_next)
     return resp
 
 

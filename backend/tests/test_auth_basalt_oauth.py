@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core.deps import get_db
+from app.core.config import settings
 from app.main import create_app
 from app.services.auth_service import get_or_create_oauth_user
 
@@ -27,6 +28,7 @@ async def test_oauth_helper_and_get_or_create_user(db_session):
 
 @pytest.mark.asyncio
 async def test_basalt_oauth_login_redirect_and_callback_success(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-test")
     app = create_app()
 
     async def _override_db():
@@ -57,7 +59,6 @@ async def test_basalt_oauth_login_redirect_and_callback_success(db_session, monk
                 200,
                 {
                     "access_token": "access-token",
-                    "id_token": "id-token",
                 },
             )
 
@@ -74,6 +75,7 @@ async def test_basalt_oauth_login_redirect_and_callback_success(db_session, monk
         login_redirect = await client.get("/v1/auth/basalt/oauth/google/login?next=/workspace/dashboard", follow_redirects=False)
         assert login_redirect.status_code in (302, 307)
         assert "/api/v1/oauth/authorize" in login_redirect.headers["location"]
+        assert "nonce=" in login_redirect.headers["location"]
 
         state_cookie = login_redirect.cookies.get("apicred_basalt_oauth_state")
         assert state_cookie
@@ -90,6 +92,7 @@ async def test_basalt_oauth_login_redirect_and_callback_success(db_session, monk
 
 @pytest.mark.asyncio
 async def test_basalt_oauth_callback_failure_paths(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-test")
     app = create_app()
 
     async def _override_db():
