@@ -148,7 +148,6 @@ async def get_wallet(db: AsyncSession, user_id: str) -> WalletSnapshot:
 
     if _is_remote_wallet_enabled(user):
         await _sync_local_wallet_from_remote(db, user, wallet)
-        await _sync_local_wallet_from_remote(db, user, wallet)
         await db.commit()
         await db.refresh(wallet)
 

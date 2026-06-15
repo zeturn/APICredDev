@@ -1,8 +1,9 @@
 import axios from "axios";
-import { emitErrorToast } from "../ui/toastBus";
-import { beginLoading, endLoading, resetLoading } from "../ui/loadingBus";
+import { emitErrorToast } from "../ui/toastBus.ts";
+import { beginLoading, endLoading, resetLoading } from "../ui/loadingBus.ts";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
 const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,

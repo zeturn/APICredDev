@@ -9,6 +9,9 @@ export type ToastPayload = {
 const TOAST_EVENT = "apicred:toast";
 
 export const emitToast = (kind: ToastKind, message: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
   const detail: ToastPayload = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind,

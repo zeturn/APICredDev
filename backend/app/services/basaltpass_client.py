@@ -23,7 +23,7 @@ class BasaltPassClient:
         timeout_seconds: float | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.base_url = (base_url or settings.basalt_base_url).rstrip("/")
+        self.base_url = (base_url or settings.basalt_internal_base_url).rstrip("/")
         self.service_token = service_token if service_token is not None else settings.basalt_service_token
         self.timeout_seconds = timeout_seconds if timeout_seconds is not None else settings.basalt_timeout_seconds
         self.max_retries = max_retries if max_retries is not None else settings.basalt_max_retries

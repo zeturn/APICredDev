@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
 
 const adminApi = axios.create({
   baseURL: apiBaseUrl,
@@ -11,7 +12,7 @@ let pendingAdminToken: Promise<string | null> | null = null;
 let adminAccessToken: string | null = null;
 let adminAccessTokenExpSeconds = 0;
 
-const decodeJwtExp = (token: string): number => {
+export const decodeJwtExp = (token: string): number => {
   try {
     const payloadPart = token.split(".")[1] ?? "";
     if (!payloadPart) return 0;

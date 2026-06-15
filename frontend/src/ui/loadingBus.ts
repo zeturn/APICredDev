@@ -7,6 +7,9 @@ type LoadingDetail = {
 let pendingCount = 0;
 
 const dispatch = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
   window.dispatchEvent(new CustomEvent<LoadingDetail>(LOADING_EVENT, { detail: { pending: pendingCount } }));
 };
 
