@@ -9,7 +9,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from app.core import deps
-from app.core.deps import get_bearer_token, get_current_user, require_scopes, get_db
+from app.core.deps import CrossAppBearerToken, get_bearer_token, get_current_user, require_scopes, get_db
 from app.core.security import create_access_token, generate_api_token, hash_api_token
 from app.db.models.api_token import ApiToken
 from app.db.models.user import User
@@ -57,6 +57,65 @@ async def test_get_current_user_and_bearer_token_branches(db_session):
         await require_scopes(["billing"], found, request)
     with pytest.raises(Exception):
         await require_scopes(["billing"], found, None)
+
+
+@pytest.mark.asyncio
+async def test_get_bearer_token_accepts_basalt_cross_app_token(monkeypatch, db_session):
+    request = SimpleNamespace(state=SimpleNamespace(request_id=uuid4()))
+
+    class _FakeBasaltClient:
+        async def introspect_oauth_token(self, token):
+            assert token == "bp_xat_valid"
+            return {
+                "active": True,
+                "client_id": "apicred-client",
+                "aud": "apicred-client",
+                "sub": "basalt-sub-1",
+                "username": "cross-app@example.com",
+                "tenant_id": "tenant-1",
+                "scope": "llm,apicred.read",
+                "act": {"client_id": "araneae-client"},
+            }
+
+    monkeypatch.setattr(deps, "BasaltPassClient", lambda: _FakeBasaltClient())
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-client")
+    monkeypatch.setattr(settings, "basalt_oauth_client_secret", "apicred-secret")
+
+    token = await get_bearer_token(request, authorization="Bearer bp_xat_valid", db=db_session)
+
+    assert isinstance(token, CrossAppBearerToken)
+    assert token.id.startswith("basalt:xat:")
+    assert token.scopes == ["llm", "apicred.read"]
+    assert token.basalt_actor == {"client_id": "araneae-client"}
+
+    user = await db_session.get(User, token.user_id)
+    assert user.email == "cross-app@example.com"
+    assert user.basalt_user_id == "basalt-sub-1"
+    assert user.basalt_tenant_id == "tenant-1"
+    await require_scopes(["llm"], token, request)
+
+
+@pytest.mark.asyncio
+async def test_get_bearer_token_rejects_cross_app_token_for_other_client(monkeypatch, db_session):
+    request = SimpleNamespace(state=SimpleNamespace(request_id=uuid4()))
+
+    class _FakeBasaltClient:
+        async def introspect_oauth_token(self, token):
+            return {
+                "active": True,
+                "client_id": "other-client",
+                "aud": "other-client",
+                "sub": "basalt-sub-1",
+                "username": "cross-app@example.com",
+                "scope": "llm",
+            }
+
+    monkeypatch.setattr(deps, "BasaltPassClient", lambda: _FakeBasaltClient())
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-client")
+    monkeypatch.setattr(settings, "basalt_oauth_client_secret", "apicred-secret")
+
+    with pytest.raises(Exception):
+        await get_bearer_token(request, authorization="Bearer bp_xat_wrong_aud", db=db_session)
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, List
 from uuid import UUID
 
@@ -14,6 +15,20 @@ from app.db.models.api_token import ApiToken
 from app.core.security import hash_api_token
 from app.core.time import utc_now
 from app.services.basaltpass_client import BasaltPassClient
+from app.services.auth_service import get_or_create_oauth_user
+
+
+@dataclass
+class CrossAppBearerToken:
+    id: str
+    user_id: str
+    name: str
+    scopes: list[str]
+    status: str = "active"
+    last_used_at: Any = None
+    basalt_client_id: str | None = None
+    basalt_tenant_id: str | None = None
+    basalt_actor: Any = None
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -77,10 +92,13 @@ async def get_bearer_token(
     request: Request,
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
-) -> ApiToken:
+) -> ApiToken | CrossAppBearerToken:
     if not authorization or not authorization.startswith("Bearer "):
         raise AppError("token_missing", "missing api token", request.state.request_id, 401)
     raw = authorization.split(" ", 1)[1]
+    if raw.startswith("bp_xat_"):
+        return await _get_cross_app_bearer_token(request, raw, db)
+
     token_hash = hash_api_token(raw)
     result = await db.execute(select(ApiToken).where(ApiToken.token_hash == token_hash))
     token = result.scalar_one_or_none()
@@ -91,7 +109,69 @@ async def get_bearer_token(
     return token
 
 
-async def require_scopes(required: List[str], token: ApiToken, request: Request | None = None) -> None:
+def _split_scope_string(scope: Any) -> list[str]:
+    if not isinstance(scope, str):
+        return []
+    return [part for part in scope.replace(",", " ").split() if part]
+
+
+def _extract_introspection_email(payload: dict[str, Any]) -> str | None:
+    for key in ("email", "username", "preferred_username"):
+        value = payload.get(key)
+        if isinstance(value, str) and "@" in value:
+            return value.strip().lower()
+    return None
+
+
+async def _get_cross_app_bearer_token(
+    request: Request,
+    raw: str,
+    db: AsyncSession,
+) -> CrossAppBearerToken:
+    client = BasaltPassClient()
+    try:
+        payload = await client.introspect_oauth_token(raw)
+    except ValueError:
+        raise AppError("cross_app_config_missing", "Basalt OAuth client credentials are not configured", request.state.request_id, 500)
+
+    if not isinstance(payload, dict) or payload.get("error"):
+        raise AppError("token_invalid", "invalid cross-app token", request.state.request_id, 401)
+    if payload.get("active") is not True:
+        raise AppError("token_invalid", "inactive cross-app token", request.state.request_id, 401)
+
+    client_id = str(payload.get("client_id") or "")
+    audience = str(payload.get("aud") or "")
+    expected_client_id = settings.basalt_oauth_client_id
+    if expected_client_id and expected_client_id not in {client_id, audience}:
+        raise AppError("token_invalid", "cross-app token is not issued for APICred", request.state.request_id, 403)
+
+    scopes = _split_scope_string(payload.get("scope"))
+    subject = str(payload.get("sub") or "").strip()
+    email = _extract_introspection_email(payload)
+    if not subject or not email:
+        raise AppError("token_invalid", "cross-app token is missing user identity", request.state.request_id, 401)
+
+    tenant_id = str(payload.get("tenant_id") or "").strip() or None
+    user = await get_or_create_oauth_user(
+        db,
+        email=email,
+        basalt_user_id=subject,
+        basalt_tenant_id=tenant_id,
+    )
+    token_id = f"basalt:xat:{hash_api_token(raw)[:32]}"
+    return CrossAppBearerToken(
+        id=token_id,
+        user_id=user.id,
+        name="BasaltPass Cross-App Trust",
+        scopes=scopes,
+        last_used_at=utc_now(),
+        basalt_client_id=client_id or None,
+        basalt_tenant_id=tenant_id,
+        basalt_actor=payload.get("act"),
+    )
+
+
+async def require_scopes(required: List[str], token: ApiToken | CrossAppBearerToken, request: Request | None = None) -> None:
     scopes = set(token.scopes or [])
     for scope in required:
         if scope not in scopes:
@@ -193,11 +273,13 @@ def token_permission(required_code: str):
 
     async def _dependency(
         request: Request,
-        token: ApiToken = Depends(get_bearer_token),
+        token: ApiToken | CrossAppBearerToken = Depends(get_bearer_token),
         db: AsyncSession = Depends(get_db),
         client: BasaltPassClient = Depends(BasaltPassClient),
     ) -> None:
         if not settings.basalt_rbac_enforce:
+            return
+        if isinstance(token, CrossAppBearerToken):
             return
 
         user = await db.get(User, token.user_id)

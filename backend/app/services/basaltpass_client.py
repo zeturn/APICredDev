@@ -163,6 +163,44 @@ class BasaltPassClient:
     async def s2s_get_me(self) -> Any:
         return await self._s2s_get("/api/v1/s2s/me")
 
+    async def introspect_oauth_token(self, token: str) -> Any:
+        if not settings.basalt_oauth_client_id or not settings.basalt_oauth_client_secret:
+            raise ValueError("Basalt OAuth client credentials are not configured")
+
+        # proxy() sends JSON bodies by default, while OAuth introspection requires
+        # form encoding. Keep the low-level call local to this OAuth-specific path.
+        url = f"{self.base_url}/api/v1/oauth/introspect"
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                    response = await client.post(
+                        url,
+                        data={"token": token},
+                        auth=(settings.basalt_oauth_client_id, settings.basalt_oauth_client_secret),
+                        headers={"Accept": "application/json"},
+                    )
+                if response.status_code in {429, 502, 503, 504} and attempt < self.max_retries:
+                    await asyncio.sleep(0.25 * (attempt + 1))
+                    continue
+                if response.status_code >= 400:
+                    return {
+                        "error": {
+                            "code": "oauth_introspection_failed",
+                            "message": f"upstream status {response.status_code}",
+                            "details": self._decode_response(response),
+                        }
+                    }
+                return self._decode_response(response)
+            except httpx.RequestError as exc:
+                if attempt >= self.max_retries:
+                    return {
+                        "error": {
+                            "code": "basalt_unreachable",
+                            "message": str(exc),
+                        }
+                    }
+                await asyncio.sleep(0.25 * (attempt + 1))
+
     async def s2s_get_user_wallet(
         self,
         user_id: str,

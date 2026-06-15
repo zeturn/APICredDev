@@ -46,6 +46,22 @@ class _CaptureAsyncClient:
         return self.response
 
 
+class _CapturePostAsyncClient:
+    def __init__(self, response):
+        self.response = response
+        self.last_post = {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def post(self, url, **kwargs):
+        self.last_post = {"url": url, **kwargs}
+        return self.response
+
+
 @pytest.mark.asyncio
 async def test_basalt_client_retries_on_503(monkeypatch):
     responses = [_DummyResponse(503, {"retry": True}), _DummyResponse(200, {"ok": True})]
@@ -149,4 +165,22 @@ async def test_basalt_client_s2s_wallet_requires_credentials():
     client.s2s_client_secret = ""
     with pytest.raises(ValueError):
         await client.s2s_get_user_wallet("u-1", currency="CNY")
+
+
+@pytest.mark.asyncio
+async def test_basalt_client_introspects_oauth_token_with_basic_auth(monkeypatch):
+    from app.core.config import settings
+
+    capture = _CapturePostAsyncClient(_DummyResponse(200, {"active": True, "scope": "llm"}))
+    monkeypatch.setattr("app.services.basaltpass_client.httpx.AsyncClient", lambda *a, **k: capture)
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-client")
+    monkeypatch.setattr(settings, "basalt_oauth_client_secret", "apicred-secret")
+
+    client = BasaltPassClient(base_url="http://localhost:8080", max_retries=0)
+    payload = await client.introspect_oauth_token("bp_xat_token")
+
+    assert payload["active"] is True
+    assert capture.last_post["url"] == "http://localhost:8080/api/v1/oauth/introspect"
+    assert capture.last_post["data"] == {"token": "bp_xat_token"}
+    assert capture.last_post["auth"] == ("apicred-client", "apicred-secret")
 
