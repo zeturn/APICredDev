@@ -11,14 +11,14 @@
 编辑 `backend/.env`，至少确认以下字段：
 
 ```env
-BASALT_BASE_URL=http://localhost:8080
-BASALT_OAUTH_CLIENT_ID=...
-BASALT_OAUTH_CLIENT_SECRET=...
-BASALT_OAUTH_SCOPES=openid profile email
-BASALT_OAUTH_AUDIENCE=
+BASALTPASS_BASE_URL=http://localhost:8080
+BASALTPASS_CLIENT_ID=...
+BASALTPASS_CLIENT_SECRET=...
+BASALTPASS_SCOPES=openid profile email
+BASALTPASS_AUDIENCE=
 
-BASALT_S2S_CLIENT_ID=...
-BASALT_S2S_CLIENT_SECRET=...
+BASALTPASS_S2S_CLIENT_ID=...
+BASALTPASS_S2S_CLIENT_SECRET=...
 
 APICRED_PUBLIC_BASE_URL=http://localhost:8002
 FRONTEND_BASE_URL=http://localhost:5179
@@ -27,7 +27,7 @@ DEBUG_ENDPOINTS_ENABLED=true
 
 注意：
 
-- `BASALT_S2S_CLIENT_ID/SECRET` 需要在 BasaltPass 侧具备 `s2s.rbac.read`、`s2s.wallet.read` 等 scope。
+- `BASALTPASS_S2S_CLIENT_ID/SECRET` 需要在 BasaltPass 侧具备 `s2s.rbac.read`、`s2s.wallet.read` 等 scope。
 - 如果 OAuth Client 与 S2S Client 不是同一个，分别填写对应凭证。
 
 ## 2. 启动服务
@@ -39,7 +39,7 @@ cd backend
 PYTHONPATH=. uvicorn app.main:app --reload --port 8002
 ```
 
-确保 BasaltPass 已运行在 `BASALT_BASE_URL` 对应地址。
+确保 BasaltPass 已运行在 `BASALTPASS_BASE_URL` 对应地址。
 
 ## 3. 走 OAuth 登录
 
@@ -91,7 +91,7 @@ curl -sS "http://localhost:8002/v1/basalt/debug/context" \
 ## 5. 常见报错
 
 - `basalt_identity_missing`：当前 APICred 用户未绑定 Basalt 身份（OAuth 回调没拿到 `sub` 或未成功写入用户）。
-- `s2s_config_missing`：未配置 `BASALT_S2S_CLIENT_ID/SECRET`。
+- `s2s_config_missing`：未配置 `BASALTPASS_S2S_CLIENT_ID/SECRET`。
 - `s2s_request_failed`：S2S 凭证无效、scope 不足或 BasaltPass 上游返回错误。
 
 ## 6. 快速自检命令

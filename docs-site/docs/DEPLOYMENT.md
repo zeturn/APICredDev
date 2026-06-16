@@ -20,7 +20,7 @@ APICred 后端直接对接 BasaltPass 的 OAuth2/OIDC 与 S2S 能力。
 - 回调地址:
   - `https://api.example.com/v1/auth/basalt/callback`
   - 兼容旧路由: `https://api.example.com/v1/auth/basalt/oauth/<provider>/callback`
-- OAuth 端点由 `BASALT_BASE_URL` 推导:
+- OAuth 端点由 `BASALTPASS_BASE_URL` 推导:
   - `/api/v1/oauth/authorize`
   - `/api/v1/oauth/token`
   - `/api/v1/oauth/userinfo`
@@ -55,15 +55,15 @@ APP_SECRET=<long-random-secret>
 TOKEN_SALT=<long-random-secret>
 ADMIN_TOKEN=<admin-token>
 
-BASALT_BASE_URL=https://auth.example.com
-BASALT_OAUTH_CLIENT_ID=<oauth-client-id>
-BASALT_OAUTH_CLIENT_SECRET=<oauth-client-secret>
-BASALT_OAUTH_SCOPES=openid profile email
-BASALT_OAUTH_AUDIENCE=
-BASALT_S2S_CLIENT_ID=<s2s-client-id>
-BASALT_S2S_CLIENT_SECRET=<s2s-client-secret>
-BASALT_TIMEOUT_SECONDS=15
-BASALT_MAX_RETRIES=2
+BASALTPASS_BASE_URL=https://auth.example.com
+BASALTPASS_CLIENT_ID=<oauth-client-id>
+BASALTPASS_CLIENT_SECRET=<oauth-client-secret>
+BASALTPASS_SCOPES=openid profile email
+BASALTPASS_AUDIENCE=
+BASALTPASS_S2S_CLIENT_ID=<s2s-client-id>
+BASALTPASS_S2S_CLIENT_SECRET=<s2s-client-secret>
+BASALTPASS_TIMEOUT_SECONDS=15
+BASALTPASS_MAX_RETRIES=2
 
 APICRED_PUBLIC_BASE_URL=https://api.example.com
 FRONTEND_BASE_URL=https://app.example.com
@@ -73,7 +73,7 @@ FRONTEND_BASE_URL=https://app.example.com
 
 ```env
 VITE_API_BASE_URL=https://api.example.com/v1
-VITE_BASALT_OAUTH_PROVIDER=google
+VITE_BASALTPASS_PROVIDER=google
 ```
 
 ## 5. GHCR 自动部署建议
@@ -99,10 +99,10 @@ docker compose up -d --remove-orphans
 - `DEPLOY_SSH_PRIVATE_KEY`
 - `DEPLOY_GHCR_USERNAME`
 - `DEPLOY_GHCR_TOKEN`
-- `BASALT_OAUTH_CLIENT_ID`
-- `BASALT_OAUTH_CLIENT_SECRET`
-- `BASALT_S2S_CLIENT_ID`
-- `BASALT_S2S_CLIENT_SECRET`
+- `BASALTPASS_CLIENT_ID`
+- `BASALTPASS_CLIENT_SECRET`
+- `BASALTPASS_S2S_CLIENT_ID`
+- `BASALTPASS_S2S_CLIENT_SECRET`
 - `APP_SECRET`
 - `TOKEN_SALT`
 - `ADMIN_TOKEN`
@@ -123,7 +123,7 @@ docker compose up -d --remove-orphans
 
 ## 7. 验收清单
 
-- `BASALT_BASE_URL` 指向线上 BasaltPass
+- `BASALTPASS_BASE_URL` 指向线上 BasaltPass
 - `APICRED_PUBLIC_BASE_URL` 与 BasaltPass 配置的回调地址一致
 - OAuth 登录能成功跳转并回调
 - S2S 调用权限/钱包接口成功

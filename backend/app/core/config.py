@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,23 +35,26 @@ class Settings(BaseSettings):
     startup_schema_compat_enabled: bool = False
     startup_bootstrap_enabled: bool = False
 
-    basalt_base_url: str = "http://localhost:8101"
-    basalt_internal_base_url: str = "http://localhost:8101"
-    basalt_service_token: str = ""
-    basalt_oauth_client_id: str = ""
-    basalt_oauth_client_secret: str = ""
-    basalt_oauth_scopes: str = "openid profile email"
-    basalt_oauth_audience: str = ""
-    basalt_s2s_client_id: str = ""
-    basalt_s2s_client_secret: str = ""
+    basalt_base_url: str = Field("http://localhost:8101", validation_alias=AliasChoices("BASALTPASS_BASE_URL", "BASALT_BASE_URL"))
+    basalt_internal_base_url: str = Field(
+        "http://localhost:8101",
+        validation_alias=AliasChoices("BASALTPASS_INTERNAL_BASE_URL", "BASALT_INTERNAL_BASE_URL"),
+    )
+    basalt_service_token: str = Field("", validation_alias=AliasChoices("BASALTPASS_SERVICE_TOKEN", "BASALT_SERVICE_TOKEN"))
+    basalt_oauth_client_id: str = Field("", validation_alias=AliasChoices("BASALTPASS_CLIENT_ID", "BASALT_OAUTH_CLIENT_ID"))
+    basalt_oauth_client_secret: str = Field("", validation_alias=AliasChoices("BASALTPASS_CLIENT_SECRET", "BASALT_OAUTH_CLIENT_SECRET"))
+    basalt_oauth_scopes: str = Field("openid profile email", validation_alias=AliasChoices("BASALTPASS_SCOPES", "BASALT_OAUTH_SCOPES"))
+    basalt_oauth_audience: str = Field("", validation_alias=AliasChoices("BASALTPASS_AUDIENCE", "BASALT_OAUTH_AUDIENCE"))
+    basalt_s2s_client_id: str = Field("", validation_alias=AliasChoices("BASALTPASS_S2S_CLIENT_ID", "BASALT_S2S_CLIENT_ID"))
+    basalt_s2s_client_secret: str = Field("", validation_alias=AliasChoices("BASALTPASS_S2S_CLIENT_SECRET", "BASALT_S2S_CLIENT_SECRET"))
     basalt_credit_currency: str = "CREDIT"
     basalt_credit_scale: int = 1000000
     basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin"
     basalt_rbac_enforce: bool = True
     basalt_rbac_strict_user_binding: bool = True
     basalt_default_tenant_id: str = ""
-    basalt_timeout_seconds: float = 15.0
-    basalt_max_retries: int = 2
+    basalt_timeout_seconds: float = Field(15.0, validation_alias=AliasChoices("BASALTPASS_TIMEOUT_SECONDS", "BASALT_TIMEOUT_SECONDS"))
+    basalt_max_retries: int = Field(2, validation_alias=AliasChoices("BASALTPASS_MAX_RETRIES", "BASALT_MAX_RETRIES"))
     apicred_public_base_url: str = "http://localhost:8103"
     frontend_base_url: str = "http://localhost:5106"
     cors_origins: list[str] = ["http://localhost:5106", "http://127.0.0.1:5106"]

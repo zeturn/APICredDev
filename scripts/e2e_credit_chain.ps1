@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 $base = 'http://127.0.0.1:8103'
 $email = "e2e_$(Get-Date -Format 'yyyyMMddHHmmss')@example.com"
 $pwd = 'E2ePass!123456'
-$basaltUserId = if ($env:E2E_BASALT_USER_ID) { $env:E2E_BASALT_USER_ID } else { '2' }
-$basaltTenantId = if ($env:E2E_BASALT_TENANT_ID) { $env:E2E_BASALT_TENANT_ID } else { '4' }
+$basaltUserId = if ($env:E2E_BASALTPASS_USER_ID) { $env:E2E_BASALTPASS_USER_ID } elseif ($env:E2E_BASALT_USER_ID) { $env:E2E_BASALT_USER_ID } else { '2' }
+$basaltTenantId = if ($env:E2E_BASALTPASS_TENANT_ID) { $env:E2E_BASALTPASS_TENANT_ID } elseif ($env:E2E_BASALT_TENANT_ID) { $env:E2E_BASALT_TENANT_ID } else { '4' }
 
 Write-Host "[1] register/login user: $email"
 try {

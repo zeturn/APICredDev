@@ -17,7 +17,7 @@
       "mode": "app_rbac",
       "basalt_target": {
         "app_id": null,
-        "tenant_id_env": "BASALT_TENANT_ID"
+        "tenant_id_env": "BASALTPASS_TENANT_ID"
       },
       "permissions": [
         {

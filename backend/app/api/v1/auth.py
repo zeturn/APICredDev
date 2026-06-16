@@ -186,7 +186,7 @@ def _build_callback_url(provider: str | None = None) -> str:
 
 def _build_authorize_url(redirect_uri: str, state: str, challenge: str, nonce: str) -> str:
     if not settings.basalt_oauth_client_id:
-        raise ValueError('missing BASALT_OAUTH_CLIENT_ID')
+        raise ValueError('missing BASALTPASS_CLIENT_ID')
     params: dict[str, str] = {
         'response_type': 'code',
         'client_id': settings.basalt_oauth_client_id,
