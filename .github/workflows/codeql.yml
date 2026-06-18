@@ -1,0 +1,118 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, master, deploy]
+  pull_request:
+    branches: [main, master, deploy]
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  detect-languages:
+    name: Detect languages
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.detect.outputs.go }}
+      python: ${{ steps.detect.outputs.python }}
+      javascript-typescript: ${{ steps.detect.outputs.javascript-typescript }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Detect repository languages
+        id: detect
+        shell: bash
+        run: |
+          if find . -type f -name '*.go' -not -path './.git/*' | grep -q .; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if find . -type f -name '*.py' -not -path './.git/*' | grep -q .; then
+            echo "python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "python=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -not -path './.git/*' | grep -q .; then
+            echo "javascript-typescript=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "javascript-typescript=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  analyze-actions:
+    name: Analyze GitHub Actions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  analyze-go:
+    name: Analyze Go
+    needs: detect-languages
+    if: needs.detect-languages.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  analyze-python:
+    name: Analyze Python
+    needs: detect-languages
+    if: needs.detect-languages.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  analyze-javascript-typescript:
+    name: Analyze JavaScript/TypeScript
+    needs: detect-languages
+    if: needs.detect-languages.outputs.javascript-typescript == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
