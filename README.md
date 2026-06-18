@@ -135,6 +135,24 @@ pytest -q
 - 关闭 `STARTUP_SCHEMA_COMPAT_ENABLED` 和 `STARTUP_BOOTSTRAP_ENABLED`
 - 保持 `DEBUG_ENDPOINTS_ENABLED=false`
 
+## Security and Quality
+
+- CodeQL is configured to scan GitHub Actions, Go, Python, and JavaScript/TypeScript when those languages are present.
+- Keep secrets out of the repository. Use `.env` files locally and GitHub Actions secrets in CI.
+- Report vulnerabilities privately through the process in `SECURITY.md`.
+
+## Contributing
+
+Please read `CONTRIBUTING.md` before opening issues or pull requests. Contributions should include a clear description, relevant tests or manual verification, and updates to documentation when behavior changes.
+
+## Code of Conduct
+
+This project follows the community expectations in `CODE_OF_CONDUCT.md`.
+
+## License
+
+This project is licensed under the ISC License. See `LICENSE` for details.
+
 ---
 
 如需 BasaltPass 联调，请先启动 BasaltPass 并配置 `BASALT_BASE_URL`。
