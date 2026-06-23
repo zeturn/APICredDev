@@ -196,11 +196,28 @@ async def chat_completions(
                 return response
             except httpx.HTTPStatusError as exc:
                 info = adapter.normalize_error(exc)
+                logger.warning(
+                    "llm_upstream_http_error request_id=%s provider=%s provider_key_id=%s code=%s status=%s retryable=%s",
+                    request_id,
+                    candidate.provider_key.provider,
+                    candidate.provider_key.id,
+                    info.get("code"),
+                    exc.response.status_code,
+                    info.get("retryable"),
+                )
                 await _apply_cooldown(db, candidate.provider_key, info)
                 if not info.get("retryable"):
                     break
             except Exception as exc:
                 info = adapter.normalize_error(exc)
+                logger.exception(
+                    "llm_upstream_error request_id=%s provider=%s provider_key_id=%s code=%s retryable=%s",
+                    request_id,
+                    candidate.provider_key.provider,
+                    candidate.provider_key.id,
+                    info.get("code"),
+                    info.get("retryable"),
+                )
                 await _apply_cooldown(db, candidate.provider_key, info)
         await settle_usage(db, usage_session, 0, {"error": "upstream_failed"})
         raise AppError("upstream_failed", "upstream error", request_id, 502)

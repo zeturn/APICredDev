@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 from typing import Any, Dict, Tuple
 
@@ -7,17 +8,51 @@ import httpx
 from app.services.providers.base import ProviderAdapter, ProviderStreamResult
 
 
+logger = logging.getLogger("apicred.providers.openai_compat")
+
+
 class OpenAICompatAdapter(ProviderAdapter):
     name = "openai_compat"
 
+    def _prepare_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        request_payload = dict(payload)
+        model = str(request_payload.get("model") or "")
+        model_family = model.lower()
+
+        # Newer OpenAI reasoning/chat models reject the legacy chat-completions
+        # max_tokens field and only accept max_completion_tokens.
+        if (
+            "max_tokens" in request_payload
+            and "max_completion_tokens" not in request_payload
+            and (
+                model_family.startswith("gpt-5")
+                or model_family.startswith("o1")
+                or model_family.startswith("o2")
+                or model_family.startswith("o3")
+                or model_family.startswith("o4")
+            )
+        ):
+            request_payload["max_completion_tokens"] = request_payload.pop("max_tokens")
+
+        # Some OpenAI models only support the default sampling temperature. The
+        # field is optional in APICred's OpenAI-compatible schema, so omit it
+        # for model families known to reject non-default temperature values.
+        if model_family.startswith("gpt-5") and "temperature" in request_payload:
+            request_payload.pop("temperature", None)
+
+        return request_payload
+
     async def chat_completions(self, payload: Dict[str, Any], api_key: str, base_url: str) -> Tuple[Dict[str, Any], Dict[str, int]]:
         url = base_url.rstrip("/") + "/v1/chat/completions"
+        request_payload = self._prepare_payload(payload)
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 url,
-                json=payload,
+                json=request_payload,
                 headers={"Authorization": f"Bearer {api_key}"},
             )
+            if resp.is_error:
+                logger.warning("openai_compat_error status=%s body=%s", resp.status_code, resp.text[:2000])
             resp.raise_for_status()
             data = resp.json()
             usage = data.get("usage") or {}
@@ -30,7 +65,7 @@ class OpenAICompatAdapter(ProviderAdapter):
 
     async def stream_chat_completions(self, payload: Dict[str, Any], api_key: str, base_url: str) -> ProviderStreamResult:
         url = base_url.rstrip("/") + "/v1/chat/completions"
-        stream_payload = dict(payload)
+        stream_payload = self._prepare_payload(payload)
         stream_payload["stream"] = True
         stream_options = dict(stream_payload.get("stream_options") or {})
         stream_options["include_usage"] = True
@@ -45,6 +80,9 @@ class OpenAICompatAdapter(ProviderAdapter):
         )
         response = await stream_ctx.__aenter__()
         try:
+            if response.is_error:
+                body = await response.aread()
+                logger.warning("openai_compat_stream_error status=%s body=%s", response.status_code, body[:2000].decode(errors="replace"))
             response.raise_for_status()
         except Exception:
             await stream_ctx.__aexit__(*sys.exc_info())
@@ -121,5 +159,7 @@ class OpenAICompatAdapter(ProviderAdapter):
                 return {"code": "rate_limited", "retryable": True, "cooldown_seconds": 60}
             if status >= 500:
                 return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 15}
-        return {"code": "network_error", "retryable": True, "cooldown_seconds": 15}
+            if 400 <= status < 500:
+                return {"code": "request_error", "retryable": False, "cooldown_seconds": 0}
+        return {"code": "network_error", "retryable": True, "cooldown_seconds": 0}
 

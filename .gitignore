@@ -17,6 +17,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+.apicred_*.local
 backend/.env
 backend/.env.*
 frontend/.env
