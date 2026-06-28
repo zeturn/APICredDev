@@ -14,10 +14,12 @@ from app.core.secrets import decrypt_secret, encrypt_secret
 from app.core.time import format_bucket
 from app.db.models.model import Model
 from app.db.models.model_provider_key import ModelProviderKey
+from app.db.models.provider import Provider
 from app.db.models.provider_key import ProviderKey
 from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.schemas.common import ErrorInfo, ErrorResponse
+from app.api.v1.llm import _resolve_base_url
 from app.services import admin_service, token_service, usage_service
 from app.services.bootstrap import ensure_admin_user, ensure_default_brands, ensure_default_models, ensure_default_providers, ensure_default_provider_keys
 from app.services.providers.anthropic import AnthropicAdapter
@@ -95,6 +97,29 @@ async def test_provider_base_and_stub_and_usage_cost():
     assert usage_service.calculate_cost(model_segments, total_tokens=3000, prompt_tokens=2000, completion_tokens=1000) == 0.02
     assert usage_service.calculate_cost(model_segments, total_tokens=3000, prompt_tokens=2000, completion_tokens=1000, cached_input_tokens=1000) == 0.01775
     assert usage_service.calculate_cost(model_tiered, total_tokens=201000, prompt_tokens=201000, completion_tokens=1000) == pytest.approx(0.822)
+
+
+@pytest.mark.asyncio
+async def test_quota_empty_rules_allow_without_redis():
+    class FailingRedis:
+        async def eval(self, *args, **kwargs):
+            raise AssertionError("redis should not be touched for empty quota rules")
+
+    assert await try_reserve(FailingRedis(), "provider-key", "model", 1, {}) is True
+
+
+@pytest.mark.asyncio
+async def test_llm_base_url_ignores_provider_key_display_name(db_session):
+    provider = Provider(name="OpenAI", slug="openai", default_base_url="https://api.openai.com", enabled=True)
+    db_session.add(provider)
+    await db_session.commit()
+    await db_session.refresh(provider)
+    candidate = SimpleNamespace(
+        mpk=SimpleNamespace(base_url=None),
+        provider_key=SimpleNamespace(provider_id=provider.id, provider="openai", key_name="OpenAI free daily shared traffic"),
+    )
+
+    assert await _resolve_base_url(db_session, candidate) == "https://api.openai.com"
 
 
 @pytest.mark.asyncio

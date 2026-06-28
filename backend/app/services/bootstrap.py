@@ -10,8 +10,10 @@ from app.db.models.brand import Brand
 from app.db.models.model import Model
 from app.db.models.provider import Provider
 from app.db.models.provider_key import ProviderKey
+from app.db.models.model_provider_key import ModelProviderKey
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
+from app.core.secrets import encrypt_secret
 
 
 logger = logging.getLogger(__name__)
@@ -75,6 +77,10 @@ DEFAULT_MODELS = [
     {"name": "claude-haiku-4.5", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 1, "cached_input_per_million": 0.1, "output_per_million": 5, "cache_write_5m_per_million": 1.25, "cache_write_1h_per_million": 2}},
     {"name": "claude-haiku-3.5", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.8, "cached_input_per_million": 0.08, "output_per_million": 4}},
 ]
+
+
+def configured_openai_bootstrap_models() -> list[str]:
+    return [item.strip() for item in (settings.bootstrap_openai_models or "").split(",") if item.strip()]
 
 
 async def ensure_admin_user(db: AsyncSession) -> None:
@@ -181,3 +187,115 @@ async def ensure_default_models(db: AsyncSession) -> None:
     await db.commit()
     if created:
         logger.info("Default models created: %s", created)
+
+
+async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey | None:
+    api_key = (settings.bootstrap_openai_api_key or "").strip()
+    if not api_key:
+        return None
+
+    await ensure_default_brands(db)
+    await ensure_default_providers(db)
+    await ensure_default_models(db)
+
+    provider = (await db.execute(select(Provider).where(Provider.slug == "openai"))).scalar_one_or_none()
+    if not provider:
+        provider = Provider(
+            name="OpenAI",
+            slug="openai",
+            default_base_url=settings.bootstrap_openai_base_url,
+            icon_slug="openai",
+            icon_url="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg",
+            enabled=True,
+        )
+        db.add(provider)
+        await db.commit()
+        await db.refresh(provider)
+
+    key_name = (settings.bootstrap_openai_key_name or "OpenAI bootstrap key").strip()
+    result = await db.execute(select(ProviderKey).where(ProviderKey.provider == "openai").where(ProviderKey.key_name == key_name))
+    provider_key = result.scalar_one_or_none()
+    secret_last4 = api_key[-4:]
+    if not provider_key:
+        provider_key = ProviderKey(
+            provider_id=provider.id,
+            provider="openai",
+            key_name=key_name,
+            secret_encrypted=encrypt_secret(api_key),
+            secret_last4=secret_last4,
+            enabled=True,
+            health_state="healthy",
+        )
+        db.add(provider_key)
+    else:
+        provider_key.provider_id = provider.id
+        provider_key.secret_encrypted = encrypt_secret(api_key)
+        provider_key.secret_last4 = secret_last4
+        provider_key.enabled = True
+        provider_key.health_state = "healthy"
+        provider_key.cooldown_until = None
+    await db.commit()
+    await db.refresh(provider_key)
+
+    await ensure_openai_models_and_links(db, provider_key)
+    logger.info("OpenAI bootstrap provider key configured: key_name=%s last4=%s", key_name, secret_last4)
+    return provider_key
+
+
+async def ensure_openai_models_and_links(db: AsyncSession, provider_key: ProviderKey) -> None:
+    brand = (await db.execute(select(Brand).where(Brand.slug == "openai"))).scalar_one_or_none()
+    if not brand:
+        brand = Brand(
+            name="OpenAI",
+            slug="openai",
+            icon_slug="openai",
+            icon_url="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg",
+            enabled=True,
+        )
+        db.add(brand)
+        await db.commit()
+        await db.refresh(brand)
+
+    for model_name in configured_openai_bootstrap_models():
+        model = (await db.execute(select(Model).where(Model.name == model_name))).scalar_one_or_none()
+        if not model:
+            model = Model(
+                name=model_name,
+                brand_id=brand.id,
+                category="llm",
+                enabled=True,
+                multiplier=1,
+                pricing={"mode": "free", "source": "openai_free_daily_shared_traffic"},
+            )
+            db.add(model)
+            await db.commit()
+            await db.refresh(model)
+        else:
+            model.brand_id = model.brand_id or brand.id
+            model.enabled = True
+
+        link = (
+            await db.execute(
+                select(ModelProviderKey)
+                .where(ModelProviderKey.model_id == model.id)
+                .where(ModelProviderKey.provider_key_id == provider_key.id)
+            )
+        ).scalar_one_or_none()
+        if not link:
+            db.add(
+                ModelProviderKey(
+                    model_id=model.id,
+                    provider_key_id=provider_key.id,
+                    enabled=True,
+                    priority=1,
+                    weight=1,
+                    quota_unit="tokens",
+                    quota_rules={},
+                )
+            )
+        else:
+            link.enabled = True
+            link.priority = 1
+            link.weight = max(link.weight or 1, 1)
+            link.quota_unit = link.quota_unit or "tokens"
+    await db.commit()

@@ -7,12 +7,16 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.deps import get_current_user, get_db, permission
+from app.core.deps import _get_cross_app_bearer_token, get_current_user, get_db, permission
 from app.core.errors import AppError
-from app.core.security import create_access_token
+from app.core.security import create_access_token, hash_api_token
+from app.core.time import utc_now
+from app.db.models.api_token import ApiToken
 from app.schemas.auth import AdminTokenResponse, LoginRequest, LoginResponse, MeResponse, RegisterRequest
 from app.services.auth_service import get_or_create_oauth_user, login_user, register_user
 from app.services.admin_access import issue_admin_access_token
@@ -20,12 +24,21 @@ from app.services.basaltpass_client import BasaltPassClient
 
 
 router = APIRouter(prefix='/auth', tags=['auth'])
+runtime_auth_router = APIRouter(prefix='/runtime/auth', tags=['runtime-auth'])
 OAUTH_STATE_COOKIE = 'apicred_basalt_oauth_state'
 OAUTH_VERIFIER_COOKIE = 'apicred_basalt_oauth_verifier'
 OAUTH_NONCE_COOKIE = 'apicred_basalt_oauth_nonce'
 OAUTH_NEXT_COOKIE = 'apicred_basalt_oauth_next'
 OAUTH_COOKIE_PATH = '/v1/auth/basalt'
 OAUTH_COOKIE_MAX_AGE = 600
+
+
+class RuntimeAuthVerifyRequest(BaseModel):
+    purpose: str | None = None
+    access_token: str | None = None
+    authorization: str | None = None
+    forwarded_user_id: str | None = None
+    forwarded_tenant: str | None = None
 
 
 def get_basalt_client() -> BasaltPassClient:
@@ -81,6 +94,57 @@ def _assert_local_auth_allowed(request: Request) -> None:
     if _allow_local_auth(request):
         return
     raise AppError('local_auth_disabled', 'local login/register is disabled; use BasaltPass SSO', request.state.request_id, 403)
+
+
+def _extract_bearer_token(value: str | None) -> str | None:
+    if not value:
+        return None
+    scheme, _, token = value.partition(" ")
+    if scheme.lower() == "bearer" and token:
+        return token.strip()
+    return value.strip()
+
+
+@runtime_auth_router.post('/verify')
+async def runtime_auth_verify(
+    payload: RuntimeAuthVerifyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    raw = _extract_bearer_token(payload.access_token) or _extract_bearer_token(payload.authorization)
+    if not raw:
+        return {"allowed": False, "active": False, "reason": "token_missing"}
+
+    if raw.startswith("bp_xat_"):
+        try:
+            token = await _get_cross_app_bearer_token(request, raw, db)
+        except AppError as exc:
+            return {"allowed": False, "active": False, "reason": exc.code}
+        return {
+            "allowed": True,
+            "active": True,
+            "user_id": token.user_id,
+            "tenant": token.basalt_tenant_id,
+            "tenant_id": token.basalt_tenant_id,
+            "scopes": token.scopes,
+            "auth_source": "basalt_cross_app",
+            "client_id": token.basalt_client_id,
+        }
+
+    token_hash = hash_api_token(raw)
+    result = await db.execute(select(ApiToken).where(ApiToken.token_hash == token_hash))
+    token = result.scalar_one_or_none()
+    if not token or token.status != "active":
+        return {"allowed": False, "active": False, "reason": "token_invalid"}
+    token.last_used_at = utc_now()
+    await db.commit()
+    return {
+        "allowed": True,
+        "active": True,
+        "user_id": token.user_id,
+        "scopes": token.scopes or [],
+        "auth_source": "apicred_token",
+    }
 
 
 @router.post('/register', response_model=MeResponse)

@@ -89,6 +89,23 @@ npm run dev
 
 加密实现使用标准 AEAD（`Fernet`），并保留历史密文格式的解密兼容。
 
+### OpenAI Provider Bootstrap
+
+APICred 可以在启动 bootstrap 时从环境变量导入一个 OpenAI provider key。密钥会先加密再存入数据库，不应写入仓库文件。
+
+必需变量：
+
+- `STARTUP_BOOTSTRAP_ENABLED=true`
+- `APICRED_OPENAI_API_KEY=<your OpenAI key>`
+
+可选变量：
+
+- `BOOTSTRAP_OPENAI_KEY_NAME`：provider key 名称，默认 `OpenAI free daily shared traffic`
+- `BOOTSTRAP_OPENAI_BASE_URL`：上游 base URL，默认 `https://api.openai.com`
+- `BOOTSTRAP_OPENAI_MODELS`：逗号分隔的模型列表，默认包含 OpenAI free daily shared-traffic 模型集合
+
+启动时会创建或更新 OpenAI provider key，创建缺失的 OpenAI 模型，并通过 `model_provider_keys` 把 key 绑定到这些模型。
+
 ## Persistence Mounts
 
 `docker-compose.yml` 当前已挂载：

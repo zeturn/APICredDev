@@ -65,7 +65,7 @@ async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
     if model_provider_base_url:
         return normalize_upstream_base_url(model_provider_base_url)
     provider_key_base_url = (candidate.provider_key.key_name or "").strip()
-    if provider_key_base_url:
+    if is_url_like_base_url(provider_key_base_url):
         return normalize_upstream_base_url(provider_key_base_url)
     provider = None
     provider_id = getattr(candidate.provider_key, "provider_id", None)
@@ -75,6 +75,11 @@ async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
     if provider_default_base_url:
         return normalize_upstream_base_url(provider_default_base_url)
     return normalize_upstream_base_url(get_provider_default_base_url(candidate.provider_key.provider))
+
+
+def is_url_like_base_url(value: str) -> bool:
+    lowered = value.strip().lower()
+    return lowered.startswith("http://") or lowered.startswith("https://")
 
 
 def _resolve_api_key(candidate) -> str:

@@ -19,6 +19,9 @@ async def try_reserve(
     delta: int,
     quota_rules: dict,
 ) -> bool:
+    if not quota_rules or all(quota_rules.get(unit) in (None, -1) for unit in ("minute", "hour", "day", "month")):
+        return True
+
     now = utc_now()
     keys = []
     limits = []

@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,15 @@ class Settings(BaseSettings):
     startup_create_tables_enabled: bool = False
     startup_schema_compat_enabled: bool = False
     startup_bootstrap_enabled: bool = False
+    bootstrap_openai_api_key: str = Field("", validation_alias=AliasChoices("APICRED_OPENAI_API_KEY", "BOOTSTRAP_OPENAI_API_KEY"))
+    bootstrap_openai_key_name: str = "OpenAI free daily shared traffic"
+    bootstrap_openai_base_url: str = "https://api.openai.com"
+    bootstrap_openai_models: str = (
+        "gpt-5.4,gpt-5.2,gpt-5.1,gpt-5.1-codex,gpt-5,gpt-5-codex,gpt-5-chat-latest,"
+        "gpt-4.1,gpt-4o,o1,o3,"
+        "gpt-5.4-mini,gpt-5.4-nano,gpt-5.1-codex-mini,gpt-5-mini,gpt-5-nano,"
+        "gpt-4.1-mini,gpt-4.1-nano,gpt-4o-mini,o1-mini,o3-mini,o4-mini,codex-mini-latest"
+    )
 
     basalt_base_url: str = "http://localhost:8101"
     basalt_internal_base_url: str = "http://localhost:8101"

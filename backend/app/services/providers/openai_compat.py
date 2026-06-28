@@ -11,6 +11,14 @@ from app.services.providers.base import ProviderAdapter, ProviderStreamResult
 logger = logging.getLogger("apicred.providers.openai_compat")
 
 
+def _response_is_error(response: Any) -> bool:
+    is_error = getattr(response, "is_error", None)
+    if is_error is not None:
+        return bool(is_error)
+    status_code = getattr(response, "status_code", 200)
+    return int(status_code) >= 400
+
+
 class OpenAICompatAdapter(ProviderAdapter):
     name = "openai_compat"
 
@@ -51,7 +59,7 @@ class OpenAICompatAdapter(ProviderAdapter):
                 json=request_payload,
                 headers={"Authorization": f"Bearer {api_key}"},
             )
-            if resp.is_error:
+            if _response_is_error(resp):
                 logger.warning("openai_compat_error status=%s body=%s", resp.status_code, resp.text[:2000])
             resp.raise_for_status()
             data = resp.json()
@@ -80,7 +88,7 @@ class OpenAICompatAdapter(ProviderAdapter):
         )
         response = await stream_ctx.__aenter__()
         try:
-            if response.is_error:
+            if _response_is_error(response):
                 body = await response.aread()
                 logger.warning("openai_compat_stream_error status=%s body=%s", response.status_code, body[:2000].decode(errors="replace"))
             response.raise_for_status()

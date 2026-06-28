@@ -22,7 +22,14 @@ from app.core.logging import configure_logging
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.db import models as _models  # noqa: F401
-from app.services.bootstrap import ensure_admin_user, ensure_default_brands, ensure_default_models, ensure_default_providers, ensure_default_provider_keys
+from app.services.bootstrap import (
+    ensure_admin_user,
+    ensure_bootstrap_openai_provider_key,
+    ensure_default_brands,
+    ensure_default_models,
+    ensure_default_providers,
+    ensure_default_provider_keys,
+)
 
 
 def _apply_compat_schema_updates(connection) -> None:
@@ -127,6 +134,7 @@ async def lifespan(_: FastAPI):
             await ensure_default_providers(db)
             await ensure_default_provider_keys(db)
             await ensure_default_models(db)
+            await ensure_bootstrap_openai_provider_key(db)
     yield
 
 
@@ -171,6 +179,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "service": "apicred"}
 
     app.include_router(auth.router, prefix="/v1")
+    app.include_router(auth.runtime_auth_router, prefix="/v1")
     app.include_router(tokens.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
     app.include_router(llm.router, prefix="/v1")
