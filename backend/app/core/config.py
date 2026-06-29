@@ -47,8 +47,8 @@ class Settings(BaseSettings):
     basalt_base_url: str = "http://localhost:8101"
     basalt_internal_base_url: str = "http://localhost:8101"
     basalt_service_token: str = ""
-    basalt_oauth_client_id: str = ""
-    basalt_oauth_client_secret: str = ""
+    basalt_oauth_client_id: str = Field("", validation_alias=AliasChoices("BASALT_OAUTH_CLIENT_ID", "APICRED_BASALTPASS_CLIENT_ID"))
+    basalt_oauth_client_secret: str = Field("", validation_alias=AliasChoices("BASALT_OAUTH_CLIENT_SECRET", "APICRED_BASALTPASS_CLIENT_SECRET"))
     basalt_oauth_scopes: str = "openid profile email"
     basalt_oauth_audience: str = ""
     basalt_s2s_client_id: str = ""
