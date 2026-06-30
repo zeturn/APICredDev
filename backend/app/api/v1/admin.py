@@ -13,6 +13,7 @@ from app.services.provider_endpoint_service import (
     list_provider_endpoints,
     upsert_provider_endpoint,
 )
+from app.services.provider_key_validation_service import validate_provider_key
 from app.services.admin_service import (
     get_admin_dashboard,
     list_brands,
@@ -24,7 +25,6 @@ from app.services.admin_service import (
     list_provider_keys,
     get_provider_key,
     upsert_provider_key,
-    validate_provider_key,
     list_model_provider_keys,
     list_model_provider_keys_by_provider_key,
     upsert_model_provider_key,
