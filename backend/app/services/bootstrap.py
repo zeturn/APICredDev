@@ -9,11 +9,13 @@ from app.core.security import hash_password
 from app.db.models.brand import Brand
 from app.db.models.model import Model
 from app.db.models.provider import Provider
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.provider_key import ProviderKey
 from app.db.models.model_provider_key import ModelProviderKey
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
 from app.core.secrets import encrypt_secret
+from app.core.url_safety import normalize_upstream_base_url
 
 
 logger = logging.getLogger(__name__)
@@ -144,18 +146,65 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         logger.info("Default providers created: %s", created)
 
 
+async def ensure_default_provider_endpoints(db: AsyncSession) -> None:
+    created = 0
+    providers = {provider.slug: provider for provider in (await db.execute(select(Provider))).scalars().all()}
+    for payload in DEFAULT_PROVIDERS:
+        provider = providers.get(payload["slug"])
+        if not provider:
+            continue
+        base_url = normalize_upstream_base_url(payload.get("default_base_url"))
+        result = await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == "default")
+        )
+        endpoint = result.scalar_one_or_none()
+        if endpoint:
+            endpoint.display_name = f"{provider.name} Default"
+            endpoint.base_url = base_url
+            endpoint.endpoint_type = "official"
+            endpoint.enabled = provider.enabled
+            continue
+        db.add(
+            ProviderEndpoint(
+                provider_id=provider.id,
+                slug="default",
+                display_name=f"{provider.name} Default",
+                base_url=base_url,
+                endpoint_type="official",
+                enabled=provider.enabled,
+                health_state="healthy",
+            )
+        )
+        created += 1
+    await db.commit()
+    if created:
+        logger.info("Default provider endpoints created: %s", created)
+
+
 async def ensure_default_provider_keys(db: AsyncSession) -> None:
+    await ensure_default_provider_endpoints(db)
     providers = {
         provider.slug: provider
         for provider in (await db.execute(select(Provider))).scalars().all()
     }
+    endpoints = {
+        endpoint.provider_id: endpoint
+        for endpoint in (await db.execute(select(ProviderEndpoint).where(ProviderEndpoint.slug == "default"))).scalars().all()
+    }
     existing_keys = (await db.execute(select(ProviderKey))).scalars().all()
     for provider_key in existing_keys:
-        if provider_key.provider_id:
-            continue
-        provider = providers.get(provider_key.provider)
-        if provider:
-            provider_key.provider_id = provider.id
+        if not provider_key.provider_id:
+            provider = providers.get(provider_key.provider)
+            if provider:
+                provider_key.provider_id = provider.id
+        if not provider_key.display_name:
+            provider_key.display_name = provider_key.key_name
+        if not provider_key.endpoint_id and provider_key.provider_id:
+            endpoint = endpoints.get(provider_key.provider_id)
+            if endpoint:
+                provider_key.endpoint_id = endpoint.id
 
     await db.commit()
 
@@ -196,6 +245,7 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
 
     await ensure_default_brands(db)
     await ensure_default_providers(db)
+    await ensure_default_provider_endpoints(db)
     await ensure_default_models(db)
 
     provider = (await db.execute(select(Provider).where(Provider.slug == "openai"))).scalar_one_or_none()
@@ -212,15 +262,42 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
         await db.commit()
         await db.refresh(provider)
 
-    key_name = (settings.bootstrap_openai_key_name or "OpenAI bootstrap key").strip()
-    result = await db.execute(select(ProviderKey).where(ProviderKey.provider == "openai").where(ProviderKey.key_name == key_name))
+    endpoint = (
+        await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == "bootstrap")
+        )
+    ).scalar_one_or_none()
+    if not endpoint:
+        endpoint = ProviderEndpoint(
+            provider_id=provider.id,
+            slug="bootstrap",
+            display_name="OpenAI Bootstrap Endpoint",
+            base_url=normalize_upstream_base_url(settings.bootstrap_openai_base_url),
+            endpoint_type="official",
+            enabled=True,
+            health_state="healthy",
+        )
+        db.add(endpoint)
+    else:
+        endpoint.base_url = normalize_upstream_base_url(settings.bootstrap_openai_base_url)
+        endpoint.enabled = True
+        endpoint.health_state = "healthy"
+    await db.commit()
+    await db.refresh(endpoint)
+
+    display_name = (settings.bootstrap_openai_key_name or "OpenAI bootstrap key").strip()
+    result = await db.execute(select(ProviderKey).where(ProviderKey.provider == "openai").where(ProviderKey.key_name == display_name))
     provider_key = result.scalar_one_or_none()
     secret_last4 = api_key[-4:]
     if not provider_key:
         provider_key = ProviderKey(
             provider_id=provider.id,
+            endpoint_id=endpoint.id,
             provider="openai",
-            key_name=key_name,
+            key_name=display_name,
+            display_name=display_name,
             secret_encrypted=encrypt_secret(api_key),
             secret_last4=secret_last4,
             enabled=True,
@@ -229,6 +306,8 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
         db.add(provider_key)
     else:
         provider_key.provider_id = provider.id
+        provider_key.endpoint_id = endpoint.id
+        provider_key.display_name = provider_key.display_name or display_name
         provider_key.secret_encrypted = encrypt_secret(api_key)
         provider_key.secret_last4 = secret_last4
         provider_key.enabled = True
@@ -238,7 +317,7 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
     await db.refresh(provider_key)
 
     await ensure_openai_models_and_links(db, provider_key)
-    logger.info("OpenAI bootstrap provider key configured: key_name=%s last4=%s", key_name, secret_last4)
+    logger.info("OpenAI bootstrap provider key configured: display_name=%s last4=%s", display_name, secret_last4)
     return provider_key
 
 
