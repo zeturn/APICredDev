@@ -122,7 +122,6 @@ async def test_auth_tokens_billing_models_direct_calls(monkeypatch, db_session):
     monkeypatch.setattr(billing_api, "get_wallet", lambda db, uid: _await(wallet_obj))
     monkeypatch.setattr(billing_api, "list_ledger", lambda db, uid, limit: _await([ledger_item]))
     monkeypatch.setattr(billing_api, "get_user_usage_summary", lambda db, uid: _await({"recent_sessions": [], "by_model": []}))
-    monkeypatch.setattr(billing_api, "redeem_code", _raise)
     monkeypatch.setattr(
         billing_api,
         "select",
@@ -134,8 +133,6 @@ async def test_auth_tokens_billing_models_direct_calls(monkeypatch, db_session):
     assert len(lg) == 1
     usage = await billing_api.usage(db_session, user)
     assert usage["recent_sessions"] == []
-    with pytest.raises(Exception):
-        await billing_api.redeem(SimpleNamespace(code="x"), req, db_session, user)
 
     model = Model(name="md", category="llm", enabled=True, multiplier=1, pricing={})
     db_session.add(model)

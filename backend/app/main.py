@@ -13,7 +13,6 @@ from app.api.v1 import (
     billing,
     admin,
     basalt,
-    stripe_webhook,
 )
 from app.core.errors import AppError
 from app.core.config import settings, validate_production_settings
@@ -94,7 +93,6 @@ def create_app() -> FastAPI:
     app.include_router(billing.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
-    app.include_router(stripe_webhook.router, prefix="/v1")
 
     return app
 

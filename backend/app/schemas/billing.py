@@ -16,11 +16,3 @@ class LedgerItem(BaseModel):
     meta: dict
     created_at: str
 
-
-class RedeemRequest(BaseModel):
-    code: str
-
-
-class RedeemResponse(BaseModel):
-    balance_credits: float
-

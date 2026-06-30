@@ -25,9 +25,6 @@ class Settings(BaseSettings):
     allow_test_cli_local_auth: bool = True
     test_cli_auth_secret: str = ""
 
-    stripe_webhook_secret: str = "whsec_dev"
-    stripe_price_credits: int = 1000
-
     production_mode: bool = False
     max_key_attempts: int = 3
     debug_endpoints_enabled: bool = False

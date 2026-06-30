@@ -62,28 +62,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_public_models_slug"), "public_models", ["slug"], unique=True)
 
     op.create_table(
-        "recharge_codes",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("code_hash", sa.String(), nullable=False),
-        sa.Column("amount_credits", sa.Numeric(20, 6), nullable=False),
-        sa.Column("status", sa.String(), nullable=False),
-        sa.Column("used_by_user_id", sa.String(), nullable=True),
-        sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_recharge_codes_code_hash"), "recharge_codes", ["code_hash"], unique=True)
-
-    op.create_table(
-        "stripe_events",
-        sa.Column("event_id", sa.String(), nullable=False),
-        sa.Column("type", sa.String(), nullable=False),
-        sa.Column("processed_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("meta", sa.JSON(), nullable=False),
-        sa.PrimaryKeyConstraint("event_id"),
-    )
-
-    op.create_table(
         "users",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("email", sa.String(), nullable=False),
@@ -337,9 +315,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_users_basalt_user_id"), table_name="users")
     op.drop_index(op.f("ix_users_basalt_tenant_id"), table_name="users")
     op.drop_table("users")
-    op.drop_table("stripe_events")
-    op.drop_index(op.f("ix_recharge_codes_code_hash"), table_name="recharge_codes")
-    op.drop_table("recharge_codes")
     op.drop_index(op.f("ix_public_models_slug"), table_name="public_models")
     op.drop_table("public_models")
     op.drop_index(op.f("ix_providers_slug"), table_name="providers")

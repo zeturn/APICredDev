@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from decimal import Decimal
 
 import pytest
@@ -8,10 +7,9 @@ from sqlalchemy import select
 
 from app.core.config import settings
 from app.db.models.ledger import LedgerEntry
-from app.db.models.recharge_code import RechargeCode
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
-from app.services.billing_service import authorize_usage, get_wallet, redeem_code, settle_usage
+from app.services.billing_service import authorize_usage, get_wallet, settle_usage
 
 
 class _RemoteWalletClient:
@@ -137,7 +135,6 @@ async def test_authorize_and_settle_usage_adjust_remote_wallet(db_session, monke
     ledger_rows = list((await db_session.execute(select(LedgerEntry).where(LedgerEntry.user_id == user.id))).scalars())
     assert [row.entry_type for row in ledger_rows] == ["pending_debit", "adjustment"]
 
-
 @pytest.mark.asyncio
 async def test_authorize_usage_rejects_insufficient_remote_balance(db_session, monkeypatch):
     _enable_remote_wallet(monkeypatch, balance=2_000_000)
@@ -155,31 +152,3 @@ async def test_authorize_usage_rejects_insufficient_remote_balance(db_session, m
         )
 
     assert _RemoteWalletClient.adjust_calls == []
-
-
-@pytest.mark.asyncio
-async def test_redeem_code_increases_remote_wallet_and_marks_code_used(db_session, monkeypatch):
-    _enable_remote_wallet(monkeypatch, balance=1_000_000)
-    user = await _remote_user(db_session, email="remote-redeem@example.com")
-    code_hash = hashlib.sha256(b"REMOTE-CODE").hexdigest()
-    code = RechargeCode(code_hash=code_hash, amount_credits=Decimal("4.25"))
-    db_session.add(code)
-    await db_session.commit()
-
-    wallet = await redeem_code(db_session, user.id, code_hash)
-
-    assert wallet.balance_credits == Decimal("5.25")
-    assert _RemoteWalletClient.adjust_calls == [
-        {
-            "user_id": "basalt-u-1",
-            "currency": "CREDIT",
-            "operation": "increase",
-            "amount": 4_250_000,
-            "reference": f"apicred:recharge_code:{code.id}",
-            "tenant_id": "tenant-1",
-        }
-    ]
-
-    used_code = await db_session.get(RechargeCode, code.id)
-    assert used_code.status == "used"
-    assert used_code.used_by_user_id == user.id

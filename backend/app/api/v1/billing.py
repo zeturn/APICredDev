@@ -1,15 +1,12 @@
-import hashlib
-
 from sqlalchemy import func, select
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, permission
-from app.core.errors import AppError
 from app.db.models.model import Model
 from app.db.models.usage_session import UsageSession
-from app.schemas.billing import WalletResponse, LedgerItem, RedeemRequest, RedeemResponse
-from app.services.billing_service import get_wallet, list_ledger, redeem_code
+from app.schemas.billing import WalletResponse, LedgerItem
+from app.services.billing_service import get_wallet, list_ledger
 from app.services.dashboard_service import get_user_usage_summary
 
 
@@ -76,21 +73,3 @@ async def usage(
     _: None = Depends(permission("user_console")),
 ) -> dict:
     return await get_user_usage_summary(db, user.id)
-
-
-@router.post("/redeem", response_model=RedeemResponse)
-async def redeem(
-    payload: RedeemRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-    _: None = Depends(permission("user_console")),
-) -> RedeemResponse:
-    request_id = request.state.request_id
-    code_hash = hashlib.sha256(payload.code.encode("utf-8")).hexdigest()
-    try:
-        wallet_obj = await redeem_code(db, user.id, code_hash)
-    except ValueError:
-        raise AppError("invalid_code", "invalid or used code", request_id, 400)
-    return RedeemResponse(balance_credits=float(wallet_obj.balance_credits))
-

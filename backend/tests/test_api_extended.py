@@ -93,9 +93,6 @@ async def test_auth_and_tokens_and_billing_and_models_branches(db_session, monke
         ledger = await client.get("/v1/billing/ledger", headers=headers)
         assert ledger.status_code == 200
 
-        invalid_redeem = await client.post("/v1/billing/redeem", json={"code": "missing"}, headers=headers)
-        assert invalid_redeem.status_code == 400
-
         enabled = Model(name="m-enabled", category="llm", enabled=True, multiplier=1, pricing={})
         disabled = Model(name="m-disabled", category="llm", enabled=False, multiplier=1, pricing={})
         db_session.add_all([enabled, disabled])
@@ -146,7 +143,7 @@ async def test_cookie_auth_login_me_logout_flow(db_session):
 
 
 @pytest.mark.asyncio
-async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch):
+async def test_admin_routes_branches(db_session, monkeypatch):
     app = create_app()
 
     async def _override_db():
@@ -230,10 +227,6 @@ async def test_admin_routes_and_stripe_webhook_branches(db_session, monkeypatch)
         usage_resp = await client.get("/v1/admin/usage-sessions", headers=admin_headers)
         assert users_resp.status_code == 200
         assert usage_resp.status_code == 200
-
-        stripe_disabled = await client.post("/v1/billing/stripe/webhook", content=b"{}")
-        assert stripe_disabled.status_code == 410
-
 
 @pytest.mark.asyncio
 async def test_admin_routes_allow_tenant_admin_jwt(db_session):

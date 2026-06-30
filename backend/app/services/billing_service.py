@@ -9,8 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.time import utc_now
 from app.db.models.ledger import LedgerEntry
-from app.db.models.recharge_code import RechargeCode
-from app.db.models.stripe_event import StripeEvent
 from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
@@ -276,84 +274,3 @@ async def settle_usage(
     usage.status = "completed"
     usage.completed_at = utc_now()
     await db.commit()
-
-
-async def redeem_code(db: AsyncSession, user_id: str, code_hash: str) -> WalletSnapshot:
-    result = await db.execute(select(RechargeCode).where(RechargeCode.code_hash == code_hash))
-    code = result.scalar_one_or_none()
-    if not code or code.status != "unused":
-        raise ValueError("invalid_code")
-
-    amount = Decimal(str(code.amount_credits))
-    user = await db.get(User, user_id)
-    wallet = await _get_local_wallet(db, user_id)
-
-    if _is_remote_wallet_enabled(user):
-        await _sync_local_wallet_from_remote(db, user, wallet)
-        await _adjust_remote_credit(user, amount, f"apicred:recharge_code:{code.id}")
-        await _sync_local_wallet_from_remote(db, user, wallet)
-
-    code.status = "used"
-    code.used_by_user_id = user_id
-    code.used_at = utc_now()
-
-    ledger = LedgerEntry(
-        user_id=user_id,
-        entry_type="credit",
-        amount_credits=amount,
-        status="settled",
-        ref_type="recharge_code",
-        ref_id=code.id,
-        meta={},
-    )
-    if not _is_remote_wallet_enabled(user):
-        wallet.balance_credits = _as_decimal(wallet.balance_credits) + amount
-        wallet.updated_at = utc_now()
-    db.add(ledger)
-    await db.commit()
-    await db.refresh(wallet)
-
-    return WalletSnapshot(
-        balance_credits=_as_decimal(wallet.balance_credits),
-        updated_at=wallet.updated_at,
-    )
-
-
-async def record_stripe_event(
-    db: AsyncSession,
-    event_id: str,
-    event_type: str,
-    user_id: str,
-    amount_credits: float,
-    meta: dict,
-) -> None:
-    exists = await db.get(StripeEvent, event_id)
-    if exists:
-        return
-
-    amount = Decimal(str(amount_credits))
-    user = await db.get(User, user_id)
-    wallet = await _get_local_wallet(db, user_id)
-
-    if _is_remote_wallet_enabled(user):
-        await _sync_local_wallet_from_remote(db, user, wallet)
-        await _adjust_remote_credit(user, amount, f"apicred:stripe:{event_id}")
-        await _sync_local_wallet_from_remote(db, user, wallet)
-
-    event = StripeEvent(event_id=event_id, type=event_type, meta=meta)
-    ledger = LedgerEntry(
-        user_id=user_id,
-        entry_type="credit",
-        amount_credits=amount,
-        status="settled",
-        ref_type="stripe_event",
-        ref_id=event_id,
-        meta=meta,
-    )
-    if not _is_remote_wallet_enabled(user):
-        wallet.balance_credits = _as_decimal(wallet.balance_credits) + amount
-        wallet.updated_at = utc_now()
-    db.add(event)
-    db.add(ledger)
-    await db.commit()
-

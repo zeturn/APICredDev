@@ -1,4 +1,3 @@
-import hashlib
 import os
 
 import pytest
@@ -10,7 +9,6 @@ from app.api.v1.admin import get_basalt_client
 from app.api.v1.auth import get_basalt_client as get_auth_basalt_client
 from app.core.deps import get_db
 from app.db.models.model import Model
-from app.db.models.recharge_code import RechargeCode
 from app.db.models.user import User
 from app.db.models.usage_session import UsageSession
 from app.main import create_app
@@ -91,15 +89,6 @@ async def test_api_smoke(db_session, monkeypatch):
         assert wallet.status_code == 200
         summary = await client.get("/v1/billing/summary", headers={"Authorization": f"Bearer {access_token}"})
         assert summary.status_code == 200
-
-        # redeem
-        code_plain = "CODE123"
-        code_hash = hashlib.sha256(code_plain.encode("utf-8")).hexdigest()
-        code = RechargeCode(code_hash=code_hash, amount_credits=50)
-        db_session.add(code)
-        await db_session.commit()
-        redeem = await client.post("/v1/billing/redeem", json={"code": code_plain}, headers={"Authorization": f"Bearer {access_token}"})
-        assert redeem.status_code == 200
 
         ledger = await client.get("/v1/billing/ledger", headers={"Authorization": f"Bearer {access_token}"})
         assert ledger.status_code == 200
