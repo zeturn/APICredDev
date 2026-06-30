@@ -14,6 +14,7 @@ from app.core.secrets import decrypt_secret
 from app.core.time import utc_now
 from app.db.models.model import Model
 from app.db.models.provider import Provider
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.provider_key import ProviderKey
 from app.schemas.llm import ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChoice, ChatCompletionUsage, ChatMessage
 from app.services.billing_service import authorize_usage, settle_usage
@@ -64,6 +65,11 @@ async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
     model_provider_base_url = getattr(candidate.mpk, "base_url", None)
     if model_provider_base_url:
         return normalize_upstream_base_url(model_provider_base_url)
+    endpoint_id = getattr(candidate.provider_key, "endpoint_id", None)
+    if endpoint_id:
+        endpoint = await db.get(ProviderEndpoint, endpoint_id)
+        if endpoint and endpoint.enabled:
+            return normalize_upstream_base_url(endpoint.base_url)
     provider_key_base_url = (candidate.provider_key.key_name or "").strip()
     if is_url_like_base_url(provider_key_base_url):
         return normalize_upstream_base_url(provider_key_base_url)
@@ -298,4 +304,3 @@ async def _proxy_stream_and_settle(
                 response_text=_extract_response_text(raw),
             )
         await redis.aclose()
-
