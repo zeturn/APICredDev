@@ -3,11 +3,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.errors import AppError
-from app.schemas.admin import BrandUpsert, ModelUpsert, ProviderUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
+from app.schemas.admin import BrandUpsert, ModelUpsert, ProviderUpsert, ProviderEndpointUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
 from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
 from app.services.dashboard_service import get_admin_usage_summary
+from app.services.provider_endpoint_service import (
+    get_provider_endpoint,
+    list_provider_endpoints,
+    upsert_provider_endpoint,
+)
 from app.services.admin_service import (
     get_admin_dashboard,
     list_brands,
@@ -101,6 +106,29 @@ async def admin_brands_list(db: AsyncSession = Depends(get_db)) -> list:
 async def admin_providers_list(db: AsyncSession = Depends(get_db)) -> list:
     providers = await list_providers(db)
     return [_to_dict(p) for p in providers]
+
+
+@router.get("/provider-endpoints")
+async def admin_provider_endpoints_list(db: AsyncSession = Depends(get_db)) -> list:
+    endpoints = await list_provider_endpoints(db)
+    return [_to_dict(endpoint) for endpoint in endpoints]
+
+
+@router.get("/provider-endpoints/{endpoint_id}")
+async def admin_provider_endpoint_detail(endpoint_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    endpoint = await get_provider_endpoint(db, endpoint_id)
+    if not endpoint:
+        raise AppError("provider_endpoint_not_found", "provider endpoint not found", request.state.request_id, 404)
+    return _to_dict(endpoint)
+
+
+@router.post("/provider-endpoints")
+async def admin_provider_endpoint_upsert(payload: ProviderEndpointUpsert, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        endpoint = await upsert_provider_endpoint(db, payload.model_dump())
+    except ValueError as exc:
+        raise AppError("invalid_provider_base_url", str(exc), request.state.request_id, 400)
+    return _to_dict(endpoint)
 
 
 @router.get("/dashboard")
@@ -228,4 +256,3 @@ async def admin_wallets_sync(payload: dict, db: AsyncSession = Depends(get_db)) 
     user_id = str(payload.get("user_id") or "").strip() or None
     dry_run = bool(payload.get("dry_run", False))
     return await sync_wallets_from_basalt(db, user_id=user_id, dry_run=dry_run)
-
