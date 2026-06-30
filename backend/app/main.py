@@ -28,6 +28,7 @@ from app.services.bootstrap import (
     ensure_default_brands,
     ensure_default_models,
     ensure_default_providers,
+    ensure_default_provider_endpoints,
     ensure_default_provider_keys,
 )
 
@@ -57,10 +58,45 @@ def _apply_compat_schema_updates(connection) -> None:
             connection.execute(text("ALTER TABLE brands ADD COLUMN icon_slug VARCHAR"))
         if "icon_url" not in brand_columns:
             connection.execute(text("ALTER TABLE brands ADD COLUMN icon_url VARCHAR"))
+    if inspector.has_table("providers"):
+        provider_columns = {column["name"] for column in inspector.get_columns("providers")}
+        if "default_base_url" not in provider_columns:
+            connection.execute(text("ALTER TABLE providers ADD COLUMN default_base_url VARCHAR"))
+
+    if not inspector.has_table("provider_endpoints"):
+        connection.execute(
+            text(
+                """
+                CREATE TABLE provider_endpoints (
+                    id VARCHAR PRIMARY KEY,
+                    provider_id VARCHAR REFERENCES providers(id),
+                    slug VARCHAR,
+                    display_name VARCHAR,
+                    base_url VARCHAR,
+                    endpoint_type VARCHAR DEFAULT 'official',
+                    region VARCHAR,
+                    enabled BOOLEAN DEFAULT TRUE,
+                    health_state VARCHAR DEFAULT 'healthy',
+                    cooldown_until TIMESTAMP WITH TIME ZONE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+                """
+            )
+        )
+        connection.execute(text("CREATE INDEX ix_provider_endpoints_provider_id ON provider_endpoints(provider_id)"))
+        connection.execute(text("CREATE INDEX ix_provider_endpoints_slug ON provider_endpoints(slug)"))
+        connection.execute(text("CREATE UNIQUE INDEX uq_provider_endpoint_slug ON provider_endpoints(provider_id, slug)"))
+
     if inspector.has_table("provider_keys"):
         provider_key_columns = {column["name"] for column in inspector.get_columns("provider_keys")}
         if "provider_id" not in provider_key_columns:
             connection.execute(text("ALTER TABLE provider_keys ADD COLUMN provider_id VARCHAR"))
+        if "endpoint_id" not in provider_key_columns:
+            connection.execute(text("ALTER TABLE provider_keys ADD COLUMN endpoint_id VARCHAR"))
+            connection.execute(text("CREATE INDEX ix_provider_keys_endpoint_id ON provider_keys(endpoint_id)"))
+        if "display_name" not in provider_key_columns:
+            connection.execute(text("ALTER TABLE provider_keys ADD COLUMN display_name VARCHAR"))
+            connection.execute(text("UPDATE provider_keys SET display_name = key_name WHERE display_name IS NULL"))
         if "secret_encrypted" not in provider_key_columns:
             connection.execute(text("ALTER TABLE provider_keys ADD COLUMN secret_encrypted VARCHAR"))
         if "secret_last4" not in provider_key_columns:
@@ -92,10 +128,6 @@ def _apply_compat_schema_updates(connection) -> None:
                 connection.execute(text("ALTER TABLE provider_keys DROP COLUMN secret_ref"))
             except Exception:
                 pass
-    if inspector.has_table("providers"):
-        provider_columns = {column["name"] for column in inspector.get_columns("providers")}
-        if "default_base_url" not in provider_columns:
-            connection.execute(text("ALTER TABLE providers ADD COLUMN default_base_url VARCHAR"))
 
     if not inspector.has_table("usage_sessions"):
         return
@@ -132,6 +164,7 @@ async def lifespan(_: FastAPI):
             await ensure_admin_user(db)
             await ensure_default_brands(db)
             await ensure_default_providers(db)
+            await ensure_default_provider_endpoints(db)
             await ensure_default_provider_keys(db)
             await ensure_default_models(db)
             await ensure_bootstrap_openai_provider_key(db)
@@ -192,4 +225,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
