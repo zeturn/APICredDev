@@ -20,6 +20,19 @@ class ProviderUpsert(BaseModel):
     enabled: bool = True
 
 
+class ProviderEndpointUpsert(BaseModel):
+    id: str | None = None
+    provider_id: str
+    slug: str
+    display_name: str
+    base_url: str
+    endpoint_type: str = "official"
+    region: str | None = None
+    enabled: bool = True
+    health_state: str = "healthy"
+    cooldown_until: str | None = None
+
+
 class ModelUpsert(BaseModel):
     id: str | None = None
     name: str
@@ -35,8 +48,11 @@ class ModelUpsert(BaseModel):
 class ProviderKeyUpsert(BaseModel):
     id: str | None = None
     provider_id: str | None = None
+    endpoint_id: str | None = None
     provider: str
-    key_name: str
+    # Legacy name accepted for compatibility. New callers should send display_name.
+    key_name: str | None = None
+    display_name: str | None = None
     api_key: str | None = None
     enabled: bool
     health_state: str
@@ -53,4 +69,3 @@ class ModelProviderKeyUpsert(BaseModel):
     weight: int = 1
     quota_unit: str
     quota_rules: dict
-
