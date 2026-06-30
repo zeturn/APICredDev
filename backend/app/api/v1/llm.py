@@ -32,6 +32,19 @@ router = APIRouter(prefix="", tags=["llm"])
 logger = logging.getLogger("apicred.llm")
 
 
+PROVIDER_MODEL_ALIASES: dict[str, dict[str, str]] = {
+    # DeepSeek's OpenAI-compatible API currently accepts the provider model
+    # identifiers below. APICred may expose product-tier names such as
+    # deepseek-v4-pro, so translate those before calling the upstream.
+    "deepseek": {
+        "deepseek-v4-pro": "deepseek-chat",
+        "deepseek-v4": "deepseek-chat",
+        "deepseek-v3": "deepseek-chat",
+        "deepseek-r1": "deepseek-reasoner",
+    },
+}
+
+
 def _messages_to_records(messages: list[ChatMessage]) -> list[dict]:
     return [message.model_dump() for message in messages]
 
@@ -89,6 +102,48 @@ def _resolve_api_key(candidate) -> str:
     return ""
 
 
+def _resolve_upstream_model_name(candidate, model: Model, provider: str) -> str:
+    quota_rules = getattr(candidate.mpk, "quota_rules", None) or {}
+    if isinstance(quota_rules, dict):
+        configured = str(quota_rules.get("upstream_model") or quota_rules.get("provider_model") or "").strip()
+        if configured:
+            return configured
+    provider_aliases = PROVIDER_MODEL_ALIASES.get((provider or "").lower(), {})
+    return provider_aliases.get(model.name, model.name)
+
+
+def _payload_for_candidate(payload_dict: dict, candidate, model: Model) -> dict:
+    request_payload = dict(payload_dict)
+    upstream_model = _resolve_upstream_model_name(candidate, model, candidate.provider_key.provider)
+    request_payload["model"] = upstream_model
+    return request_payload
+
+
+def _upstream_error_message(info: dict | None) -> str:
+    if not info:
+        return "upstream error"
+    status = info.get("status")
+    code = info.get("code") or "upstream_error"
+    detail = str(info.get("detail") or "").strip()
+    if detail:
+        return f"{code}: {detail[:500]}"
+    if status:
+        return f"{code}: upstream HTTP {status}"
+    return str(code)
+
+
+def _client_status_for_upstream_error(info: dict | None) -> int:
+    code = (info or {}).get("code")
+    status = int((info or {}).get("status") or 0)
+    if code == "auth_failed":
+        return 502
+    if code == "request_error" or 400 <= status < 500:
+        return 502
+    if code == "rate_limited" or status == 429:
+        return 503
+    return 503
+
+
 @router.post("/chat/completions", response_model=ChatCompletionResponse)
 async def chat_completions(
     request: Request,
@@ -138,6 +193,7 @@ async def chat_completions(
     stream_response_started = False
     try:
         attempts = 0
+        last_error_info: dict | None = None
         for candidate in candidates:
             attempts += 1
             if attempts > settings.max_key_attempts:
@@ -149,19 +205,22 @@ async def chat_completions(
             api_key = _resolve_api_key(candidate)
             base_url = await _resolve_base_url(db, candidate)
             adapter = get_provider_adapter(candidate.provider_key.provider)
+            upstream_payload = _payload_for_candidate(payload_dict, candidate, model)
+            upstream_model = upstream_payload.get("model")
             try:
                 logger.info(
-                    "llm_request request_id=%s user_id=%s model=%s provider=%s provider_key_id=%s",
+                    "llm_request request_id=%s user_id=%s model=%s upstream_model=%s provider=%s provider_key_id=%s",
                     request_id,
                     api_token.user_id,
                     model.name,
+                    upstream_model,
                     candidate.provider_key.provider,
                     candidate.provider_key.id,
                 )
                 usage_session.upstream_provider = candidate.provider_key.provider
                 usage_session.upstream_key_id = candidate.provider_key.id
                 if payload.stream:
-                    stream_result = await adapter.stream_chat_completions(payload_dict, api_key, base_url)
+                    stream_result = await adapter.stream_chat_completions(upstream_payload, api_key, base_url)
                     stream_response_started = True
                     return StreamingResponse(
                         _proxy_stream_and_settle(
@@ -173,7 +232,7 @@ async def chat_completions(
                         ),
                         media_type="text/event-stream",
                     )
-                raw, usage = await adapter.chat_completions(payload_dict, api_key, base_url)
+                raw, usage = await adapter.chat_completions(upstream_payload, api_key, base_url)
                 prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
                 completion_tokens = int(usage.get("completion_tokens", 0) or 0)
                 total_tokens = int(usage.get("total_tokens", 0) or (prompt_tokens + completion_tokens))
@@ -201,31 +260,42 @@ async def chat_completions(
                 return response
             except httpx.HTTPStatusError as exc:
                 info = adapter.normalize_error(exc)
+                info["status"] = exc.response.status_code
+                info["detail"] = exc.response.text[:2000]
+                last_error_info = info
                 logger.warning(
-                    "llm_upstream_http_error request_id=%s provider=%s provider_key_id=%s code=%s status=%s retryable=%s",
+                    "llm_upstream_http_error request_id=%s provider=%s provider_key_id=%s model=%s upstream_model=%s code=%s status=%s retryable=%s detail=%s",
                     request_id,
                     candidate.provider_key.provider,
                     candidate.provider_key.id,
+                    model.name,
+                    upstream_model,
                     info.get("code"),
                     exc.response.status_code,
                     info.get("retryable"),
+                    exc.response.text[:500],
                 )
                 await _apply_cooldown(db, candidate.provider_key, info)
                 if not info.get("retryable"):
                     break
             except Exception as exc:
                 info = adapter.normalize_error(exc)
+                info["detail"] = str(exc)[:2000]
+                last_error_info = info
                 logger.exception(
-                    "llm_upstream_error request_id=%s provider=%s provider_key_id=%s code=%s retryable=%s",
+                    "llm_upstream_error request_id=%s provider=%s provider_key_id=%s model=%s upstream_model=%s code=%s retryable=%s detail=%s",
                     request_id,
                     candidate.provider_key.provider,
                     candidate.provider_key.id,
+                    model.name,
+                    upstream_model,
                     info.get("code"),
                     info.get("retryable"),
+                    str(exc)[:500],
                 )
                 await _apply_cooldown(db, candidate.provider_key, info)
-        await settle_usage(db, usage_session, 0, {"error": "upstream_failed"})
-        raise AppError("upstream_failed", "upstream error", request_id, 502)
+        await settle_usage(db, usage_session, 0, {"error": "upstream_failed", "upstream": last_error_info or {}})
+        raise AppError("upstream_failed", _upstream_error_message(last_error_info), request_id, _client_status_for_upstream_error(last_error_info))
     finally:
         if not stream_response_started:
             await redis.aclose()
@@ -298,4 +368,3 @@ async def _proxy_stream_and_settle(
                 response_text=_extract_response_text(raw),
             )
         await redis.aclose()
-

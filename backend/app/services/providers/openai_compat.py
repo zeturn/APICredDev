@@ -166,8 +166,7 @@ class OpenAICompatAdapter(ProviderAdapter):
             if status == 429:
                 return {"code": "rate_limited", "retryable": True, "cooldown_seconds": 60}
             if status >= 500:
-                return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 15}
+                return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 0}
             if 400 <= status < 500:
                 return {"code": "request_error", "retryable": False, "cooldown_seconds": 0}
         return {"code": "network_error", "retryable": True, "cooldown_seconds": 0}
-

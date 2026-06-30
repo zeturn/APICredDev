@@ -14,6 +14,7 @@ from app.core.secrets import encrypt_secret
 from app.db.models.model import Model
 from app.db.models.provider_key import ProviderKey
 from app.schemas.llm import ChatCompletionRequest
+from app.services.providers.openai_compat import OpenAICompatAdapter
 
 
 class _FakeRedis:
@@ -34,6 +35,17 @@ class _Adapter:
 
     def normalize_error(self, exc):
         return self._normalize_impl(exc)
+
+
+def test_openai_compat_5xx_is_retryable_without_key_cooldown():
+    req = httpx.Request("POST", "http://upstream/v1/chat/completions")
+    exc = httpx.HTTPStatusError("bad gateway", request=req, response=httpx.Response(502, request=req, text="bad gateway"))
+
+    info = OpenAICompatAdapter().normalize_error(exc)
+
+    assert info["code"] == "upstream_error"
+    assert info["retryable"] is True
+    assert info["cooldown_seconds"] == 0
 
 
 def _req():
@@ -149,6 +161,64 @@ async def test_llm_unit_success_and_reserve_continue(db_session, monkeypatch):
     resp = await llm_module.chat_completions(_req(), payload, db_session, _token())
     assert resp.id == "cmpl-unit"
     assert fake_redis.closed is True
+
+
+@pytest.mark.asyncio
+async def test_llm_unit_deepseek_product_model_maps_to_upstream_model(db_session, monkeypatch):
+    model = Model(name="deepseek-v4-pro", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 1})
+    pkey = ProviderKey(provider="deepseek", key_name="http://deepseek", secret_encrypted=encrypt_secret("sk-deepseek"), secret_last4="seek", enabled=True, health_state="healthy")
+    db_session.add_all([model, pkey])
+    await db_session.commit()
+
+    usage = SimpleNamespace(
+        id="usage-deepseek",
+        status="started",
+        user_id="u-llm",
+        estimated_cost_credits=1,
+        upstream_provider=None,
+        upstream_key_id=None,
+    )
+    candidate = SimpleNamespace(
+        provider_key=pkey,
+        mpk=SimpleNamespace(quota_unit="requests", quota_rules={}),
+    )
+    seen_payloads = []
+
+    async def _require_scopes(required, token, request):
+        return None
+
+    async def _authorize(*args, **kwargs):
+        return usage
+
+    async def _settle(*args, **kwargs):
+        return None
+
+    async def _candidates(*args, **kwargs):
+        return [candidate]
+
+    async def _reserve(*args, **kwargs):
+        return True
+
+    async def _chat(payload, api_key, base_url):
+        seen_payloads.append(dict(payload))
+        return (
+            {"id": "cmpl-deepseek", "choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}]},
+            {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        )
+
+    monkeypatch.setattr(llm_module, "require_scopes", _require_scopes)
+    monkeypatch.setattr(llm_module, "authorize_usage", _authorize)
+    monkeypatch.setattr(llm_module, "settle_usage", _settle)
+    monkeypatch.setattr(llm_module, "get_candidates", _candidates)
+    monkeypatch.setattr(llm_module, "try_reserve", _reserve)
+    monkeypatch.setattr(llm_module, "get_redis", lambda: _FakeRedis())
+    monkeypatch.setattr(llm_module, "get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat))
+
+    payload = ChatCompletionRequest(model="deepseek-v4-pro", messages=[{"role": "user", "content": "hello"}])
+    resp = await llm_module.chat_completions(_req(), payload, db_session, _token())
+
+    assert resp.id == "cmpl-deepseek"
+    assert seen_payloads[0]["model"] == "deepseek-chat"
 
 
 @pytest.mark.asyncio
@@ -280,4 +350,3 @@ async def test_llm_unit_attempt_limit_and_reserve_continue(db_session, monkeypat
             )
     finally:
         llm_module.settings.max_key_attempts = old_max
-
