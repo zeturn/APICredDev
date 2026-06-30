@@ -31,8 +31,6 @@ class Settings(BaseSettings):
     production_mode: bool = False
     max_key_attempts: int = 3
     debug_endpoints_enabled: bool = False
-    startup_create_tables_enabled: bool = False
-    startup_schema_compat_enabled: bool = False
     startup_bootstrap_enabled: bool = False
     bootstrap_openai_api_key: str = Field("", validation_alias=AliasChoices("APICRED_OPENAI_API_KEY", "BOOTSTRAP_OPENAI_API_KEY"))
     bootstrap_openai_key_name: str = "OpenAI free daily shared traffic"
@@ -84,6 +82,6 @@ def validate_production_settings(current: Settings) -> None:
     if current.debug_endpoints_enabled:
         raise RuntimeError("debug endpoints must be disabled in production mode")
 
-    if current.startup_create_tables_enabled or current.startup_schema_compat_enabled or current.startup_bootstrap_enabled:
-        raise RuntimeError("startup create-tables/schema-compat/bootstrap must be disabled in production mode")
+    if current.startup_bootstrap_enabled:
+        raise RuntimeError("startup bootstrap must be disabled in production mode")
 

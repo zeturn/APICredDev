@@ -1,0 +1,9 @@
+routes:
+  - public_model: apicred-fast
+    upstream_model: openai:gpt-4o-mini
+    credential: openai-main-key
+    endpoint: openai-default
+    priority: 1
+    weight: 3
+    quota_unit: tokens
+    quota_rules: {}

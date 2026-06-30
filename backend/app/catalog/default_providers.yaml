@@ -1,0 +1,70 @@
+brands:
+  - name: OpenAI
+    slug: openai
+    icon_slug: openai
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg
+    enabled: true
+  - name: Google
+    slug: google
+    icon_slug: google
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/google.svg
+    enabled: true
+  - name: Anthropic
+    slug: anthropic
+    icon_slug: anthropic
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg
+    enabled: true
+  - name: Unknown
+    slug: unknown
+    icon_slug:
+    icon_url:
+    enabled: true
+
+providers:
+  - name: OpenAI
+    slug: openai
+    default_base_url: https://api.openai.com
+    icon_slug: openai
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg
+    enabled: true
+  - name: Google Gemini
+    slug: gemini
+    default_base_url: https://generativelanguage.googleapis.com
+    icon_slug: gemini
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/gemini.svg
+    enabled: true
+  - name: Anthropic
+    slug: anthropic
+    default_base_url: https://api.anthropic.com
+    icon_slug: anthropic
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg
+    enabled: true
+  - name: OpenRouter
+    slug: openrouter
+    default_base_url: https://openrouter.ai/api
+    icon_slug: openrouter
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openrouter.svg
+    enabled: true
+
+provider_endpoints:
+  - provider: openai
+    name: openai-default
+    base_url: https://api.openai.com
+    endpoint_type: openai_compatible
+    enabled: true
+  - provider: gemini
+    name: gemini-default
+    base_url: https://generativelanguage.googleapis.com
+    endpoint_type: gemini
+    enabled: true
+  - provider: anthropic
+    name: anthropic-default
+    base_url: https://api.anthropic.com
+    endpoint_type: anthropic
+    enabled: true
+
+provider_credentials:
+  - provider: openai
+    name: openai-main-key
+    enabled: true
+    health_state: healthy

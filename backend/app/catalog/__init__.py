@@ -1,0 +1,1 @@
+"""Default model catalog configuration."""

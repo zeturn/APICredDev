@@ -120,18 +120,7 @@ async def test_get_bearer_token_rejects_cross_app_token_for_other_client(monkeyp
 
 @pytest.mark.asyncio
 async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
-    calls = {"run_sync": False, "admin": False, "brands": False, "providers": False, "provider_keys": False, "models": False}
-
-    class _BeginCtx:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb):
-            return None
-
-        async def run_sync(self, fn):
-            calls["run_sync"] = True
-            return None
+    calls = {"admin": False, "brands": False, "providers": False, "provider_keys": False, "models": False, "routes": False}
 
     class _SessionCtx:
         async def __aenter__(self):
@@ -155,27 +144,28 @@ async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     async def _ensure_default_models(db):
         calls["models"] = True
 
-    monkeypatch.setattr("app.main.engine", SimpleNamespace(begin=lambda: _BeginCtx()))
+    async def _ensure_default_routes(db):
+        calls["routes"] = True
+
     monkeypatch.setattr("app.main.SessionLocal", lambda: _SessionCtx())
     monkeypatch.setattr("app.main.ensure_admin_user", _ensure_admin_user)
     monkeypatch.setattr("app.main.ensure_default_brands", _ensure_default_brands)
     monkeypatch.setattr("app.main.ensure_default_providers", _ensure_default_providers)
     monkeypatch.setattr("app.main.ensure_default_provider_keys", _ensure_default_provider_keys)
     monkeypatch.setattr("app.main.ensure_default_models", _ensure_default_models)
-    monkeypatch.setattr(settings, "startup_create_tables_enabled", True)
-    monkeypatch.setattr(settings, "startup_schema_compat_enabled", True)
+    monkeypatch.setattr("app.main.ensure_default_routes", _ensure_default_routes)
     monkeypatch.setattr(settings, "startup_bootstrap_enabled", True)
 
     app = create_app()
     async with app.router.lifespan_context(app):
         pass
 
-    assert calls["run_sync"] is True
     assert calls["admin"] is True
     assert calls["brands"] is True
     assert calls["providers"] is True
     assert calls["provider_keys"] is True
     assert calls["models"] is True
+    assert calls["routes"] is True
 
 
 @pytest.mark.asyncio

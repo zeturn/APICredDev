@@ -1,0 +1,230 @@
+public_models:
+  - slug: apicred-fast
+    display_name: APICred Fast
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.3, output_per_million: 1.2}
+    enabled: true
+  - slug: gpt-5.4
+    display_name: GPT 5.4
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 2.5, cached_input_per_million: 0.25, output_per_million: 15}
+    enabled: true
+  - slug: gpt-5.4-pro
+    display_name: GPT 5.4 Pro
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 10, cached_input_per_million: 1, output_per_million: 50}
+    enabled: true
+  - slug: gpt-5.4-mini
+    display_name: GPT 5.4 mini
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.75, cached_input_per_million: 0.08, output_per_million: 4.5}
+    enabled: true
+  - slug: gpt-5.4-nano
+    display_name: GPT 5.4 nano
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.2, cached_input_per_million: 0.03, output_per_million: 1.25}
+    enabled: true
+  - slug: gpt-realtime-1.5
+    display_name: GPT Realtime 1.5
+    category: realtime
+    pricing: {mode: token_segments, input_per_million: 4, cached_input_per_million: 0.4, output_per_million: 16}
+    enabled: true
+  - slug: gpt-realtime-mini
+    display_name: GPT Realtime mini
+    category: realtime
+    pricing: {mode: token_segments, input_per_million: 0.6, cached_input_per_million: 0.06, output_per_million: 2.4}
+    enabled: true
+  - slug: gpt-image-1.5
+    display_name: GPT Image 1.5
+    category: image
+    pricing: {mode: token_segments, input_per_million: 5, cached_input_per_million: 0.5, output_per_million: 25, image_prices: {low: 0.02, medium: 0.07, high: 0.28}}
+    enabled: true
+  - slug: gpt-image-1-mini
+    display_name: GPT Image 1 mini
+    category: image
+    pricing: {mode: token_segments, input_per_million: 1.15, cached_input_per_million: 0.12, output_per_million: 5.75, image_prices: {low: 0.01, medium: 0.03, high: 0.12}}
+    enabled: true
+  - slug: gpt-4o-transcribe
+    display_name: GPT 4o Transcribe
+    category: audio
+    pricing: {mode: request, unit: minute, price: 0.006}
+    enabled: true
+  - slug: gpt-4o-mini-transcribe
+    display_name: GPT 4o mini Transcribe
+    category: audio
+    pricing: {mode: request, unit: minute, price: 0.003}
+    enabled: true
+  - slug: text-embedding-3-small
+    display_name: Text Embedding 3 Small
+    category: embedding
+    pricing: {mode: token_segments, input_per_million: 0.02, output_per_million: 0}
+    enabled: true
+  - slug: text-embedding-3-large
+    display_name: Text Embedding 3 Large
+    category: embedding
+    pricing: {mode: token_segments, input_per_million: 0.13, output_per_million: 0}
+    enabled: true
+  - slug: omni-moderation-latest
+    display_name: Omni Moderation
+    category: moderation
+    pricing: {mode: free}
+    enabled: true
+  - slug: gemini-3.1-pro-preview
+    display_name: Gemini 3.1 Pro Preview
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 2, output_per_million: 12, tiers: [{max_input_tokens: 200000, input_per_million: 2, output_per_million: 12}, {min_input_tokens: 200001, input_per_million: 4, output_per_million: 18}]}
+    enabled: true
+  - slug: gemini-3-flash-preview
+    display_name: Gemini 3 Flash Preview
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.5, output_per_million: 3}
+    enabled: true
+  - slug: gemini-3.1-flash-lite-preview
+    display_name: Gemini 3.1 Flash Lite Preview
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.25, output_per_million: 1.5}
+    enabled: true
+  - slug: gemini-3.1-flash-live-preview
+    display_name: Gemini 3.1 Flash Live Preview
+    category: realtime
+    pricing: {mode: token_segments, input_per_million: 0.75, output_per_million: 4.5, audio_input_per_million: 3, audio_output_per_million: 12}
+    enabled: true
+  - slug: gemini-2.5-flash-image
+    display_name: Gemini 2.5 Flash Image
+    category: image
+    pricing: {mode: token_segments, input_per_million: 0.3, output_per_million: 30}
+    enabled: true
+  - slug: gemini-3.1-flash-image-preview
+    display_name: Gemini 3.1 Flash Image Preview
+    category: image
+    pricing: {mode: token_segments, input_per_million: 0.5, output_per_million: 3, image_output_per_million: 60}
+    enabled: true
+  - slug: gemini-3-pro-image-preview
+    display_name: Gemini 3 Pro Image Preview
+    category: image
+    pricing: {mode: token_segments, priority_input_per_million: 3.6, priority_output_per_million: 21.6, priority_image_output_per_million: 216}
+    enabled: true
+  - slug: gemini-embedding-001
+    display_name: Gemini Embedding 001
+    category: embedding
+    pricing: {mode: token_segments, input_per_million: 0.15, output_per_million: 0}
+    enabled: true
+  - slug: gemini-embedding-2-preview
+    display_name: Gemini Embedding 2 Preview
+    category: embedding
+    pricing: {mode: token_segments, input_per_million: 0.2, output_per_million: 0, image_input_per_million: 0.45, audio_input_per_million: 6.5, video_input_per_million: 12}
+    enabled: true
+  - slug: gemini-robotics-er-1.5-preview
+    display_name: Gemini Robotics ER 1.5 Preview
+    category: robotics
+    pricing: {mode: token_segments, input_per_million: 0.3, output_per_million: 2.5}
+    enabled: true
+  - slug: gemini-2.5-computer-use-preview
+    display_name: Gemini 2.5 Computer Use Preview
+    category: agent
+    pricing: {mode: token_segments, input_per_million: 1.25, output_per_million: 10, tiers: [{max_input_tokens: 200000, input_per_million: 1.25, output_per_million: 10}, {min_input_tokens: 200001, input_per_million: 2.5, output_per_million: 15}]}
+    enabled: true
+  - slug: claude-opus-4.6
+    display_name: Claude Opus 4.6
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 5, cached_input_per_million: 0.5, output_per_million: 25, cache_write_5m_per_million: 6.25, cache_write_1h_per_million: 10}
+    enabled: true
+  - slug: claude-sonnet-4.6
+    display_name: Claude Sonnet 4.6
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 3, cached_input_per_million: 0.3, output_per_million: 15, cache_write_5m_per_million: 3.75, cache_write_1h_per_million: 6}
+    enabled: true
+  - slug: claude-haiku-4.5
+    display_name: Claude Haiku 4.5
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 1, cached_input_per_million: 0.1, output_per_million: 5, cache_write_5m_per_million: 1.25, cache_write_1h_per_million: 2}
+    enabled: true
+  - slug: claude-haiku-3.5
+    display_name: Claude Haiku 3.5
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.8, cached_input_per_million: 0.08, output_per_million: 4}
+    enabled: true
+
+upstream_models:
+  - provider: openai
+    upstream_name: gpt-4o-mini
+    display_name: GPT 4o mini
+    category: llm
+    capabilities: {chat: true, streaming: true, tools: true}
+    enabled: true
+  - provider: openai
+    upstream_name: gpt-5.4
+    display_name: GPT 5.4
+    category: llm
+    capabilities: {chat: true, streaming: true, tools: true}
+    enabled: true
+  - provider: gemini
+    upstream_name: gemini-3.1-pro-preview
+    display_name: Gemini 3.1 Pro Preview
+    category: llm
+    capabilities: {chat: true, streaming: true, tools: false}
+    enabled: true
+  - provider: anthropic
+    upstream_name: claude-sonnet-4.6
+    display_name: Claude Sonnet 4.6
+    category: llm
+    capabilities: {chat: true, streaming: true, tools: true}
+    enabled: true
+
+legacy_models:
+  - name: gpt-5.4
+    brand_slug: openai
+  - name: gpt-5.4-pro
+    brand_slug: openai
+  - name: gpt-5.4-mini
+    brand_slug: openai
+  - name: gpt-5.4-nano
+    brand_slug: openai
+  - name: gpt-realtime-1.5
+    brand_slug: openai
+  - name: gpt-realtime-mini
+    brand_slug: openai
+  - name: gpt-image-1.5
+    brand_slug: openai
+  - name: gpt-image-1-mini
+    brand_slug: openai
+  - name: gpt-4o-transcribe
+    brand_slug: openai
+  - name: gpt-4o-mini-transcribe
+    brand_slug: openai
+  - name: text-embedding-3-small
+    brand_slug: openai
+  - name: text-embedding-3-large
+    brand_slug: openai
+  - name: omni-moderation-latest
+    brand_slug: openai
+  - name: gemini-3.1-pro-preview
+    brand_slug: google
+  - name: gemini-3-flash-preview
+    brand_slug: google
+  - name: gemini-3.1-flash-lite-preview
+    brand_slug: google
+  - name: gemini-3.1-flash-live-preview
+    brand_slug: google
+  - name: gemini-2.5-flash-image
+    brand_slug: google
+  - name: gemini-3.1-flash-image-preview
+    brand_slug: google
+  - name: gemini-3-pro-image-preview
+    brand_slug: google
+  - name: gemini-embedding-001
+    brand_slug: google
+  - name: gemini-embedding-2-preview
+    brand_slug: google
+  - name: gemini-robotics-er-1.5-preview
+    brand_slug: google
+  - name: gemini-2.5-computer-use-preview
+    brand_slug: google
+  - name: claude-opus-4.6
+    brand_slug: anthropic
+  - name: claude-sonnet-4.6
+    brand_slug: anthropic
+  - name: claude-haiku-4.5
+    brand_slug: anthropic
+  - name: claude-haiku-3.5
+    brand_slug: anthropic

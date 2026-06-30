@@ -4,16 +4,22 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.loader import load_default_models, load_default_providers, load_default_routes
 from app.core.config import settings
+from app.core.secrets import encrypt_secret
 from app.core.security import hash_password
 from app.db.models.brand import Brand
 from app.db.models.model import Model
 from app.db.models.provider import Provider
-from app.db.models.provider_key import ProviderKey
 from app.db.models.model_provider_key import ModelProviderKey
+from app.db.models.model_route import ModelRoute
+from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
+from app.db.models.provider_key import ProviderKey
+from app.db.models.public_model import PublicModel
+from app.db.models.upstream_model import UpstreamModel
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
-from app.core.secrets import encrypt_secret
 
 
 logger = logging.getLogger(__name__)
@@ -27,56 +33,8 @@ def _assert_bootstrap_admin_password() -> None:
         raise RuntimeError("startup bootstrap requires strong ADMIN_PASSWORD (>=12 chars, non-default)")
 
 
-DEFAULT_BRANDS = [
-    {"name": "OpenAI", "slug": "openai", "icon_slug": "openai", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg", "enabled": True},
-    {"name": "Google", "slug": "google", "icon_slug": "google", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/google.svg", "enabled": True},
-    {"name": "Anthropic", "slug": "anthropic", "icon_slug": "anthropic", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg", "enabled": True},
-    {"name": "Unknown", "slug": "unknown", "icon_slug": None, "icon_url": None, "enabled": True},
-]
-
-
-DEFAULT_PROVIDERS = [
-    {"name": "OpenAI", "slug": "openai", "default_base_url": "https://api.openai.com", "icon_slug": "openai", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg", "enabled": True},
-    {"name": "Google Gemini", "slug": "gemini", "default_base_url": "https://generativelanguage.googleapis.com", "icon_slug": "gemini", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/gemini.svg", "enabled": True},
-    {"name": "Anthropic", "slug": "anthropic", "default_base_url": "https://api.anthropic.com", "icon_slug": "anthropic", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg", "enabled": True},
-    {"name": "OpenRouter", "slug": "openrouter", "default_base_url": "https://openrouter.ai/api", "icon_slug": "openrouter", "icon_url": "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openrouter.svg", "enabled": True},
-]
-
-
-DEFAULT_PROVIDER_KEYS = [
-]
-
-
-DEFAULT_MODELS = [
-    {"name": "gpt-5.4", "brand_slug": "openai", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 2.5, "cached_input_per_million": 0.25, "output_per_million": 15}},
-    {"name": "gpt-5.4-pro", "brand_slug": "openai", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 10, "cached_input_per_million": 1, "output_per_million": 50}},
-    {"name": "gpt-5.4-mini", "brand_slug": "openai", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.75, "cached_input_per_million": 0.08, "output_per_million": 4.5}},
-    {"name": "gpt-5.4-nano", "brand_slug": "openai", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.2, "cached_input_per_million": 0.03, "output_per_million": 1.25}},
-    {"name": "gpt-realtime-1.5", "brand_slug": "openai", "category": "realtime", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 4, "cached_input_per_million": 0.4, "output_per_million": 16}},
-    {"name": "gpt-realtime-mini", "brand_slug": "openai", "category": "realtime", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.6, "cached_input_per_million": 0.06, "output_per_million": 2.4}},
-    {"name": "gpt-image-1.5", "brand_slug": "openai", "category": "image", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 5, "cached_input_per_million": 0.5, "output_per_million": 25, "image_prices": {"low": 0.02, "medium": 0.07, "high": 0.28}}},
-    {"name": "gpt-image-1-mini", "brand_slug": "openai", "category": "image", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 1.15, "cached_input_per_million": 0.12, "output_per_million": 5.75, "image_prices": {"low": 0.01, "medium": 0.03, "high": 0.12}}},
-    {"name": "gpt-4o-transcribe", "brand_slug": "openai", "category": "audio", "enabled": True, "multiplier": 1, "pricing": {"mode": "request", "unit": "minute", "price": 0.006}},
-    {"name": "gpt-4o-mini-transcribe", "brand_slug": "openai", "category": "audio", "enabled": True, "multiplier": 1, "pricing": {"mode": "request", "unit": "minute", "price": 0.003}},
-    {"name": "text-embedding-3-small", "brand_slug": "openai", "category": "embedding", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.02, "output_per_million": 0}},
-    {"name": "text-embedding-3-large", "brand_slug": "openai", "category": "embedding", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.13, "output_per_million": 0}},
-    {"name": "omni-moderation-latest", "brand_slug": "openai", "category": "moderation", "enabled": True, "multiplier": 1, "pricing": {"mode": "free"}},
-    {"name": "gemini-3.1-pro-preview", "brand_slug": "google", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 2, "output_per_million": 12, "tiers": [{"max_input_tokens": 200000, "input_per_million": 2, "output_per_million": 12}, {"min_input_tokens": 200001, "input_per_million": 4, "output_per_million": 18}]}},
-    {"name": "gemini-3-flash-preview", "brand_slug": "google", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.5, "output_per_million": 3}},
-    {"name": "gemini-3.1-flash-lite-preview", "brand_slug": "google", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.25, "output_per_million": 1.5}},
-    {"name": "gemini-3.1-flash-live-preview", "brand_slug": "google", "category": "realtime", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.75, "output_per_million": 4.5, "audio_input_per_million": 3, "audio_output_per_million": 12}},
-    {"name": "gemini-2.5-flash-image", "brand_slug": "google", "category": "image", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.3, "output_per_million": 30}},
-    {"name": "gemini-3.1-flash-image-preview", "brand_slug": "google", "category": "image", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.5, "output_per_million": 3, "image_output_per_million": 60}},
-    {"name": "gemini-3-pro-image-preview", "brand_slug": "google", "category": "image", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "priority_input_per_million": 3.6, "priority_output_per_million": 21.6, "priority_image_output_per_million": 216}},
-    {"name": "gemini-embedding-001", "brand_slug": "google", "category": "embedding", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.15, "output_per_million": 0}},
-    {"name": "gemini-embedding-2-preview", "brand_slug": "google", "category": "embedding", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.2, "output_per_million": 0, "image_input_per_million": 0.45, "audio_input_per_million": 6.5, "video_input_per_million": 12}},
-    {"name": "gemini-robotics-er-1.5-preview", "brand_slug": "google", "category": "robotics", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.3, "output_per_million": 2.5}},
-    {"name": "gemini-2.5-computer-use-preview", "brand_slug": "google", "category": "agent", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 1.25, "output_per_million": 10, "tiers": [{"max_input_tokens": 200000, "input_per_million": 1.25, "output_per_million": 10}, {"min_input_tokens": 200001, "input_per_million": 2.5, "output_per_million": 15}]}},
-    {"name": "claude-opus-4.6", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 5, "cached_input_per_million": 0.5, "output_per_million": 25, "cache_write_5m_per_million": 6.25, "cache_write_1h_per_million": 10}},
-    {"name": "claude-sonnet-4.6", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 3, "cached_input_per_million": 0.3, "output_per_million": 15, "cache_write_5m_per_million": 3.75, "cache_write_1h_per_million": 6}},
-    {"name": "claude-haiku-4.5", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 1, "cached_input_per_million": 0.1, "output_per_million": 5, "cache_write_5m_per_million": 1.25, "cache_write_1h_per_million": 2}},
-    {"name": "claude-haiku-3.5", "brand_slug": "anthropic", "category": "llm", "enabled": True, "multiplier": 1, "pricing": {"mode": "token_segments", "input_per_million": 0.8, "cached_input_per_million": 0.08, "output_per_million": 4}},
-]
+def _public_models_by_slug() -> dict[str, dict]:
+    return {item["slug"]: item for item in load_default_models().get("public_models", [])}
 
 
 def configured_openai_bootstrap_models() -> list[str]:
@@ -101,7 +59,7 @@ async def ensure_admin_user(db: AsyncSession) -> None:
 
 async def ensure_default_brands(db: AsyncSession) -> None:
     created = 0
-    for payload in DEFAULT_BRANDS:
+    for payload in load_default_providers().get("brands", []):
         result = await db.execute(select(Brand).where(Brand.slug == payload["slug"]))
         brand = result.scalar_one_or_none()
         if brand:
@@ -127,7 +85,8 @@ async def ensure_default_brands(db: AsyncSession) -> None:
 
 async def ensure_default_providers(db: AsyncSession) -> None:
     created = 0
-    for payload in DEFAULT_PROVIDERS:
+    catalog = load_default_providers()
+    for payload in catalog.get("providers", []):
         result = await db.execute(select(Provider).where(Provider.slug == payload["slug"]))
         provider = result.scalar_one_or_none()
         if provider:
@@ -142,6 +101,64 @@ async def ensure_default_providers(db: AsyncSession) -> None:
     await db.commit()
     if created:
         logger.info("Default providers created: %s", created)
+
+    providers = {provider.slug: provider for provider in (await db.execute(select(Provider))).scalars().all()}
+    endpoint_created = 0
+    for payload in catalog.get("provider_endpoints", []):
+        provider = providers.get(payload["provider"])
+        if not provider:
+            continue
+        result = await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.name == payload["name"])
+        )
+        endpoint = result.scalar_one_or_none()
+        endpoint_payload = {
+            "provider_id": provider.id,
+            "name": payload["name"],
+            "base_url": payload["base_url"],
+            "endpoint_type": payload.get("endpoint_type", "openai_compatible"),
+            "enabled": payload.get("enabled", True),
+            "health_state": payload.get("health_state", "healthy"),
+            "meta": payload.get("meta", {}),
+        }
+        if endpoint:
+            for key, value in endpoint_payload.items():
+                setattr(endpoint, key, value)
+            continue
+        db.add(ProviderEndpoint(**endpoint_payload))
+        endpoint_created += 1
+
+    credential_created = 0
+    for payload in catalog.get("provider_credentials", []):
+        provider = providers.get(payload["provider"])
+        if not provider:
+            continue
+        result = await db.execute(
+            select(ProviderCredential)
+            .where(ProviderCredential.provider_id == provider.id)
+            .where(ProviderCredential.name == payload["name"])
+        )
+        credential = result.scalar_one_or_none()
+        credential_payload = {
+            "provider_id": provider.id,
+            "name": payload["name"],
+            "enabled": payload.get("enabled", True),
+            "health_state": payload.get("health_state", "healthy"),
+        }
+        if credential:
+            credential.enabled = credential_payload["enabled"]
+            credential.health_state = credential_payload["health_state"]
+            continue
+        db.add(ProviderCredential(**credential_payload))
+        credential_created += 1
+
+    await db.commit()
+    if endpoint_created:
+        logger.info("Default provider endpoints created: %s", endpoint_created)
+    if credential_created:
+        logger.info("Default provider credentials created: %s", credential_created)
 
 
 async def ensure_default_provider_keys(db: AsyncSession) -> None:
@@ -162,16 +179,68 @@ async def ensure_default_provider_keys(db: AsyncSession) -> None:
 
 async def ensure_default_models(db: AsyncSession) -> None:
     brands = {brand.slug: brand for brand in (await db.execute(select(Brand))).scalars().all()}
+    providers = {provider.slug: provider for provider in (await db.execute(select(Provider))).scalars().all()}
+    catalog = load_default_models()
+    public_models = _public_models_by_slug()
+
+    public_created = 0
+    for payload in catalog.get("public_models", []):
+        result = await db.execute(select(PublicModel).where(PublicModel.slug == payload["slug"]))
+        public_model = result.scalar_one_or_none()
+        model_payload = {
+            "slug": payload["slug"],
+            "display_name": payload["display_name"],
+            "category": payload.get("category", "llm"),
+            "pricing": payload.get("pricing", {}),
+            "enabled": payload.get("enabled", True),
+            "meta": payload.get("meta", {}),
+        }
+        if public_model:
+            for key, value in model_payload.items():
+                setattr(public_model, key, value)
+            continue
+        db.add(PublicModel(**model_payload))
+        public_created += 1
+
+    upstream_created = 0
+    for payload in catalog.get("upstream_models", []):
+        provider = providers.get(payload["provider"])
+        if not provider:
+            continue
+        result = await db.execute(
+            select(UpstreamModel)
+            .where(UpstreamModel.provider_id == provider.id)
+            .where(UpstreamModel.upstream_name == payload["upstream_name"])
+        )
+        upstream_model = result.scalar_one_or_none()
+        upstream_payload = {
+            "provider_id": provider.id,
+            "upstream_name": payload["upstream_name"],
+            "display_name": payload["display_name"],
+            "category": payload.get("category", "llm"),
+            "capabilities": payload.get("capabilities", {}),
+            "enabled": payload.get("enabled", True),
+            "meta": payload.get("meta", {}),
+        }
+        if upstream_model:
+            for key, value in upstream_payload.items():
+                setattr(upstream_model, key, value)
+            continue
+        db.add(UpstreamModel(**upstream_payload))
+        upstream_created += 1
+    await db.commit()
+
     created = 0
-    for payload in DEFAULT_MODELS:
+    for payload in catalog.get("legacy_models", []):
         brand = brands.get(payload["brand_slug"])
+        public_model = public_models.get(payload["name"], {})
         model_payload = {
             "name": payload["name"],
             "brand_id": brand.id if brand else None,
-            "category": payload["category"],
-            "enabled": payload["enabled"],
-            "multiplier": payload["multiplier"],
-            "pricing": payload["pricing"],
+            "category": payload.get("category", public_model.get("category", "llm")),
+            "enabled": payload.get("enabled", public_model.get("enabled", True)),
+            "multiplier": payload.get("multiplier", 1),
+            "pricing": payload.get("pricing", public_model.get("pricing", {})),
         }
         result = await db.execute(select(Model).where(Model.name == payload["name"]))
         model = result.scalar_one_or_none()
@@ -185,8 +254,66 @@ async def ensure_default_models(db: AsyncSession) -> None:
         db.add(Model(**model_payload))
         created += 1
     await db.commit()
+    if public_created:
+        logger.info("Default public models created: %s", public_created)
+    if upstream_created:
+        logger.info("Default upstream models created: %s", upstream_created)
     if created:
         logger.info("Default models created: %s", created)
+
+
+async def ensure_default_routes(db: AsyncSession) -> None:
+    public_models = {model.slug: model for model in (await db.execute(select(PublicModel))).scalars().all()}
+    upstream_models = {
+        f"{provider.slug}:{model.upstream_name}": model
+        for model, provider in (
+            await db.execute(select(UpstreamModel, Provider).join(Provider, Provider.id == UpstreamModel.provider_id))
+        ).all()
+    }
+    credentials = {
+        credential.name: credential
+        for credential in (await db.execute(select(ProviderCredential))).scalars().all()
+    }
+    endpoints = {
+        endpoint.name: endpoint
+        for endpoint in (await db.execute(select(ProviderEndpoint))).scalars().all()
+    }
+
+    created = 0
+    for payload in load_default_routes().get("routes", []):
+        public_model = public_models.get(payload["public_model"])
+        upstream_model = upstream_models.get(payload["upstream_model"])
+        if not public_model or not upstream_model:
+            continue
+        credential = credentials.get(payload.get("credential", ""))
+        endpoint = endpoints.get(payload.get("endpoint", ""))
+        result = await db.execute(
+            select(ModelRoute)
+            .where(ModelRoute.public_model_id == public_model.id)
+            .where(ModelRoute.upstream_model_id == upstream_model.id)
+            .where(ModelRoute.provider_credential_id == (credential.id if credential else None))
+        )
+        route = result.scalar_one_or_none()
+        route_payload = {
+            "public_model_id": public_model.id,
+            "upstream_model_id": upstream_model.id,
+            "provider_credential_id": credential.id if credential else None,
+            "provider_endpoint_id": endpoint.id if endpoint else None,
+            "enabled": payload.get("enabled", True),
+            "priority": payload.get("priority", 1),
+            "weight": payload.get("weight", 1),
+            "quota_unit": payload.get("quota_unit", "tokens"),
+            "quota_rules": payload.get("quota_rules", {}),
+        }
+        if route:
+            for key, value in route_payload.items():
+                setattr(route, key, value)
+            continue
+        db.add(ModelRoute(**route_payload))
+        created += 1
+    await db.commit()
+    if created:
+        logger.info("Default model routes created: %s", created)
 
 
 async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey | None:
