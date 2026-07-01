@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir poetry \
 RUN groupadd --system apicred && useradd --system --gid apicred --create-home --home-dir /home/apicred apicred
 
 COPY app /app/app
+COPY alembic /app/alembic
+COPY alembic.ini /app/alembic.ini
 RUN chown -R apicred:apicred /app
 USER apicred
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

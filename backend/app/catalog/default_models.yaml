@@ -4,6 +4,13 @@ public_models:
     category: llm
     pricing: {mode: token_segments, input_per_million: 0.3, output_per_million: 1.2}
     enabled: true
+  - slug: brave-web-search
+    display_name: Brave Web Search
+    description: Web search tool model backed by Brave Search API.
+    brand_slug: brave-search
+    category: search
+    pricing: {mode: request, unit: request, price: 0}
+    enabled: true
   - slug: gpt-5.4
     display_name: GPT 5.4
     category: llm
@@ -152,6 +159,13 @@ upstream_models:
     context_window: 128000
     capabilities: {chat: true, streaming: true, tools: true}
     default_pricing: {}
+    enabled: true
+  - provider: brave-search
+    upstream_name: web-search
+    display_name: Brave Web Search
+    context_window:
+    capabilities: {search: true, web: true}
+    default_pricing: {mode: request, unit: request}
     enabled: true
   - provider: openai
     upstream_name: gpt-5.4

@@ -19,8 +19,13 @@ export const userConsoleRoutes: ConsoleRoute[] = [
 export const adminConsoleRoutes: ConsoleRoute[] = [
   { path: "/admin/overview", label: "总览", mode: "admin", description: "全站用户、模型、额度总览", apiPath: "/admin/dashboard" },
   { path: "/admin/users", label: "用户管理", mode: "admin", description: "查看用户与启停账号", apiPath: "/admin/users" },
-  { path: "/admin/models", label: "模型管理", mode: "admin", description: "维护可用模型和定价", apiPath: "/admin/models" },
-  { path: "/admin/providers", label: "服务商管理", mode: "admin", description: "服务商 Key 与模型绑定", apiPath: "/admin/provider-keys" },
+  { path: "/admin/brands", label: "品牌", mode: "admin", description: "模型品牌目录", apiPath: "/admin/brands" },
+  { path: "/admin/public-models", label: "Public Models", mode: "admin", description: "用户可见模型产品目录", apiPath: "/admin/public-models" },
+  { path: "/admin/upstream-models", label: "Upstream Models", mode: "admin", description: "真实上游模型目录", apiPath: "/admin/upstream-models" },
+  { path: "/admin/providers", label: "Providers", mode: "admin", description: "上游供应商目录", apiPath: "/admin/providers" },
+  { path: "/admin/provider-endpoints", label: "Endpoints", mode: "admin", description: "供应商上游入口", apiPath: "/admin/provider-endpoints" },
+  { path: "/admin/provider-credentials", label: "Credentials", mode: "admin", description: "上游密钥与健康状态", apiPath: "/admin/provider-credentials" },
+  { path: "/admin/model-routes", label: "Routes", mode: "admin", description: "模型路由策略", apiPath: "/admin/model-routes" },
   { path: "/admin/api-models", label: "API 模型支持", mode: "admin", description: "查看任意 API 支持模型", apiPath: "/admin/api-supported-models" },
   { path: "/admin/usage", label: "使用统计", mode: "admin", description: "全站调用记录与消费汇总", apiPath: "/admin/usage-summary" },
 ];

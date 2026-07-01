@@ -4,15 +4,14 @@ import adminApi from "../../api/adminClient";
 import { AdminIcon, AdminPageIntro } from "./adminCommon";
 
 type ChatSession = {
-  id: string;
+  usage_session_id: string;
   model_name: string | null;
   upstream_provider: string | null;
   status: string;
-  request_messages: Array<{ role?: string; content?: string }>;
-  request_text: string | null;
-  response_text: string | null;
+  messages: Array<{ id: string; role?: string; source?: string; content?: string; user_deleted_at?: string | null }>;
   total_tokens: number;
   final_cost_credits: number;
+  deleted_for_user?: boolean;
   created_at: string | null;
 };
 
@@ -21,6 +20,9 @@ const AdminUsersPage = () => {
   const [activeUserId, setActiveUserId] = useState<string>("");
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatPage, setChatPage] = useState(1);
+  const [chatTotal, setChatTotal] = useState(0);
+  const chatPageSize = 5;
 
   const load = async () => {
     try {
@@ -40,31 +42,32 @@ const AdminUsersPage = () => {
     await load();
   };
 
-  const loadUserChats = async (userId: string) => {
-    if (activeUserId === userId) {
+  const loadUserChats = async (userId: string, page = 1) => {
+    if (activeUserId === userId && page === chatPage) {
       setActiveUserId("");
       setChatSessions([]);
+      setChatTotal(0);
       return;
     }
     setChatLoading(true);
     setActiveUserId(userId);
     try {
-      const resp = await adminApi.get(`/admin/users/${userId}/chat-sessions`);
-      setChatSessions(resp.data ?? []);
+      const resp = await adminApi.get(`/admin/users/${userId}/audit-conversations`, { params: { page, page_size: chatPageSize } });
+      setChatSessions(resp.data.items ?? []);
+      setChatPage(resp.data.page ?? page);
+      setChatTotal(resp.data.total ?? 0);
     } catch {
       setChatSessions([]);
+      setChatTotal(0);
     }
     setChatLoading(false);
   };
 
   const getPromptPreview = (item: ChatSession) => {
-    if (item.request_messages?.length) {
-      const first = item.request_messages.find((msg) => msg.role === "user") ?? item.request_messages[0];
-      const content = first?.content ?? "";
-      return String(content).slice(0, 120) || "-";
-    }
-    return (item.request_text || "-").slice(0, 120);
+    const first = item.messages?.find((msg) => msg.role === "user") ?? item.messages?.[0];
+    return String(first?.content ?? "-").slice(0, 160);
   };
+  const chatTotalPages = Math.max(Math.ceil(chatTotal / chatPageSize), 1);
 
   return (
     <div className="space-y-6">
@@ -112,7 +115,7 @@ const AdminUsersPage = () => {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button buttonStyle="text" variant="secondary" onClick={() => updateStatus(item.id, "active")}>启用</Button>
                 <Button buttonStyle="text" variant="error" onClick={() => updateStatus(item.id, "disabled")}>禁用</Button>
-                <Button buttonStyle="text" variant="warning" onClick={() => loadUserChats(item.id)}>
+                <Button buttonStyle="text" variant="warning" onClick={() => loadUserChats(item.id, 1)}>
                   <span className="inline-flex items-center gap-2">
                     <AdminIcon icon="chat" className="h-4 w-4" />
                     {activeUserId === item.id ? "收起聊天记录" : "查看聊天记录"}
@@ -133,9 +136,9 @@ const AdminUsersPage = () => {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
               <AdminIcon icon="chat" className="h-5 w-5" />
-              用户聊天记录
+              用户审计对话
             </div>
-            <Badge variant="secondary">{chatSessions.length}</Badge>
+            <Badge variant="secondary">{chatTotal}</Badge>
           </div>
 
           {chatLoading ? (
@@ -143,29 +146,58 @@ const AdminUsersPage = () => {
           ) : (
             <div className="mt-4 space-y-3">
               {chatSessions.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div key={item.usage_session_id} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-900">{item.model_name || "unknown model"}</div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{item.upstream_provider || "-"}</Badge>
                       <Badge variant={item.status === "completed" ? "primary" : "warning"}>{item.status}</Badge>
+                      {item.deleted_for_user ? <Badge variant="warning">用户已删除</Badge> : null}
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-slate-500">{item.created_at ? item.created_at.replace("T", " ").slice(0, 19) : "-"}</div>
                   <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
-                    <div className="font-medium text-slate-900">用户输入</div>
+                    <div className="font-medium text-slate-900">首条内容</div>
                     <div className="mt-1 break-words">{getPromptPreview(item)}</div>
                   </div>
-                  {item.response_text ? (
-                    <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">模型回复（截断）</div>
-                      <div className="mt-1 break-words">{item.response_text.slice(0, 200)}</div>
-                    </div>
-                  ) : null}
-                  <div className="mt-2 text-xs text-slate-500">tokens: {item.total_tokens} · cost: {item.final_cost_credits}</div>
+                  <div className="mt-3 space-y-2">
+                    {(item.messages ?? []).map((message) => (
+                      <div key={message.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold uppercase tracking-[0.16em] text-slate-500">{message.role || "-"}</span>
+                          <span className="text-slate-400">
+                            {message.source || "-"}{message.user_deleted_at ? " · user deleted" : ""}
+                          </span>
+                        </div>
+                        <div className="mt-2 whitespace-pre-wrap break-words">{message.content || "-"}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500">tokens: {item.total_tokens} · cost: {item.final_cost_credits}</div>
                 </div>
               ))}
               {chatSessions.length === 0 && <div className="text-sm text-slate-500">暂无聊天记录</div>}
+              {chatSessions.length > 0 && (
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    buttonStyle="text"
+                    variant="secondary"
+                    disabled={chatPage <= 1 || chatLoading}
+                    onClick={() => loadUserChats(activeUserId, chatPage - 1)}
+                  >
+                    上一页
+                  </Button>
+                  <div className="text-sm text-slate-500">{chatPage} / {chatTotalPages}</div>
+                  <Button
+                    buttonStyle="text"
+                    variant="secondary"
+                    disabled={chatPage >= chatTotalPages || chatLoading}
+                    onClick={() => loadUserChats(activeUserId, chatPage + 1)}
+                  >
+                    下一页
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </Card>

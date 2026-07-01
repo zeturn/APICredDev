@@ -24,6 +24,6 @@ class AdminTokenResponse(BaseModel):
 
 class MeResponse(BaseModel):
     id: str
-    email: EmailStr
+    email: str
     status: str
 

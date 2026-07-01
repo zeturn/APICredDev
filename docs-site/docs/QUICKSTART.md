@@ -40,10 +40,13 @@ slug: /quickstart
 
 安装：
 
+```bash
 python -m pip install openai
+```
 
 示例：
 
+```python
 from openai import OpenAI
 
 client = OpenAI(
@@ -57,6 +60,7 @@ resp = client.chat.completions.create(
 )
 
 print(resp.choices[0].message.content)
+```
 
 ## 第 5 步：快速排错
 
@@ -65,8 +69,39 @@ print(resp.choices[0].message.content)
 - 404 model_not_found：模型名不存在或未启用。
 - 502 upstream_failed：上游服务商 key 不可用或暂时失败。
 
+## 可选：调用联网搜索
+
+如果管理员已注册搜索模型，例如 `brave-web-search`，可以在同一个 Chat Completions 请求中声明搜索 tool：
+
+```json
+{
+  "model": "apicred-fast",
+  "messages": [
+    {"role": "user", "content": "Search the web and answer: what is Brave Search API?"}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "search_model": "brave-web-search",
+      "function": {
+        "name": "brave_web_search",
+        "description": "Search the web through APICred",
+        "parameters": {
+          "type": "object",
+          "properties": {"query": {"type": "string"}},
+          "required": ["query"]
+        }
+      }
+    }
+  ]
+}
+```
+
+搜索请求会使用管理员配置的搜索模型 route 和 API key，支持备用 key 和按请求数限额。
+
 ## 下一步推荐
 
 - 查看完整用户指南：USAGE
+- 查看管理员模型目录：ADMIN_MODEL_CATALOG
 - 查看 SDK 文档：SDK
 - 查看 Basalt 联调：BASALTPASS_QUICKSTART

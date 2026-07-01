@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 HealthState = Literal["healthy", "disabled", "cooldown"]
 QuotaUnit = Literal["tokens", "requests"]
-ModelCategory = Literal["llm", "image", "embedding", "audio", "moderation", "realtime"]
+ModelCategory = Literal["llm", "image", "embedding", "audio", "moderation", "realtime", "search", "agent", "robotics"]
 
 
 class BrandUpsert(BaseModel):

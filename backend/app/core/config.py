@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     basalt_default_tenant_id: str = ""
     basalt_timeout_seconds: float = 15.0
     basalt_max_retries: int = 2
+    brave_search_api_key: str = ""
+    brave_search_base_url: str = "https://api.search.brave.com/res/v1"
+    brave_search_default_country: str = "US"
+    brave_search_default_lang: str = "en"
+    brave_search_default_count: int = 5
+    search_default_model_slug: str = "brave-web-search"
     apicred_public_base_url: str = "http://localhost:8103"
     frontend_base_url: str = "http://localhost:5106"
     cors_origins: list[str] = ["http://localhost:5106", "http://127.0.0.1:5106"]

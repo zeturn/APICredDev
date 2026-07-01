@@ -5,7 +5,7 @@
 ## Overview
 
 - **定位**：API 网关与计费中台（FastAPI + Postgres + Redis）
-- **核心能力**：认证、令牌、模型目录、上游路由、计费、BasaltPass 代理、管理后台
+- **核心能力**：认证、令牌、模型/搜索目录、上游路由、计费、审计、BasaltPass 代理、管理后台
 - **运行形态**：`backend` + `frontend` + `postgres` + `redis`
 
 ## Repository Structure
@@ -54,7 +54,7 @@ npm run dev
 
 ## Domain Model
 
-APICred 的模型路由域已经拆成五个一等对象：
+APICred 的模型路由域已经拆成一组通用对象。它不只服务 LLM，也服务搜索、图像、音频、embedding 等需要 API key、quota 和 fallback routing 的能力：
 
 ```text
 public_models
@@ -68,12 +68,12 @@ public_models
 
 含义：
 
-- `public_models`：用户可见、可购买、可在请求里传入的模型，例如 `apicred-fast`。
-- `upstream_models`：上游真实模型名，例如 `openai:gpt-4o-mini` 或 `anthropic:claude-sonnet-4.6`。
+- `public_models`：用户可见、可购买、可在请求里传入或由 tool 引用的产品模型，例如 `apicred-fast`、`brave-web-search`。
+- `upstream_models`：上游真实模型名，例如 `openai:gpt-4o-mini`、`anthropic:claude-sonnet-4.6`、`brave-search:web-search`。
 - `providers`：上游供应商/协议适配器，例如 `openai`、`gemini`、`anthropic`、`openrouter`。
 - `provider_endpoints`：上游访问入口，`base_url` 的唯一默认归属，例如 `https://api.openai.com`。
 - `provider_credentials`：绑定到某个 endpoint 的 API key/credential，密钥加密后存库。
-- `model_routes`：把一个 public model 路由到某个 upstream model + credential，并配置 `priority`、`weight`、quota 和可选 `base_url_override`。
+- `model_routes`：把一个 public model 路由到某个 upstream model + credential，并配置 `priority`、`weight`、quota 和可选 `base_url_override`。多个 route 可用于 fallback、权重分流和限额用尽后切换。
 
 Base URL 解析顺序：
 
@@ -92,8 +92,86 @@ Admin schema 对以下枚举做约束：
 ```python
 Literal["healthy", "disabled", "cooldown"]
 Literal["tokens", "requests"]
-Literal["llm", "image", "embedding", "audio", "moderation", "realtime"]
+Literal["llm", "image", "embedding", "audio", "moderation", "realtime", "search", "agent", "robotics"]
 ```
+
+## Managed Search Tools
+
+APICred 支持把搜索供应商当作普通模型产品管理。默认 catalog 会注册：
+
+- provider: `brave-search`
+- endpoint: `Brave Web Search`
+- public model: `brave-web-search`
+- upstream model: `brave-search:web-search`
+- credential: `Brave Search main key`
+- route: `brave-web-search -> brave-search:web-search`
+
+管理员可在控制台像管理 LLM 一样管理搜索能力：
+
+- `/admin/providers`
+- `/admin/provider-endpoints`
+- `/admin/provider-credentials`
+- `/admin/public-models`
+- `/admin/upstream-models`
+- `/admin/model-routes`
+
+搜索 API key 加密保存在 `provider_credentials`，`BRAVE_SEARCH_API_KEY` 仅作为本地 bootstrap fallback。生产环境应通过管理后台录入和轮换搜索 key。
+
+调用方仍然使用 OpenAI 风格的 `POST /v1/chat/completions`。请求中声明 APICred 托管的搜索 tool 后，后端会先通过 `search_model` 对应的 public model 选择搜索 route 和 credential，再把搜索结果注入 LLM 上下文：
+
+```json
+{
+  "model": "apicred-fast",
+  "messages": [
+    {"role": "user", "content": "Search the web and answer: what is Brave Search API?"}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "search_model": "brave-web-search",
+      "function": {
+        "name": "brave_web_search",
+        "description": "Search the web through an APICred search model",
+        "parameters": {
+          "type": "object",
+          "properties": {"query": {"type": "string"}},
+          "required": ["query"]
+        }
+      }
+    }
+  ]
+}
+```
+
+支持的托管搜索 tool 名称：
+
+- `brave_web_search`
+- `brave_search`
+- `web_search`
+- `search_web`
+
+搜索 route 的 `quota_unit` 应使用 `requests`。例如某个 key 每日 2,000 次：
+
+```json
+{"day": 2000}
+```
+
+当某个搜索 credential 被禁用、冷却、或 quota 用尽时，路由服务会按 `priority` 和 `weight` 选择下一个可用 route。
+
+## LLM Audit Messages
+
+每次 LLM 调用会同时写入：
+
+- `usage_sessions`：计费、tokens、路由、成本与状态
+- `audit_llm_messages`：按 message 粒度保存审计内容
+
+`audit_llm_messages.source` 用于区分来源：
+
+- `request`：用户原始输入
+- `tool`：APICred 托管工具上下文，例如 Brave Search 搜索结果
+- `response`：模型回复
+
+用户可在 `/workspace/usage` 分页查看自己的对话记录并软删除。软删除只设置 `user_deleted_at`，用户侧不再显示；管理员在 `/admin/users` 的用户审计对话中仍可分页查看完整记录和删除标记。
 
 ## Catalog
 
@@ -165,6 +243,19 @@ APICred 可以在启动 bootstrap 时从环境变量导入一个 OpenAI provider
 
 启动时会创建或更新 OpenAI provider、default endpoint、provider credential、缺失的 OpenAI public/upstream models，并通过 `model_routes` 绑定路由。
 
+### Search Provider Bootstrap
+
+本地开发可用 `BRAVE_SEARCH_API_KEY` 引导创建默认 Brave Search credential：
+
+- `provider`: `brave-search`
+- `provider_endpoint`: `web`
+- `provider_credential`: `Brave Search main key`
+- `public_model`: `brave-web-search`
+- `upstream_model`: `web-search`
+- `model_route.quota_unit`: `requests`
+
+该环境变量只适合 bootstrap 和本地试验。长期管理应通过 `/admin/provider-credentials` 更新 API key，并通过 `/admin/model-routes` 配置备用 key、priority、weight 和 quota。
+
 ## Persistence Mounts
 
 `docker-compose.yml` 当前已挂载：
@@ -204,6 +295,8 @@ pytest -q
 
 - 使用独立 Postgres/Redis 托管实例
 - Provider API key 通过管理后台录入并加密存储到数据库
+- 搜索 API key 也通过 provider credential 管理，不直接依赖环境变量
+- 用户对话审计保存在 `audit_llm_messages`，需要纳入数据保留和隐私策略
 - 使用反向代理与 HTTPS
 - 启用日志、监控与告警
 - 设置 `PRODUCTION_MODE=true`

@@ -11,6 +11,7 @@ from app.api.v1 import (
     models,
     llm,
     billing,
+    audit,
     admin,
     basalt,
 )
@@ -21,6 +22,7 @@ from app.db.session import SessionLocal
 from app.db import models as _models  # noqa: F401
 from app.services.bootstrap import (
     ensure_admin_user,
+    ensure_bootstrap_brave_search_credential,
     ensure_bootstrap_openai_credential,
     ensure_default_brands,
     ensure_default_models,
@@ -40,6 +42,7 @@ async def lifespan(_: FastAPI):
             await ensure_default_models(db)
             await ensure_default_routes(db)
             await ensure_bootstrap_openai_credential(db)
+            await ensure_bootstrap_brave_search_credential(db)
     yield
 
 
@@ -89,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(models.router, prefix="/v1")
     app.include_router(llm.router, prefix="/v1")
     app.include_router(billing.router, prefix="/v1")
+    app.include_router(audit.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
 

@@ -17,10 +17,12 @@ from app.db.models.provider_credential import ProviderCredential
 from app.db.models.public_model import PublicModel
 from app.schemas.llm import ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChoice, ChatCompletionUsage, ChatMessage
 from app.services.billing_service import authorize_usage, settle_usage
+from app.services.audit_service import extract_response_messages, record_request_messages, record_response_messages
 from app.services.providers.base import ProviderStreamResult, stream_chunks_from_raw
 from app.services.providers.factory import get_provider_adapter
 from app.services.providers.presets import get_provider_default_base_url
 from app.services.routing_service import ModelRouteCandidate, get_route_candidates
+from app.services.search_service import latest_user_query, managed_web_search, request_uses_search_tool, search_context_message, search_model_from_tools, strip_managed_search_tools
 from app.services.usage_service import estimate_prompt_tokens, estimate_tokens, calculate_cost
 from app.services.quota_service import try_reserve
 from app.redis.client import get_redis
@@ -166,6 +168,7 @@ async def chat_completions(
     request_id = request.state.request_id
     await require_scopes(["llm"], api_token, request)
     payload_dict = payload.model_dump(exclude_none=True)
+    uses_search_tool = request_uses_search_tool(payload.tools, payload.tool_choice)
     result = await db.execute(select(PublicModel).where(PublicModel.slug == payload.model))
     model = result.scalar_one_or_none()
     if not model or not model.enabled:
@@ -195,15 +198,33 @@ async def chat_completions(
         )
     except ValueError:
         raise AppError("insufficient_balance", "insufficient balance", request_id, 402)
-
-    candidates = await get_route_candidates(db, model.id)
-    if not candidates:
-        await settle_usage(db, usage_session, 0, {"error": "no_candidates"})
-        raise AppError("no_upstream_capacity", "no available upstream keys", request_id, 503)
+    await record_request_messages(db, usage_session, _messages_to_records(payload.messages))
 
     redis = get_redis()
     stream_response_started = False
     try:
+        if uses_search_tool:
+            query = latest_user_query(payload.messages)
+            try:
+                search_payload, _search_model = await managed_web_search(
+                    db,
+                    redis,
+                    query,
+                    search_model_slug=search_model_from_tools(payload.tools, payload.tool_choice),
+                )
+            except ValueError as exc:
+                raise AppError("search_config_missing", str(exc), request_id, 500)
+            except httpx.HTTPStatusError as exc:
+                raise AppError("search_upstream_failed", f"Brave Search HTTP {exc.response.status_code}", request_id, 502)
+            payload_dict = strip_managed_search_tools(payload_dict)
+            payload_dict["messages"] = [search_context_message(search_payload), *payload_dict.get("messages", [])]
+            await record_request_messages(db, usage_session, [search_context_message(search_payload)], source="tool")
+
+        candidates = await get_route_candidates(db, model.id)
+        if not candidates:
+            await settle_usage(db, usage_session, 0, {"error": "no_candidates"})
+            raise AppError("no_upstream_capacity", "no available upstream keys", request_id, 503)
+
         attempts = 0
         last_error_info: dict | None = None
         for candidate in candidates:
@@ -257,6 +278,7 @@ async def chat_completions(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                 )
+                await record_response_messages(db, usage_session, extract_response_messages(raw))
                 await settle_usage(db, usage_session, final_cost, usage, response_text=_extract_response_text(raw))
                 choices = [
                     ChatCompletionChoice(
@@ -358,6 +380,7 @@ async def _proxy_stream_and_settle(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
         )
+        await record_response_messages(db, usage_session, extract_response_messages(raw))
         await settle_usage(db, usage_session, final_cost, usage, response_text=_extract_response_text(raw))
         settled = True
     finally:
@@ -377,6 +400,7 @@ async def _proxy_stream_and_settle(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
             )
+            await record_response_messages(db, usage_session, extract_response_messages(raw))
             await settle_usage(
                 db,
                 usage_session,

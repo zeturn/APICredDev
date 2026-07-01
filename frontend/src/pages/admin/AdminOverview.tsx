@@ -34,17 +34,17 @@ const AdminOverviewPage = () => {
           <Grid item xs={12} md={3}>
             <Card className="p-6">
               <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="models" /></div>
-              <Typography variant="body2" color="textSecondary">模型</Typography>
-              <Typography variant="h3" className="mt-2">{dashboard.total_models}</Typography>
-              <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_models}</Typography>
+              <Typography variant="body2" color="textSecondary">Public Models</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.public_models}</Typography>
+              <Typography variant="caption" color="textSecondary">上游 {dashboard.upstream_models}</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} md={3}>
             <Card className="p-6">
               <div className="mb-2 inline-flex rounded-lg bg-sky-50 p-2 text-sky-700"><AdminIcon icon="provider" /></div>
-              <Typography variant="body2" color="textSecondary">服务商 Key</Typography>
-              <Typography variant="h3" className="mt-2">{dashboard.provider_keys}</Typography>
-              <Typography variant="caption" color="textSecondary">启用 {dashboard.enabled_provider_keys}</Typography>
+              <Typography variant="body2" color="textSecondary">Credentials</Typography>
+              <Typography variant="h3" className="mt-2">{dashboard.provider_credentials}</Typography>
+              <Typography variant="caption" color="textSecondary">Endpoints {dashboard.provider_endpoints}</Typography>
             </Card>
           </Grid>
           <Grid item xs={12} md={3}>
@@ -60,17 +60,23 @@ const AdminOverviewPage = () => {
       {dashboard && (
         <Card className="p-6">
           <div className="flex items-center justify-between gap-3">
-            <Typography variant="h6">额度概览</Typography>
+            <Typography variant="h6">路由与额度概览</Typography>
             <Badge variant="warning">sitewide</Badge>
           </div>
           <Grid container spacing={2} className="mt-4">
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                <Typography variant="body2" color="textSecondary">模型路由</Typography>
+                <Typography variant="h3" className="mt-2">{dashboard.model_routes}</Typography>
+              </div>
+            </Grid>
+            <Grid item xs={12} md={4}>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <Typography variant="body2" color="textSecondary">全站已使用额度</Typography>
                 <Typography variant="h3" className="mt-2">{dashboard.total_usage_credits}</Typography>
               </div>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <Typography variant="body2" color="textSecondary">全站剩余额度</Typography>
                 <Typography variant="h3" className="mt-2">{dashboard.total_remaining_credits}</Typography>

@@ -56,25 +56,63 @@ OpenAI SDK 中的 `api_key` 实际应填 APICred 的 API Token。
 - Token scope 至少包含 `llm`
 - 对应用户具备 Basalt 侧可用权限
 
-## 4. 兼容性说明
+## 4. 联网搜索 Tool
+
+如果管理员已注册搜索模型，例如 `brave-web-search`，可以通过 OpenAI SDK 的 `tools` 参数触发 APICred 托管搜索：
+
+```python
+resp = client.chat.completions.create(
+    model="apicred-fast",
+    messages=[
+        {"role": "user", "content": "Search the web and answer: what is Brave Search API?"}
+    ],
+    tools=[
+        {
+            "type": "function",
+            "search_model": "brave-web-search",
+            "function": {
+                "name": "brave_web_search",
+                "description": "Search the web through APICred",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+            },
+        }
+    ],
+)
+
+print(resp.choices[0].message.content)
+```
+
+说明：
+
+- APICred 会先根据 `search_model` 选择搜索 public model 的 route 和 credential。
+- 搜索 key、备用 route 和 quota 由管理员在控制台管理。
+- 搜索结果会作为内部上下文注入给上游 LLM，并写入审计消息的 `tool` source。
+
+## 5. 兼容性说明
 
 已兼容：
 
 - `POST /v1/chat/completions`
 - `stream=True` 的 SSE 流式返回
+- 托管搜索 tool：`brave_web_search`、`brave_search`、`web_search`、`search_web`
 
 注意：
 
 - 模型名必须来自 APICred 当前可用模型。
 - 若上游 key 不可用或配额受限，可能返回 `502 upstream_failed`。
 
-## 5. 调试建议
+## 6. 调试建议
 
 - 先在控制台确认模型存在且已启用。
 - 用一个最小请求验证：短 prompt + 非流式。
+- 搜索失败时确认搜索 public model、route、credential 和 quota 是否启用。
 - 失败时记录 `X-Request-Id` 便于服务端排查。
 
-## 6. 旧版本地 SDK 说明
+## 7. 旧版本地 SDK 说明
 
 仓库中保留了 `sdk/python` 目录用于历史兼容，但在新项目中优先建议使用 OpenAI SDK + APICred `base_url` 模式。
 

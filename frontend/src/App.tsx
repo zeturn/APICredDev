@@ -11,11 +11,24 @@ import TopupPage from "./pages/Topup";
 import UsagePage from "./pages/Usage";
 import AdminOverviewPage from "./pages/admin/AdminOverview";
 import AdminUsersPage from "./pages/admin/AdminUsers";
-import AdminModelsPage from "./pages/admin/AdminModels";
-import AdminProvidersPage from "./pages/admin/AdminProviders";
-import AdminProviderKeyDetailPage from "./pages/admin/AdminProviderKeyDetail";
 import AdminUsagePage from "./pages/admin/AdminUsage";
 import AdminApiModelsPage from "./pages/admin/AdminApiModels";
+import {
+  AdminBrandDetailPage,
+  AdminBrandsPage,
+  AdminModelRouteDetailPage,
+  AdminModelRoutesPage,
+  AdminProviderCredentialDetailPage,
+  AdminProviderCredentialsPage,
+  AdminProviderDetailPage,
+  AdminProviderEndpointDetailPage,
+  AdminProviderEndpointsPage,
+  AdminProvidersPage,
+  AdminPublicModelDetailPage,
+  AdminPublicModelsPage,
+  AdminUpstreamModelDetailPage,
+  AdminUpstreamModelsPage,
+} from "./pages/admin/AdminCatalogPages";
 import RequireAuth from "./routes/RequireAuth";
 
 const App = () => {
@@ -47,9 +60,21 @@ const App = () => {
         <Route element={<AdminLayout />}>
           <Route path="/admin/overview" element={<AdminOverviewPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
-          <Route path="/admin/models" element={<AdminModelsPage />} />
+          <Route path="/admin/models" element={<Navigate to="/admin/public-models" replace />} />
+          <Route path="/admin/brands" element={<AdminBrandsPage />} />
+          <Route path="/admin/brands/:id" element={<AdminBrandDetailPage />} />
+          <Route path="/admin/public-models" element={<AdminPublicModelsPage />} />
+          <Route path="/admin/public-models/:id" element={<AdminPublicModelDetailPage />} />
+          <Route path="/admin/upstream-models" element={<AdminUpstreamModelsPage />} />
+          <Route path="/admin/upstream-models/:id" element={<AdminUpstreamModelDetailPage />} />
           <Route path="/admin/providers" element={<AdminProvidersPage />} />
-          <Route path="/admin/providers/:providerKeyId" element={<AdminProviderKeyDetailPage />} />
+          <Route path="/admin/providers/:id" element={<AdminProviderDetailPage />} />
+          <Route path="/admin/provider-endpoints" element={<AdminProviderEndpointsPage />} />
+          <Route path="/admin/provider-endpoints/:id" element={<AdminProviderEndpointDetailPage />} />
+          <Route path="/admin/provider-credentials" element={<AdminProviderCredentialsPage />} />
+          <Route path="/admin/provider-credentials/:id" element={<AdminProviderCredentialDetailPage />} />
+          <Route path="/admin/model-routes" element={<AdminModelRoutesPage />} />
+          <Route path="/admin/model-routes/:id" element={<AdminModelRouteDetailPage />} />
           <Route path="/admin/api-models" element={<AdminApiModelsPage />} />
           <Route path="/admin/usage" element={<AdminUsagePage />} />
         </Route>

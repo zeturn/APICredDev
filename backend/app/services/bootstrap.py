@@ -81,7 +81,7 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         provider = result.scalar_one_or_none()
         if provider:
             provider.name = payload["name"]
-            provider.default_base_url = payload["default_base_url"]
+            provider.default_base_url = payload.get("default_base_url")
             provider.icon_slug = payload["icon_slug"]
             provider.icon_url = payload["icon_url"]
             provider.enabled = payload["enabled"]
@@ -351,6 +351,70 @@ async def ensure_bootstrap_openai_credential(db: AsyncSession) -> ProviderCreden
     await ensure_openai_models_and_routes(db, provider, credential)
     await ensure_default_routes(db)
     logger.info("OpenAI bootstrap credential configured: display_name=%s last4=%s", key_name, secret_last4)
+    return credential
+
+
+async def ensure_bootstrap_brave_search_credential(db: AsyncSession) -> ProviderCredential | None:
+    api_key = (settings.brave_search_api_key or "").strip()
+    if not api_key:
+        return None
+
+    await ensure_default_brands(db)
+    await ensure_default_providers(db)
+    await ensure_default_models(db)
+    await ensure_default_routes(db)
+
+    provider = (await db.execute(select(Provider).where(Provider.slug == "brave-search"))).scalar_one_or_none()
+    if not provider:
+        return None
+    endpoint = (
+        await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == "web")
+        )
+    ).scalar_one_or_none()
+    if not endpoint:
+        endpoint = ProviderEndpoint(
+            provider_id=provider.id,
+            slug="web",
+            display_name="Brave Web Search",
+            base_url=settings.brave_search_base_url,
+            enabled=True,
+            health_state="healthy",
+        )
+        db.add(endpoint)
+        await db.commit()
+        await db.refresh(endpoint)
+    else:
+        endpoint.base_url = settings.brave_search_base_url
+        endpoint.enabled = True
+
+    key_name = "Brave Search main key"
+    result = await db.execute(
+        select(ProviderCredential)
+        .where(ProviderCredential.provider_endpoint_id == endpoint.id)
+        .where(ProviderCredential.display_name == key_name)
+    )
+    credential = result.scalar_one_or_none()
+    payload = {
+        "provider_endpoint_id": endpoint.id,
+        "display_name": key_name,
+        "secret_encrypted": encrypt_secret(api_key),
+        "secret_last4": api_key[-4:],
+        "enabled": True,
+        "health_state": "healthy",
+        "cooldown_until": None,
+    }
+    if not credential:
+        credential = ProviderCredential(**payload)
+        db.add(credential)
+    else:
+        for key, value in payload.items():
+            setattr(credential, key, value)
+    await db.commit()
+    await db.refresh(credential)
+    logger.info("Brave Search bootstrap credential configured: display_name=%s last4=%s", key_name, api_key[-4:])
     return credential
 
 

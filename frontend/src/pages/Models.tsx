@@ -139,7 +139,7 @@ const ModelsPage = () => {
                 <Button variant="secondary" buttonStyle="outlined" onClick={() => window.location.reload()}>
                   重新加载
                 </Button>
-                <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/admin/models")}>
+                <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/admin/public-models")}>
                   通知管理员检查模型配置
                 </Button>
               </div>

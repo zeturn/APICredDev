@@ -15,11 +15,17 @@ const AdminLayout = () => {
   const iconByPath: Record<string, "users" | "models" | "provider" | "usage" | "chat" | "api" | "shield"> = {
     "/admin/overview": "shield",
     "/admin/users": "users",
-    "/admin/models": "models",
+    "/admin/brands": "models",
+    "/admin/public-models": "models",
+    "/admin/upstream-models": "models",
     "/admin/providers": "provider",
+    "/admin/provider-endpoints": "provider",
+    "/admin/provider-credentials": "provider",
+    "/admin/model-routes": "api",
     "/admin/usage": "usage",
     "/admin/api-models": "api",
   };
+  const isSelected = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   useEffect(() => {
     let active = true;
@@ -58,7 +64,7 @@ const AdminLayout = () => {
               管理控制台
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              Key Pool 与模型策略配置。
+              模型目录、上游路由与密钥配置。
             </Typography>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -74,7 +80,7 @@ const AdminLayout = () => {
                   button
                   component={NavLink}
                   to={item.to}
-                  selected={location.pathname === item.to}
+                  selected={isSelected(item.to)}
                 >
                   <span className="inline-flex items-center gap-2">
                     <AdminIcon icon={iconByPath[item.to] ?? "shield"} className="h-4 w-4" />

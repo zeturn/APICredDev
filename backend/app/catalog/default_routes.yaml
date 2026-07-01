@@ -6,3 +6,10 @@ routes:
     weight: 3
     quota_unit: tokens
     quota_rules: {}
+  - public_model: brave-web-search
+    upstream_model: brave-search:web-search
+    credential: Brave Search main key
+    priority: 1
+    weight: 1
+    quota_unit: requests
+    quota_rules: {}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
@@ -39,6 +39,7 @@ from app.services.admin_service import (
     upsert_upstream_model,
     sync_wallets_from_basalt,
 )
+from app.services.audit_service import list_user_audit_conversations
 
 
 def get_basalt_client() -> BasaltPassClient:
@@ -188,6 +189,22 @@ async def admin_users(db: AsyncSession = Depends(get_db)) -> list:
 async def admin_user_chat_sessions(user_id: str, db: AsyncSession = Depends(get_db)) -> list:
     sessions = await list_user_chat_sessions(db, user_id)
     return sessions
+
+
+@router.get("/users/{user_id}/audit-conversations")
+async def admin_user_audit_conversations(
+    user_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    return await list_user_audit_conversations(
+        db,
+        user_id,
+        page=page,
+        page_size=page_size,
+        include_user_deleted=True,
+    )
 
 
 @router.post("/users/{user_id}/status")

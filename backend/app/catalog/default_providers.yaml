@@ -19,6 +19,11 @@ brands:
     icon_slug:
     icon_url:
     enabled: true
+  - name: Brave Search
+    slug: brave-search
+    icon_slug: brave
+    icon_url: https://brave.com/static-assets/images/brave-logo-sans-text.svg
+    enabled: true
 
 providers:
   - name: OpenAI
@@ -40,6 +45,11 @@ providers:
     slug: openrouter
     icon_slug: openrouter
     icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openrouter.svg
+    enabled: true
+  - name: Brave Search
+    slug: brave-search
+    icon_slug: brave
+    icon_url: https://brave.com/static-assets/images/brave-logo-sans-text.svg
     enabled: true
 
 provider_endpoints:
@@ -67,10 +77,21 @@ provider_endpoints:
     base_url: https://openrouter.ai/api
     enabled: true
     health_state: healthy
+  - provider: brave-search
+    slug: web
+    display_name: Brave Web Search
+    base_url: https://api.search.brave.com/res/v1
+    enabled: true
+    health_state: healthy
 
 provider_credentials:
   - provider: openai
     endpoint: default
     display_name: OpenAI free daily shared traffic
+    enabled: true
+    health_state: healthy
+  - provider: brave-search
+    endpoint: web
+    display_name: Brave Search main key
     enabled: true
     health_state: healthy
