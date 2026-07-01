@@ -16,9 +16,13 @@ type ApiSupportItem = {
   api_id: string;
   provider: string;
   provider_name: string;
+  endpoint_id: string | null;
+  endpoint_slug: string | null;
+  endpoint_name: string | null;
+  credential_name: string | null;
   enabled: boolean;
   health_state: string;
-  default_base_url: string;
+  base_url: string | null;
   supported_models: ApiModelLink[];
 };
 
@@ -48,7 +52,9 @@ const AdminApiModelsPage = () => {
       const inMeta =
         item.provider.toLowerCase().includes(normalized) ||
         item.provider_name.toLowerCase().includes(normalized) ||
-        item.api_id.toLowerCase().includes(normalized);
+        (item.api_id || "").toLowerCase().includes(normalized) ||
+        (item.endpoint_name || "").toLowerCase().includes(normalized) ||
+        (item.credential_name || "").toLowerCase().includes(normalized);
       if (inMeta) {
         return true;
       }
@@ -58,14 +64,14 @@ const AdminApiModelsPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="API 模型支持" description="管理员可查看任意 API（Provider Key）当前支持的模型列表。" />
+      <AdminPageIntro title="API 模型支持" description="管理员可查看任意 Credential / Endpoint 当前支持的模型列表。" />
 
       <Card className="p-6">
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={8}>
             <TextField
-              label="搜索 API / Provider / 模型"
-              placeholder="输入 provider、api id 或 model name"
+              label="搜索 Credential / Endpoint / Provider / 模型"
+              placeholder="输入 provider、credential、endpoint 或 model name"
               value={keyword}
               onChange={(e: any) => setKeyword(e.target.value)}
               fullWidth
@@ -81,15 +87,15 @@ const AdminApiModelsPage = () => {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {filtered.map((item) => (
-          <Card key={item.api_id} className="p-6">
+          <Card key={item.api_id || `${item.provider}-${item.endpoint_id}`} className="p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 text-slate-900">
                   <AdminIcon icon="api" className="h-4 w-4" />
-                  <Typography variant="subtitle1">{item.provider_name}</Typography>
+                  <Typography variant="subtitle1">{item.credential_name || item.endpoint_name || item.provider_name}</Typography>
                 </div>
                 <Typography variant="caption" color="textSecondary" className="mt-1 break-all">
-                  API ID: {item.api_id}
+                  Provider: {item.provider_name} · Endpoint: {item.endpoint_name || "-"}
                 </Typography>
               </div>
               <div className="flex items-center gap-2">
@@ -99,8 +105,8 @@ const AdminApiModelsPage = () => {
             </div>
 
             <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <Typography variant="caption" color="textSecondary" className="block">默认 Base URL</Typography>
-              <Typography variant="body2" className="mt-1 break-all">{item.default_base_url || "-"}</Typography>
+              <Typography variant="caption" color="textSecondary" className="block">Endpoint Base URL</Typography>
+              <Typography variant="body2" className="mt-1 break-all">{item.base_url || "-"}</Typography>
             </div>
 
             <div className="mt-4">
