@@ -1,7 +1,7 @@
 """add audit llm messages
 
 Revision ID: 0003_audit_llm_messages
-Revises: 0002_drop_provider_default_base_url
+Revises: 0002_drop_provider_url
 Create Date: 2026-07-01
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "0003_audit_llm_messages"
-down_revision: str | None = "0002_drop_provider_default_base_url"
+down_revision: str | None = "0002_drop_provider_url"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
