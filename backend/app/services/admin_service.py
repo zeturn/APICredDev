@@ -5,7 +5,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.time import utc_now
 from app.db.models.brand import Brand
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
@@ -18,7 +17,6 @@ from app.db.models.usage_session import UsageSession
 from app.db.models.wallet import Wallet
 from app.services.basaltpass_client import BasaltPassClient
 from app.core.secrets import encrypt_secret
-from app.core.url_safety import normalize_upstream_base_url
 
 
 async def list_brands(db: AsyncSession) -> list[Brand]:
@@ -128,10 +126,10 @@ async def list_provider_credentials(db: AsyncSession) -> list[ProviderCredential
 
 
 async def upsert_provider_credential(db: AsyncSession, payload: dict) -> ProviderCredential:
-    api_key = (payload.pop("api_key", None) or "").strip()
-    if api_key:
-        payload["secret_encrypted"] = encrypt_secret(api_key)
-        payload["secret_last4"] = api_key[-4:]
+    credential_secret = (payload.pop("credential_secret", None) or "").strip()
+    if credential_secret:
+        payload["secret_encrypted"] = encrypt_secret(credential_secret)
+        payload["secret_last4"] = credential_secret[-4:]
     item_id = payload.get("id")
     item = await db.get(ProviderCredential, item_id) if item_id else None
     if not item:
@@ -296,7 +294,7 @@ async def list_api_supported_models(db: AsyncSession) -> list[dict]:
     grouped: dict[str, dict] = {}
     for route, public_model, upstream_model, provider, endpoint, credential in route_rows:
         credential_key = credential.id if credential else f"route:{route.id}"
-        base_url = route.base_url_override or (endpoint.base_url if endpoint else None) or provider.default_base_url
+        base_url = route.base_url_override or (endpoint.base_url if endpoint else None)
         item = grouped.setdefault(
             credential_key,
             {
@@ -308,7 +306,7 @@ async def list_api_supported_models(db: AsyncSession) -> list[dict]:
                 "endpoint_name": endpoint.display_name if endpoint else None,
                 "enabled": bool((credential.enabled if credential else True) and (endpoint.enabled if endpoint else True) and provider.enabled),
                 "health_state": credential.health_state if credential else (endpoint.health_state if endpoint else "healthy"),
-                "default_base_url": base_url,
+                "base_url": base_url,
                 "credential_name": credential.display_name if credential else None,
                 "supported_models": [],
             },
@@ -418,14 +416,16 @@ async def sync_wallets_from_basalt(
             continue
 
         remote_balance = _smallest_to_credit(payload.get("balance"))
-        if not dry_run:
-            wallet = wallets_map.get(user.id)
-            if not wallet:
-                wallet = Wallet(user_id=user.id, balance_credits=remote_balance, updated_at=utc_now())
-                db.add(wallet)
-            else:
-                wallet.balance_credits = remote_balance
-                wallet.updated_at = utc_now()
+        if dry_run:
+            synced += 1
+            continue
+
+        wallet = wallets_map.get(user.id)
+        if not wallet:
+            wallet = Wallet(user_id=user.id, balance_credits=remote_balance)
+            db.add(wallet)
+        else:
+            wallet.balance_credits = remote_balance
         synced += 1
 
     if not dry_run:
@@ -439,4 +439,3 @@ async def sync_wallets_from_basalt(
         "dry_run": dry_run,
         "errors": errors,
     }
-
