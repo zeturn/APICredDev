@@ -7,15 +7,15 @@ from app.core.time import utc_now
 from app.db.base import Base
 
 
-class ProviderCredential(Base):
-    __tablename__ = "provider_credentials"
-    __table_args__ = (UniqueConstraint("provider_endpoint_id", "display_name", name="uq_provider_credential_display_name"),)
+class ProviderEndpoint(Base):
+    __tablename__ = "provider_endpoints"
+    __table_args__ = (UniqueConstraint("provider_id", "slug", name="uq_provider_endpoint_slug"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    provider_endpoint_id: Mapped[str] = mapped_column(String, ForeignKey("provider_endpoints.id"), index=True)
+    provider_id: Mapped[str] = mapped_column(String, ForeignKey("providers.id"), index=True)
+    slug: Mapped[str] = mapped_column(String, index=True)
     display_name: Mapped[str] = mapped_column(String)
-    secret_encrypted: Mapped[str | None] = mapped_column(String, nullable=True)
-    secret_last4: Mapped[str | None] = mapped_column(String, nullable=True)
+    base_url: Mapped[str] = mapped_column(String)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     health_state: Mapped[str] = mapped_column(String, default="healthy")
     cooldown_until: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)

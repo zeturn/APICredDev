@@ -12,6 +12,7 @@ from app.db.models.brand import Brand
 from app.db.models.provider import Provider
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.db.models.user import User
@@ -92,19 +93,55 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         logger.info("Default providers created: %s", created)
 
     providers = {provider.slug: provider for provider in (await db.execute(select(Provider))).scalars().all()}
-    credential_created = 0
-    for payload in catalog.get("provider_credentials", []):
+    endpoint_created = 0
+    for payload in catalog.get("provider_endpoints", []):
         provider = providers.get(payload["provider"])
         if not provider:
             continue
         result = await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == payload["slug"])
+        )
+        endpoint = result.scalar_one_or_none()
+        endpoint_payload = {
+            "provider_id": provider.id,
+            "slug": payload["slug"],
+            "display_name": payload["display_name"],
+            "base_url": payload["base_url"],
+            "enabled": payload.get("enabled", True),
+            "health_state": payload.get("health_state", "healthy"),
+            "cooldown_until": payload.get("cooldown_until"),
+        }
+        if endpoint:
+            for key, value in endpoint_payload.items():
+                setattr(endpoint, key, value)
+            continue
+        db.add(ProviderEndpoint(**endpoint_payload))
+        endpoint_created += 1
+    await db.commit()
+    if endpoint_created:
+        logger.info("Default provider endpoints created: %s", endpoint_created)
+
+    endpoints = {
+        f"{provider.slug}:{endpoint.slug}": endpoint
+        for endpoint, provider in (
+            await db.execute(select(ProviderEndpoint, Provider).join(Provider, Provider.id == ProviderEndpoint.provider_id))
+        ).all()
+    }
+    credential_created = 0
+    for payload in catalog.get("provider_credentials", []):
+        endpoint = endpoints.get(f"{payload['provider']}:{payload.get('endpoint', 'default')}")
+        if not endpoint:
+            continue
+        result = await db.execute(
             select(ProviderCredential)
-            .where(ProviderCredential.provider_id == provider.id)
+            .where(ProviderCredential.provider_endpoint_id == endpoint.id)
             .where(ProviderCredential.display_name == payload["display_name"])
         )
         credential = result.scalar_one_or_none()
         credential_payload = {
-            "provider_id": provider.id,
+            "provider_endpoint_id": endpoint.id,
             "display_name": payload["display_name"],
             "enabled": payload.get("enabled", True),
             "health_state": payload.get("health_state", "healthy"),
@@ -255,16 +292,39 @@ async def ensure_bootstrap_openai_credential(db: AsyncSession) -> ProviderCreden
         await db.commit()
         await db.refresh(provider)
 
+    endpoint = (
+        await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == "default")
+        )
+    ).scalar_one_or_none()
+    if not endpoint:
+        endpoint = ProviderEndpoint(
+            provider_id=provider.id,
+            slug="default",
+            display_name="OpenAI Default",
+            base_url=settings.bootstrap_openai_base_url,
+            enabled=True,
+            health_state="healthy",
+        )
+        db.add(endpoint)
+        await db.commit()
+        await db.refresh(endpoint)
+    else:
+        endpoint.base_url = settings.bootstrap_openai_base_url
+        endpoint.enabled = True
+
     key_name = (settings.bootstrap_openai_key_name or "OpenAI bootstrap key").strip()
     secret_last4 = api_key[-4:]
     result = await db.execute(
         select(ProviderCredential)
-        .where(ProviderCredential.provider_id == provider.id)
+        .where(ProviderCredential.provider_endpoint_id == endpoint.id)
         .where(ProviderCredential.display_name == key_name)
     )
     credential = result.scalar_one_or_none()
     credential_payload = {
-        "provider_id": provider.id,
+        "provider_endpoint_id": endpoint.id,
         "display_name": key_name,
         "secret_encrypted": encrypt_secret(api_key),
         "secret_last4": secret_last4,
@@ -283,7 +343,7 @@ async def ensure_bootstrap_openai_credential(db: AsyncSession) -> ProviderCreden
     else:
         result = await db.execute(
             select(ProviderCredential)
-            .where(ProviderCredential.provider_id == provider.id)
+            .where(ProviderCredential.provider_endpoint_id == endpoint.id)
             .where(ProviderCredential.display_name == key_name)
         )
         credential = result.scalar_one()

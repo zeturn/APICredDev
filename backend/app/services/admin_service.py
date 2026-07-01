@@ -10,6 +10,7 @@ from app.db.models.brand import Brand
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.db.models.user import User
@@ -62,6 +63,25 @@ async def upsert_provider(db: AsyncSession, payload: dict) -> Provider:
     await db.commit()
     await db.refresh(provider)
     return provider
+
+
+async def list_provider_endpoints(db: AsyncSession) -> list[ProviderEndpoint]:
+    result = await db.execute(select(ProviderEndpoint).order_by(ProviderEndpoint.display_name.asc()))
+    return list(result.scalars().all())
+
+
+async def upsert_provider_endpoint(db: AsyncSession, payload: dict) -> ProviderEndpoint:
+    item_id = payload.get("id")
+    item = await db.get(ProviderEndpoint, item_id) if item_id else None
+    if not item:
+        item = ProviderEndpoint(**payload)
+        db.add(item)
+    else:
+        for key, value in payload.items():
+            setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
 
 
 async def list_public_models(db: AsyncSession) -> list[PublicModel]:
@@ -192,6 +212,8 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
     enabled_models = int((await db.execute(select(func.count()).select_from(PublicModel).where(PublicModel.enabled.is_(True)))).scalar() or 0)
     provider_credentials = int((await db.execute(select(func.count()).select_from(ProviderCredential))).scalar() or 0)
     enabled_provider_credentials = int((await db.execute(select(func.count()).select_from(ProviderCredential).where(ProviderCredential.enabled.is_(True)))).scalar() or 0)
+    provider_endpoints = int((await db.execute(select(func.count()).select_from(ProviderEndpoint))).scalar() or 0)
+    enabled_provider_endpoints = int((await db.execute(select(func.count()).select_from(ProviderEndpoint).where(ProviderEndpoint.enabled.is_(True)))).scalar() or 0)
     model_routes = int((await db.execute(select(func.count()).select_from(ModelRoute))).scalar() or 0)
     upstream_models = int((await db.execute(select(func.count()).select_from(UpstreamModel))).scalar() or 0)
     usage_sessions = int((await db.execute(select(func.count()).select_from(UsageSession))).scalar() or 0)
@@ -210,6 +232,8 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
         "enabled_models": enabled_models,
         "public_models": total_models,
         "upstream_models": upstream_models,
+        "provider_endpoints": provider_endpoints,
+        "enabled_provider_endpoints": enabled_provider_endpoints,
         "provider_credentials": provider_credentials,
         "enabled_provider_credentials": enabled_provider_credentials,
         "model_routes": model_routes,
@@ -257,29 +281,34 @@ async def list_user_chat_sessions(db: AsyncSession, user_id: str, limit: int = 5
 
 async def list_api_supported_models(db: AsyncSession) -> list[dict]:
     routes_rows = await db.execute(
-        select(ModelRoute, PublicModel, UpstreamModel, Provider, ProviderCredential)
+        select(ModelRoute, PublicModel, UpstreamModel, Provider, ProviderEndpoint, ProviderCredential)
         .join(PublicModel, PublicModel.id == ModelRoute.public_model_id)
         .join(UpstreamModel, UpstreamModel.id == ModelRoute.upstream_model_id)
         .join(Provider, Provider.id == UpstreamModel.provider_id)
         .outerjoin(ProviderCredential, ProviderCredential.id == ModelRoute.provider_credential_id)
-        .order_by(Provider.slug.asc(), ProviderCredential.display_name.asc(), ModelRoute.priority.asc(), ModelRoute.weight.desc())
+        .outerjoin(ProviderEndpoint, ProviderEndpoint.id == ProviderCredential.provider_endpoint_id)
+        .order_by(Provider.slug.asc(), ProviderEndpoint.slug.asc(), ProviderCredential.display_name.asc(), ModelRoute.priority.asc(), ModelRoute.weight.desc())
     )
     route_rows = routes_rows.all()
     if not route_rows:
         return []
 
     grouped: dict[str, dict] = {}
-    for route, public_model, upstream_model, provider, credential in route_rows:
+    for route, public_model, upstream_model, provider, endpoint, credential in route_rows:
         credential_key = credential.id if credential else f"route:{route.id}"
+        base_url = route.base_url_override or (endpoint.base_url if endpoint else None) or provider.default_base_url
         item = grouped.setdefault(
             credential_key,
             {
                 "api_id": credential.id if credential else None,
                 "provider": provider.slug,
                 "provider_name": provider.name,
-                "enabled": bool((credential.enabled if credential else True) and provider.enabled),
-                "health_state": credential.health_state if credential else "healthy",
-                "default_base_url": route.base_url_override or provider.default_base_url,
+                "endpoint_id": endpoint.id if endpoint else None,
+                "endpoint_slug": endpoint.slug if endpoint else None,
+                "endpoint_name": endpoint.display_name if endpoint else None,
+                "enabled": bool((credential.enabled if credential else True) and (endpoint.enabled if endpoint else True) and provider.enabled),
+                "health_state": credential.health_state if credential else (endpoint.health_state if endpoint else "healthy"),
+                "default_base_url": base_url,
                 "credential_name": credential.display_name if credential else None,
                 "supported_models": [],
             },
@@ -294,7 +323,7 @@ async def list_api_supported_models(db: AsyncSession) -> list[dict]:
                 "enabled": bool(route.enabled and public_model.enabled and upstream_model.enabled),
                 "priority": route.priority,
                 "weight": route.weight,
-                "base_url": route.base_url_override or provider.default_base_url,
+                "base_url": base_url,
             }
         )
 

@@ -46,8 +46,35 @@ providers:
     icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openrouter.svg
     enabled: true
 
+provider_endpoints:
+  - provider: openai
+    slug: default
+    display_name: OpenAI Default
+    base_url: https://api.openai.com
+    enabled: true
+    health_state: healthy
+  - provider: gemini
+    slug: default
+    display_name: Google Gemini Default
+    base_url: https://generativelanguage.googleapis.com
+    enabled: true
+    health_state: healthy
+  - provider: anthropic
+    slug: default
+    display_name: Anthropic Default
+    base_url: https://api.anthropic.com
+    enabled: true
+    health_state: healthy
+  - provider: openrouter
+    slug: default
+    display_name: OpenRouter Default
+    base_url: https://openrouter.ai/api
+    enabled: true
+    health_state: healthy
+
 provider_credentials:
   - provider: openai
+    endpoint: default
     display_name: OpenAI free daily shared traffic
     enabled: true
     health_state: healthy

@@ -6,6 +6,7 @@ from app.core.secrets import encrypt_secret
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.services import admin_service
@@ -46,9 +47,13 @@ async def test_admin_service_upserts_public_upstream_credential_and_route(db_ses
         db_session,
         {"provider_id": provider.id, "upstream_name": "gpt-test", "display_name": "GPT Test", "capabilities": {}, "default_pricing": {}, "enabled": True},
     )
+    endpoint = await admin_service.upsert_provider_endpoint(
+        db_session,
+        {"provider_id": provider.id, "slug": "default", "display_name": "Svc OpenAI Default", "base_url": "https://api.openai.com", "enabled": True, "health_state": "healthy"},
+    )
     credential = await admin_service.upsert_provider_credential(
         db_session,
-        {"provider_id": provider.id, "display_name": "svc-key", "api_key": "sk-service", "enabled": True, "health_state": "healthy"},
+        {"provider_endpoint_id": endpoint.id, "display_name": "svc-key", "api_key": "sk-service", "enabled": True, "health_state": "healthy"},
     )
     route = await admin_service.upsert_model_route(
         db_session,
@@ -77,11 +82,15 @@ async def test_routing_skips_disabled_and_cooldown_credentials(db_session):
     await db_session.commit()
     await db_session.refresh(provider)
     await db_session.refresh(public_model)
+    endpoint = ProviderEndpoint(provider_id=provider.id, slug="default", display_name="Route Default", base_url="https://example.com", enabled=True, health_state="healthy")
+    db_session.add(endpoint)
+    await db_session.commit()
+    await db_session.refresh(endpoint)
 
     upstream_model = UpstreamModel(provider_id=provider.id, upstream_name="route-upstream", display_name="Route Upstream", capabilities={}, default_pricing={}, enabled=True)
-    disabled = ProviderCredential(provider_id=provider.id, display_name="disabled", secret_encrypted=encrypt_secret("A"), secret_last4="A", enabled=True, health_state="disabled")
+    disabled = ProviderCredential(provider_endpoint_id=endpoint.id, display_name="disabled", secret_encrypted=encrypt_secret("A"), secret_last4="A", enabled=True, health_state="disabled")
     cooldown = ProviderCredential(
-        provider_id=provider.id,
+        provider_endpoint_id=endpoint.id,
         display_name="cooldown",
         secret_encrypted=encrypt_secret("B"),
         secret_last4="B",
@@ -89,7 +98,7 @@ async def test_routing_skips_disabled_and_cooldown_credentials(db_session):
         health_state="healthy",
         cooldown_until=datetime.now(timezone.utc) + timedelta(minutes=1),
     )
-    ok = ProviderCredential(provider_id=provider.id, display_name="ok", secret_encrypted=encrypt_secret("C"), secret_last4="C", enabled=True, health_state="healthy")
+    ok = ProviderCredential(provider_endpoint_id=endpoint.id, display_name="ok", secret_encrypted=encrypt_secret("C"), secret_last4="C", enabled=True, health_state="healthy")
     db_session.add_all([upstream_model, disabled, cooldown, ok])
     await db_session.commit()
     await db_session.refresh(upstream_model)

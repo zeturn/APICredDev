@@ -7,6 +7,7 @@ from app.schemas.admin import (
     BrandUpsert,
     ModelRouteUpsert,
     ProviderCredentialUpsert,
+    ProviderEndpointUpsert,
     ProviderUpsert,
     PublicModelUpsert,
     UpstreamModelUpsert,
@@ -27,11 +28,13 @@ from app.services.admin_service import (
     list_api_supported_models,
     list_model_routes,
     list_provider_credentials,
+    list_provider_endpoints,
     list_public_models,
     list_upstream_models,
     update_user_status,
     upsert_model_route,
     upsert_provider_credential,
+    upsert_provider_endpoint,
     upsert_public_model,
     upsert_upstream_model,
     sync_wallets_from_basalt,
@@ -126,6 +129,16 @@ async def admin_upstream_models_list(db: AsyncSession = Depends(get_db)) -> list
 @router.post("/upstream-models")
 async def admin_upstream_models_upsert(payload: UpstreamModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     return _to_dict(await upsert_upstream_model(db, payload.model_dump()))
+
+
+@router.get("/provider-endpoints")
+async def admin_provider_endpoints_list(db: AsyncSession = Depends(get_db)) -> list:
+    return [_to_dict(item) for item in await list_provider_endpoints(db)]
+
+
+@router.post("/provider-endpoints")
+async def admin_provider_endpoints_upsert(payload: ProviderEndpointUpsert, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_provider_endpoint(db, payload.model_dump()))
 
 
 @router.get("/provider-credentials")

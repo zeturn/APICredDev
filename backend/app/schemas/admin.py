@@ -20,6 +20,17 @@ class ProviderUpsert(BaseModel):
     enabled: bool = True
 
 
+class ProviderEndpointUpsert(BaseModel):
+    id: str | None = None
+    provider_id: str
+    slug: str
+    display_name: str
+    base_url: str
+    enabled: bool = True
+    health_state: str = "healthy"
+    cooldown_until: str | None = None
+
+
 class PublicModelUpsert(BaseModel):
     id: str | None = None
     slug: str
@@ -45,7 +56,7 @@ class UpstreamModelUpsert(BaseModel):
 
 class ProviderCredentialUpsert(BaseModel):
     id: str | None = None
-    provider_id: str
+    provider_endpoint_id: str
     display_name: str
     api_key: str | None = None
     enabled: bool = True

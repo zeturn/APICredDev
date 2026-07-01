@@ -78,6 +78,9 @@ async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
         route_base_url = (candidate.route.base_url_override or "").strip()
         if route_base_url:
             return normalize_upstream_base_url(route_base_url)
+        endpoint_base_url = (candidate.endpoint.base_url or "").strip() if candidate.endpoint else ""
+        if endpoint_base_url:
+            return normalize_upstream_base_url(endpoint_base_url)
         provider_default_base_url = (candidate.provider.default_base_url or "").strip()
         if provider_default_base_url:
             return normalize_upstream_base_url(provider_default_base_url)

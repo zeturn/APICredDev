@@ -97,21 +97,22 @@ def upgrade() -> None:
     op.create_index(op.f("ix_ledger_entries_user_id"), "ledger_entries", ["user_id"], unique=False)
 
     op.create_table(
-        "provider_credentials",
+        "provider_endpoints",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("provider_id", sa.String(), nullable=False),
+        sa.Column("slug", sa.String(), nullable=False),
         sa.Column("display_name", sa.String(), nullable=False),
-        sa.Column("secret_encrypted", sa.String(), nullable=True),
-        sa.Column("secret_last4", sa.String(), nullable=True),
+        sa.Column("base_url", sa.String(), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
         sa.Column("health_state", sa.String(), nullable=False),
         sa.Column("cooldown_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["provider_id"], ["providers.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("provider_id", "display_name", name="uq_provider_credential_display_name"),
+        sa.UniqueConstraint("provider_id", "slug", name="uq_provider_endpoint_slug"),
     )
-    op.create_index(op.f("ix_provider_credentials_provider_id"), "provider_credentials", ["provider_id"], unique=False)
+    op.create_index(op.f("ix_provider_endpoints_provider_id"), "provider_endpoints", ["provider_id"], unique=False)
+    op.create_index(op.f("ix_provider_endpoints_slug"), "provider_endpoints", ["slug"], unique=False)
 
     op.create_table(
         "upstream_models",
@@ -155,6 +156,23 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_api_tokens_token_hash"), "api_tokens", ["token_hash"], unique=True)
     op.create_index(op.f("ix_api_tokens_user_id"), "api_tokens", ["user_id"], unique=False)
+
+    op.create_table(
+        "provider_credentials",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("provider_endpoint_id", sa.String(), nullable=False),
+        sa.Column("display_name", sa.String(), nullable=False),
+        sa.Column("secret_encrypted", sa.String(), nullable=True),
+        sa.Column("secret_last4", sa.String(), nullable=True),
+        sa.Column("enabled", sa.Boolean(), nullable=False),
+        sa.Column("health_state", sa.String(), nullable=False),
+        sa.Column("cooldown_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["provider_endpoint_id"], ["provider_endpoints.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("provider_endpoint_id", "display_name", name="uq_provider_credential_display_name"),
+    )
+    op.create_index(op.f("ix_provider_credentials_provider_endpoint_id"), "provider_credentials", ["provider_endpoint_id"], unique=False)
 
     op.create_table(
         "model_routes",
@@ -226,8 +244,11 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_upstream_models_upstream_name"), table_name="upstream_models")
     op.drop_index(op.f("ix_upstream_models_provider_id"), table_name="upstream_models")
     op.drop_table("upstream_models")
-    op.drop_index(op.f("ix_provider_credentials_provider_id"), table_name="provider_credentials")
+    op.drop_index(op.f("ix_provider_credentials_provider_endpoint_id"), table_name="provider_credentials")
     op.drop_table("provider_credentials")
+    op.drop_index(op.f("ix_provider_endpoints_slug"), table_name="provider_endpoints")
+    op.drop_index(op.f("ix_provider_endpoints_provider_id"), table_name="provider_endpoints")
+    op.drop_table("provider_endpoints")
     op.drop_index(op.f("ix_ledger_entries_user_id"), table_name="ledger_entries")
     op.drop_table("ledger_entries")
     op.drop_index(op.f("ix_users_email"), table_name="users")

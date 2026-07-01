@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
@@ -77,9 +78,13 @@ async def get_admin_usage_summary(db: AsyncSession) -> dict:
     user_rows = await db.execute(select(User.id, User.email))
     user_email_map = {row.id: row.email for row in user_rows.all()}
 
-    provider_rows = await db.execute(select(ProviderCredential.id, Provider.slug, ProviderCredential.display_name).join(Provider, Provider.id == ProviderCredential.provider_id))
+    provider_rows = await db.execute(
+        select(ProviderCredential.id, Provider.slug, ProviderEndpoint.slug.label("endpoint_slug"), ProviderCredential.display_name)
+        .join(ProviderEndpoint, ProviderEndpoint.id == ProviderCredential.provider_endpoint_id)
+        .join(Provider, Provider.id == ProviderEndpoint.provider_id)
+    )
     provider_map = {
-        row.id: {"provider": row.slug, "credential_name": row.display_name}
+        row.id: {"provider": row.slug, "endpoint": row.endpoint_slug, "credential_name": row.display_name}
         for row in provider_rows.all()
     }
 
@@ -98,6 +103,7 @@ async def get_admin_usage_summary(db: AsyncSession) -> dict:
                 "model_name": model_name_map.get(session.model_id, session.model_id),
                 "status": session.status,
                 "provider": session.upstream_provider or provider_info.get("provider"),
+                "endpoint": provider_info.get("endpoint"),
                 "credential_name": provider_info.get("credential_name"),
                 "final_cost_credits": float(session.final_cost_credits or 0),
                 "total_tokens": _usage_value(usage, "total_tokens"),

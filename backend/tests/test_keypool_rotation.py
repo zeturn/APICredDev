@@ -10,6 +10,7 @@ from app.core.time import utc_now
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.services.quota_service import try_reserve
@@ -23,6 +24,10 @@ async def _route_fixture(db_session, slug: str, credentials: list[tuple[str, int
     await db_session.commit()
     await db_session.refresh(provider)
     await db_session.refresh(public_model)
+    endpoint = ProviderEndpoint(provider_id=provider.id, slug="default", display_name=f"{slug} default", base_url="https://example.com", enabled=True, health_state="healthy")
+    db_session.add(endpoint)
+    await db_session.commit()
+    await db_session.refresh(endpoint)
 
     upstream_model = UpstreamModel(
         provider_id=provider.id,
@@ -39,7 +44,7 @@ async def _route_fixture(db_session, slug: str, credentials: list[tuple[str, int
     created_credentials = {}
     for name, priority, weight, quota_rules in credentials:
         credential = ProviderCredential(
-            provider_id=provider.id,
+            provider_endpoint_id=endpoint.id,
             display_name=name,
             secret_encrypted=encrypt_secret(name),
             secret_last4=name[-4:],

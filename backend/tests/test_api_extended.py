@@ -197,12 +197,25 @@ async def test_admin_routes_branches(db_session, monkeypatch):
         assert provider_upsert.status_code == 200
         provider_id = provider_upsert.json()["id"]
 
+        endpoint_payload = {
+            "provider_id": provider_id,
+            "slug": "default",
+            "display_name": "OpenAI Default",
+            "base_url": "https://api.openai.com",
+            "enabled": True,
+            "health_state": "healthy",
+            "cooldown_until": None,
+        }
+        endpoint_upsert = await client.post("/v1/admin/provider-endpoints", json=endpoint_payload, headers=admin_headers)
+        assert endpoint_upsert.status_code == 200
+        endpoint_id = endpoint_upsert.json()["id"]
+
         upstream_payload = {"provider_id": provider_id, "upstream_name": "gpt-test", "display_name": "GPT Test", "capabilities": {}, "default_pricing": {}, "enabled": True}
         upstream_upsert = await client.post("/v1/admin/upstream-models", json=upstream_payload, headers=admin_headers)
         assert upstream_upsert.status_code == 200
         upstream_id = upstream_upsert.json()["id"]
 
-        credential_payload = {"provider_id": provider_id, "display_name": "k1", "api_key": "sk-test", "enabled": True, "health_state": "healthy", "cooldown_until": None}
+        credential_payload = {"provider_endpoint_id": endpoint_id, "display_name": "k1", "api_key": "sk-test", "enabled": True, "health_state": "healthy", "cooldown_until": None}
         credential_upsert = await client.post("/v1/admin/provider-credentials", json=credential_payload, headers=admin_headers)
         assert credential_upsert.status_code == 200
         credential_id = credential_upsert.json()["id"]

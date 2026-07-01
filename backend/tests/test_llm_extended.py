@@ -14,6 +14,7 @@ from app.core.secrets import encrypt_secret
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
+from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.main import create_app
@@ -64,9 +65,13 @@ async def test_llm_routes_public_model_to_upstream_model(db_session, monkeypatch
     await db_session.commit()
     await db_session.refresh(provider)
     await db_session.refresh(public_model)
+    endpoint = ProviderEndpoint(provider_id=provider.id, slug="default", display_name="OpenAI Default", base_url="https://api.openai.com", enabled=True, health_state="healthy")
+    db_session.add(endpoint)
+    await db_session.commit()
+    await db_session.refresh(endpoint)
 
     upstream_model = UpstreamModel(provider_id=provider.id, upstream_name="gpt-4o-mini", display_name="GPT-4o mini", context_window=128000, capabilities={"chat": True}, default_pricing={}, enabled=True)
-    credential = ProviderCredential(provider_id=provider.id, display_name="openai-main-key", secret_encrypted=encrypt_secret("sk-route"), secret_last4="oute", enabled=True, health_state="healthy")
+    credential = ProviderCredential(provider_endpoint_id=endpoint.id, display_name="openai-main-key", secret_encrypted=encrypt_secret("sk-route"), secret_last4="oute", enabled=True, health_state="healthy")
     db_session.add_all([upstream_model, credential])
     await db_session.commit()
     await db_session.refresh(upstream_model)
