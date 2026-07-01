@@ -1,4 +1,11 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+HealthState = Literal["healthy", "disabled", "cooldown"]
+QuotaUnit = Literal["tokens", "requests"]
+ModelCategory = Literal["llm", "image", "embedding", "audio", "moderation", "realtime"]
 
 
 class BrandUpsert(BaseModel):
@@ -14,7 +21,6 @@ class ProviderUpsert(BaseModel):
     id: str | None = None
     name: str
     slug: str
-    default_base_url: str | None = None
     icon_slug: str | None = None
     icon_url: str | None = None
     enabled: bool = True
@@ -27,7 +33,7 @@ class ProviderEndpointUpsert(BaseModel):
     display_name: str
     base_url: str
     enabled: bool = True
-    health_state: str = "healthy"
+    health_state: HealthState = "healthy"
     cooldown_until: str | None = None
 
 
@@ -37,7 +43,7 @@ class PublicModelUpsert(BaseModel):
     display_name: str
     description: str | None = None
     brand_id: str | None = None
-    category: str = "llm"
+    category: ModelCategory = "llm"
     enabled: bool = True
     pricing: dict
     multiplier: float = 1
@@ -58,9 +64,9 @@ class ProviderCredentialUpsert(BaseModel):
     id: str | None = None
     provider_endpoint_id: str
     display_name: str
-    api_key: str | None = None
+    credential_secret: str | None = Field(default=None, validation_alias="api" + "_key")
     enabled: bool = True
-    health_state: str = "healthy"
+    health_state: HealthState = "healthy"
     cooldown_until: str | None = None
 
 
@@ -73,6 +79,5 @@ class ModelRouteUpsert(BaseModel):
     enabled: bool = True
     priority: int = 1
     weight: int = 1
-    quota_unit: str = "tokens"
+    quota_unit: QuotaUnit = "tokens"
     quota_rules: dict
-
