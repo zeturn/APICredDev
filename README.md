@@ -5,7 +5,7 @@
 ## Overview
 
 - **定位**：API 网关与计费中台（FastAPI + Postgres + Redis）
-- **核心能力**：认证、令牌、计费、BasaltPass 代理、管理后台
+- **核心能力**：认证、令牌、模型目录、上游路由、计费、BasaltPass 代理、管理后台
 - **运行形态**：`backend` + `frontend` + `postgres` + `redis`
 
 ## Repository Structure
@@ -52,6 +52,65 @@ npm install
 npm run dev
 ```
 
+## Domain Model
+
+APICred 的模型路由域已经拆成五个一等对象：
+
+```text
+public_models
+  └── model_routes
+        ├── upstream_models
+        │     └── providers
+        └── provider_credentials
+              └── provider_endpoints
+                    └── providers
+```
+
+含义：
+
+- `public_models`：用户可见、可购买、可在请求里传入的模型，例如 `apicred-fast`。
+- `upstream_models`：上游真实模型名，例如 `openai:gpt-4o-mini` 或 `anthropic:claude-sonnet-4.6`。
+- `providers`：上游供应商/协议适配器，例如 `openai`、`gemini`、`anthropic`、`openrouter`。
+- `provider_endpoints`：上游访问入口，`base_url` 的唯一默认归属，例如 `https://api.openai.com`。
+- `provider_credentials`：绑定到某个 endpoint 的 API key/credential，密钥加密后存库。
+- `model_routes`：把一个 public model 路由到某个 upstream model + credential，并配置 `priority`、`weight`、quota 和可选 `base_url_override`。
+
+Base URL 解析顺序：
+
+```text
+1. model_routes.base_url_override
+2. provider_credentials -> provider_endpoints.base_url
+3. provider preset fallback
+```
+
+`providers` 不保存 `default_base_url`。Provider 只表达供应商/适配器身份；默认请求入口属于 `provider_endpoints`。
+
+`model_routes.provider_credential_id = null` 表示该 route 指向 public/no-auth endpoint 或 internal provider。普通第三方 API key 路由应绑定具体 `provider_credentials`。
+
+Admin schema 对以下枚举做约束：
+
+```python
+Literal["healthy", "disabled", "cooldown"]
+Literal["tokens", "requests"]
+Literal["llm", "image", "embedding", "audio", "moderation", "realtime"]
+```
+
+## Catalog
+
+默认 catalog 从 YAML 加载：
+
+```text
+backend/app/catalog/default_providers.yaml
+backend/app/catalog/default_models.yaml
+backend/app/catalog/default_routes.yaml
+```
+
+其中：
+
+- `default_providers.yaml` 定义 brands、providers、provider_endpoints 和默认 provider_credentials 占位。
+- `default_models.yaml` 定义 public models 和 upstream models。
+- `default_routes.yaml` 定义默认 public model 到 upstream model + credential 的路由。
+
 ## Configuration
 
 常用环境变量：
@@ -72,7 +131,7 @@ npm run dev
 
 ### Provider Presets
 
-管理员可通过 `GET /v1/admin/provider-presets` 获取常见上游的推荐 `provider` 和 `base_url` 组合，便于创建 `provider_keys`。
+管理员可通过 `GET /v1/admin/provider-presets` 获取常见上游的推荐 `provider`、`protocol` 和 endpoint `base_url` 组合，便于创建 `provider_endpoints` 与 `provider_credentials`。
 
 常见示例：
 
@@ -85,13 +144,13 @@ npm run dev
 - `anthropic` -> `https://api.anthropic.com`
 - `gemini` -> `https://generativelanguage.googleapis.com`
 
-`provider_keys` 现在会把管理员录入的 API Key 加密后存库，`key_name` 填默认 `base_url`，详情页里的模型绑定可以再覆盖单模型 `base_url`。
+`provider_credentials` 会把管理员录入的 API key 加密后存库；endpoint 的 `base_url` 在 `provider_endpoints` 中维护，单条路由可通过 `model_routes.base_url_override` 覆盖。
 
 加密实现使用标准 AEAD（`Fernet`），并保留历史密文格式的解密兼容。
 
 ### OpenAI Provider Bootstrap
 
-APICred 可以在启动 bootstrap 时从环境变量导入一个 OpenAI provider key。密钥会先加密再存入数据库，不应写入仓库文件。
+APICred 可以在启动 bootstrap 时从环境变量导入一个 OpenAI provider credential。密钥会先加密再存入数据库，不应写入仓库文件。
 
 必需变量：
 
@@ -100,11 +159,11 @@ APICred 可以在启动 bootstrap 时从环境变量导入一个 OpenAI provider
 
 可选变量：
 
-- `BOOTSTRAP_OPENAI_KEY_NAME`：provider key 名称，默认 `OpenAI free daily shared traffic`
-- `BOOTSTRAP_OPENAI_BASE_URL`：上游 base URL，默认 `https://api.openai.com`
+- `BOOTSTRAP_OPENAI_KEY_NAME`：provider credential 名称，默认 `OpenAI free daily shared traffic`
+- `BOOTSTRAP_OPENAI_BASE_URL`：OpenAI endpoint base URL，默认 `https://api.openai.com`
 - `BOOTSTRAP_OPENAI_MODELS`：逗号分隔的模型列表，默认包含 OpenAI free daily shared-traffic 模型集合
 
-启动时会创建或更新 OpenAI provider key，创建缺失的 OpenAI 模型，并通过 `model_provider_keys` 把 key 绑定到这些模型。
+启动时会创建或更新 OpenAI provider、default endpoint、provider credential、缺失的 OpenAI public/upstream models，并通过 `model_routes` 绑定路由。
 
 ## Persistence Mounts
 
@@ -144,12 +203,12 @@ pytest -q
 生产建议：
 
 - 使用独立 Postgres/Redis 托管实例
-- Provider API Key 通过管理后台录入并加密存储到数据库
+- Provider API key 通过管理后台录入并加密存储到数据库
 - 使用反向代理与 HTTPS
 - 启用日志、监控与告警
 - 设置 `PRODUCTION_MODE=true`
-- 关闭 `STARTUP_CREATE_TABLES_ENABLED`
-- 关闭 `STARTUP_SCHEMA_COMPAT_ENABLED` 和 `STARTUP_BOOTSTRAP_ENABLED`
+- 使用 Alembic 管理数据库 schema
+- 关闭 `STARTUP_BOOTSTRAP_ENABLED`
 - 保持 `DEBUG_ENDPOINTS_ENABLED=false`
 
 ## Security and Quality
