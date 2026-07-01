@@ -13,7 +13,6 @@ class Provider(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True)
-    default_base_url: Mapped[str | None] = mapped_column(String, nullable=True)
     icon_slug: Mapped[str | None] = mapped_column(String, nullable=True)
     icon_url: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
