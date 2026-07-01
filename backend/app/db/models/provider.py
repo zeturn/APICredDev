@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,6 +11,10 @@ from app.db.base import Base
 class Provider(Base):
     __tablename__ = "providers"
 
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.pop("default_base_url", None)
+        super().__init__(**kwargs)
+
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True)
@@ -17,3 +22,11 @@ class Provider(Base):
     icon_url: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    @property
+    def default_base_url(self) -> None:
+        return None
+
+    @default_base_url.setter
+    def default_base_url(self, _: str | None) -> None:
+        return None
