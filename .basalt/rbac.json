@@ -4,7 +4,9 @@
   "permissions": [
     { "permission_key": "apicred.admin", "display_name": "APICred Admin", "resource": "apicred", "action": "admin", "scope": "app", "description": "Full administrative access to APICred.", "status": "active" },
     { "permission_key": "apicred.read", "display_name": "APICred Read", "resource": "apicred", "action": "read", "scope": "app", "description": "Read access to APICred resources.", "status": "active" },
-    { "permission_key": "apicred.write", "display_name": "APICred Write", "resource": "apicred", "action": "write", "scope": "app", "description": "Create or update APICred resources.", "status": "active" }
+    { "permission_key": "apicred.write", "display_name": "APICred Write", "resource": "apicred", "action": "write", "scope": "app", "description": "Create or update APICred resources.", "status": "active" },
+    { "permission_key": "user_console", "display_name": "APICred User Console", "resource": "apicred", "action": "user_console", "scope": "app", "description": "Access the APICred user console.", "status": "active" },
+    { "permission_key": "admin_console", "display_name": "APICred Admin Console", "resource": "apicred", "action": "admin_console", "scope": "app", "description": "Access the APICred admin console.", "status": "active" }
   ],
   "roles": [
     { "role_key": "apicred_admin", "display_name": "APICred Admin", "description": "Full access role for APICred operators.", "assignable": true, "priority": 100, "status": "active" },
@@ -15,8 +17,12 @@
     { "role_key": "apicred_admin", "permission_key": "apicred.admin", "effect": "allow" },
     { "role_key": "apicred_admin", "permission_key": "apicred.read", "effect": "allow" },
     { "role_key": "apicred_admin", "permission_key": "apicred.write", "effect": "allow" },
+    { "role_key": "apicred_admin", "permission_key": "user_console", "effect": "allow" },
+    { "role_key": "apicred_admin", "permission_key": "admin_console", "effect": "allow" },
     { "role_key": "apicred_editor", "permission_key": "apicred.read", "effect": "allow" },
     { "role_key": "apicred_editor", "permission_key": "apicred.write", "effect": "allow" },
-    { "role_key": "apicred_viewer", "permission_key": "apicred.read", "effect": "allow" }
+    { "role_key": "apicred_editor", "permission_key": "user_console", "effect": "allow" },
+    { "role_key": "apicred_viewer", "permission_key": "apicred.read", "effect": "allow" },
+    { "role_key": "apicred_viewer", "permission_key": "user_console", "effect": "allow" }
   ]
 }
