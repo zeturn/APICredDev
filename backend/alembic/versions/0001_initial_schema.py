@@ -37,7 +37,6 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("slug", sa.String(), nullable=False),
-        sa.Column("default_base_url", sa.String(), nullable=True),
         sa.Column("icon_slug", sa.String(), nullable=True),
         sa.Column("icon_url", sa.String(), nullable=True),
         sa.Column("enabled", sa.Boolean(), nullable=False),
