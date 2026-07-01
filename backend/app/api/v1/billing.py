@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, permission
-from app.db.models.model import Model
+from app.db.models.public_model import PublicModel
 from app.db.models.usage_session import UsageSession
 from app.schemas.billing import WalletResponse, LedgerItem
 from app.services.billing_service import get_wallet, list_ledger
@@ -34,7 +34,7 @@ async def billing_summary(
         (await db.execute(select(func.coalesce(func.sum(UsageSession.final_cost_credits), 0)).where(UsageSession.user_id == user.id))).scalar() or 0
     )
     usage_sessions = int((await db.execute(select(func.count()).select_from(UsageSession).where(UsageSession.user_id == user.id))).scalar() or 0)
-    available_models = int((await db.execute(select(func.count()).select_from(Model).where(Model.enabled.is_(True)))).scalar() or 0)
+    available_models = int((await db.execute(select(func.count()).select_from(PublicModel).where(PublicModel.enabled.is_(True)))).scalar() or 0)
     return {
         "balance_credits": float(wallet_obj.balance_credits),
         "used_credits": used_credits,

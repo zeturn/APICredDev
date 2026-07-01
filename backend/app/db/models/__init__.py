@@ -9,7 +9,6 @@ from app.db.models.model import Model  # noqa: F401
 from app.db.models.model_route import ModelRoute  # noqa: F401
 from app.db.models.provider import Provider  # noqa: F401
 from app.db.models.provider_credential import ProviderCredential  # noqa: F401
-from app.db.models.provider_endpoint import ProviderEndpoint  # noqa: F401
 from app.db.models.provider_key import ProviderKey  # noqa: F401
 from app.db.models.public_model import PublicModel  # noqa: F401
 from app.db.models.upstream_model import UpstreamModel  # noqa: F401

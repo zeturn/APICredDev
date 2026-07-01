@@ -3,7 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.errors import AppError
-from app.schemas.admin import BrandUpsert, ModelUpsert, ProviderUpsert, ProviderKeyUpsert, ModelProviderKeyUpsert
+from app.schemas.admin import (
+    BrandUpsert,
+    ModelRouteUpsert,
+    ModelUpsert,
+    ProviderCredentialUpsert,
+    ProviderUpsert,
+    ProviderKeyUpsert,
+    ModelProviderKeyUpsert,
+    PublicModelUpsert,
+    UpstreamModelUpsert,
+)
 from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
@@ -27,7 +37,15 @@ from app.services.admin_service import (
     list_usage_sessions,
     list_user_chat_sessions,
     list_api_supported_models,
+    list_model_routes,
+    list_provider_credentials,
+    list_public_models,
+    list_upstream_models,
     update_user_status,
+    upsert_model_route,
+    upsert_provider_credential,
+    upsert_public_model,
+    upsert_upstream_model,
     sync_wallets_from_basalt,
 )
 
@@ -112,6 +130,46 @@ async def admin_dashboard(db: AsyncSession = Depends(get_db)) -> dict:
 async def admin_models_upsert(payload: ModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
     model = await upsert_model(db, payload.model_dump())
     return _to_dict(model)
+
+
+@router.get("/public-models")
+async def admin_public_models_list(db: AsyncSession = Depends(get_db)) -> list:
+    return [_to_dict(item) for item in await list_public_models(db)]
+
+
+@router.post("/public-models")
+async def admin_public_models_upsert(payload: PublicModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_public_model(db, payload.model_dump()))
+
+
+@router.get("/upstream-models")
+async def admin_upstream_models_list(db: AsyncSession = Depends(get_db)) -> list:
+    return [_to_dict(item) for item in await list_upstream_models(db)]
+
+
+@router.post("/upstream-models")
+async def admin_upstream_models_upsert(payload: UpstreamModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_upstream_model(db, payload.model_dump()))
+
+
+@router.get("/provider-credentials")
+async def admin_provider_credentials_list(db: AsyncSession = Depends(get_db)) -> list:
+    return [_to_dict(item) for item in await list_provider_credentials(db)]
+
+
+@router.post("/provider-credentials")
+async def admin_provider_credentials_upsert(payload: ProviderCredentialUpsert, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_provider_credential(db, payload.model_dump()))
+
+
+@router.get("/model-routes")
+async def admin_model_routes_list(db: AsyncSession = Depends(get_db)) -> list:
+    return [_to_dict(item) for item in await list_model_routes(db)]
+
+
+@router.post("/model-routes")
+async def admin_model_routes_upsert(payload: ModelRouteUpsert, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_model_route(db, payload.model_dump()))
 
 
 @router.post("/brands")

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db, permission
 from app.db.models.brand import Brand
 from app.db.models.model import Model
+from app.db.models.public_model import PublicModel
 from app.schemas.models import ModelItem
 
 
@@ -16,22 +17,37 @@ async def list_models(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(permission("user_console")),
 ) -> list[ModelItem]:
-    result = await db.execute(select(Model, Brand).outerjoin(Brand, Brand.id == Model.brand_id).where(Model.enabled.is_(True)))
-    rows = result.all()
+    result = await db.execute(select(PublicModel).where(PublicModel.enabled.is_(True)).order_by(PublicModel.slug.asc()))
+    rows = result.scalars().all()
+    if not rows:
+        legacy_result = await db.execute(select(Model, Brand).outerjoin(Brand, Brand.id == Model.brand_id).where(Model.enabled.is_(True)))
+        return [
+            ModelItem(
+                id=m.id,
+                name=m.name,
+                display_name=m.name,
+                brand_id=m.brand_id,
+                brand_name=brand.name if brand else None,
+                brand_icon_url=brand.icon_url if brand else None,
+                icon_url=m.icon_url,
+                effective_icon_url=m.icon_url or (brand.icon_url if brand else None),
+                category=m.category,
+                enabled=m.enabled,
+                multiplier=float(m.multiplier),
+                pricing=m.pricing or {},
+            )
+            for m, brand in legacy_result.all()
+        ]
     return [
         ModelItem(
-            id=m.id,
-            name=m.name,
-            brand_id=m.brand_id,
-            brand_name=brand.name if brand else None,
-            brand_icon_url=brand.icon_url if brand else None,
-            icon_url=m.icon_url,
-            effective_icon_url=m.icon_url or (brand.icon_url if brand else None),
-            category=m.category,
-            enabled=m.enabled,
-            multiplier=float(m.multiplier),
-            pricing=m.pricing or {},
+            id=model.id,
+            name=model.slug,
+            display_name=model.display_name,
+            category=model.category,
+            enabled=model.enabled,
+            multiplier=float(model.multiplier or 1),
+            pricing=model.pricing or {},
         )
-        for m, brand in rows
+        for model in rows
     ]
 

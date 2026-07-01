@@ -1,6 +1,5 @@
 import math
-
-from app.db.models.model import Model
+from typing import Any
 
 
 def estimate_prompt_tokens(messages: list[dict]) -> int:
@@ -19,7 +18,7 @@ def estimate_tokens(messages: list[dict], max_tokens: int | None) -> int:
 
 
 def calculate_cost(
-    model: Model,
+    model: Any,
     total_tokens: int = 0,
     request_count: int = 1,
     prompt_tokens: int | None = None,
@@ -27,7 +26,7 @@ def calculate_cost(
     cached_input_tokens: int = 0,
 ) -> float:
     pricing = model.pricing or {}
-    multiplier = float(model.multiplier or 1)
+    multiplier = float(getattr(model, "multiplier", 1) or 1)
     mode = pricing.get("mode")
 
     if mode == "free":

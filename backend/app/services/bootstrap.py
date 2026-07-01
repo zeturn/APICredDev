@@ -14,7 +14,6 @@ from app.db.models.provider import Provider
 from app.db.models.model_provider_key import ModelProviderKey
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider_credential import ProviderCredential
-from app.db.models.provider_endpoint import ProviderEndpoint
 from app.db.models.provider_key import ProviderKey
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
@@ -103,33 +102,6 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         logger.info("Default providers created: %s", created)
 
     providers = {provider.slug: provider for provider in (await db.execute(select(Provider))).scalars().all()}
-    endpoint_created = 0
-    for payload in catalog.get("provider_endpoints", []):
-        provider = providers.get(payload["provider"])
-        if not provider:
-            continue
-        result = await db.execute(
-            select(ProviderEndpoint)
-            .where(ProviderEndpoint.provider_id == provider.id)
-            .where(ProviderEndpoint.name == payload["name"])
-        )
-        endpoint = result.scalar_one_or_none()
-        endpoint_payload = {
-            "provider_id": provider.id,
-            "name": payload["name"],
-            "base_url": payload["base_url"],
-            "endpoint_type": payload.get("endpoint_type", "openai_compatible"),
-            "enabled": payload.get("enabled", True),
-            "health_state": payload.get("health_state", "healthy"),
-            "meta": payload.get("meta", {}),
-        }
-        if endpoint:
-            for key, value in endpoint_payload.items():
-                setattr(endpoint, key, value)
-            continue
-        db.add(ProviderEndpoint(**endpoint_payload))
-        endpoint_created += 1
-
     credential_created = 0
     for payload in catalog.get("provider_credentials", []):
         provider = providers.get(payload["provider"])
@@ -138,12 +110,12 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         result = await db.execute(
             select(ProviderCredential)
             .where(ProviderCredential.provider_id == provider.id)
-            .where(ProviderCredential.name == payload["name"])
+            .where(ProviderCredential.display_name == payload["display_name"])
         )
         credential = result.scalar_one_or_none()
         credential_payload = {
             "provider_id": provider.id,
-            "name": payload["name"],
+            "display_name": payload["display_name"],
             "enabled": payload.get("enabled", True),
             "health_state": payload.get("health_state", "healthy"),
         }
@@ -155,8 +127,6 @@ async def ensure_default_providers(db: AsyncSession) -> None:
         credential_created += 1
 
     await db.commit()
-    if endpoint_created:
-        logger.info("Default provider endpoints created: %s", endpoint_created)
     if credential_created:
         logger.info("Default provider credentials created: %s", credential_created)
 
@@ -190,10 +160,12 @@ async def ensure_default_models(db: AsyncSession) -> None:
         model_payload = {
             "slug": payload["slug"],
             "display_name": payload["display_name"],
+            "description": payload.get("description"),
+            "brand_id": brands[payload["brand_slug"]].id if payload.get("brand_slug") in brands else None,
             "category": payload.get("category", "llm"),
             "pricing": payload.get("pricing", {}),
+            "multiplier": payload.get("multiplier", 1),
             "enabled": payload.get("enabled", True),
-            "meta": payload.get("meta", {}),
         }
         if public_model:
             for key, value in model_payload.items():
@@ -217,10 +189,10 @@ async def ensure_default_models(db: AsyncSession) -> None:
             "provider_id": provider.id,
             "upstream_name": payload["upstream_name"],
             "display_name": payload["display_name"],
-            "category": payload.get("category", "llm"),
+            "context_window": payload.get("context_window"),
             "capabilities": payload.get("capabilities", {}),
+            "default_pricing": payload.get("default_pricing", {}),
             "enabled": payload.get("enabled", True),
-            "meta": payload.get("meta", {}),
         }
         if upstream_model:
             for key, value in upstream_payload.items():
@@ -271,12 +243,8 @@ async def ensure_default_routes(db: AsyncSession) -> None:
         ).all()
     }
     credentials = {
-        credential.name: credential
+        credential.display_name: credential
         for credential in (await db.execute(select(ProviderCredential))).scalars().all()
-    }
-    endpoints = {
-        endpoint.name: endpoint
-        for endpoint in (await db.execute(select(ProviderEndpoint))).scalars().all()
     }
 
     created = 0
@@ -286,7 +254,6 @@ async def ensure_default_routes(db: AsyncSession) -> None:
         if not public_model or not upstream_model:
             continue
         credential = credentials.get(payload.get("credential", ""))
-        endpoint = endpoints.get(payload.get("endpoint", ""))
         result = await db.execute(
             select(ModelRoute)
             .where(ModelRoute.public_model_id == public_model.id)
@@ -298,7 +265,7 @@ async def ensure_default_routes(db: AsyncSession) -> None:
             "public_model_id": public_model.id,
             "upstream_model_id": upstream_model.id,
             "provider_credential_id": credential.id if credential else None,
-            "provider_endpoint_id": endpoint.id if endpoint else None,
+            "base_url_override": payload.get("base_url_override"),
             "enabled": payload.get("enabled", True),
             "priority": payload.get("priority", 1),
             "weight": payload.get("weight", 1),
@@ -364,7 +331,30 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
     await db.commit()
     await db.refresh(provider_key)
 
+    result = await db.execute(
+        select(ProviderCredential)
+        .where(ProviderCredential.provider_id == provider.id)
+        .where(ProviderCredential.display_name == key_name)
+    )
+    credential = result.scalar_one_or_none()
+    credential_payload = {
+        "provider_id": provider.id,
+        "display_name": key_name,
+        "secret_encrypted": encrypt_secret(api_key),
+        "secret_last4": secret_last4,
+        "enabled": True,
+        "health_state": "healthy",
+        "cooldown_until": None,
+    }
+    if not credential:
+        db.add(ProviderCredential(**credential_payload))
+    else:
+        for field, value in credential_payload.items():
+            setattr(credential, field, value)
+    await db.commit()
+
     await ensure_openai_models_and_links(db, provider_key)
+    await ensure_default_routes(db)
     logger.info("OpenAI bootstrap provider key configured: key_name=%s last4=%s", key_name, secret_last4)
     return provider_key
 

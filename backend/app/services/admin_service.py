@@ -10,9 +10,13 @@ from app.core.secrets import decrypt_secret
 from app.core.time import utc_now
 from app.db.models.brand import Brand
 from app.db.models.model import Model
+from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
+from app.db.models.provider_credential import ProviderCredential
 from app.db.models.provider_key import ProviderKey
 from app.db.models.model_provider_key import ModelProviderKey
+from app.db.models.public_model import PublicModel
+from app.db.models.upstream_model import UpstreamModel
 from app.db.models.user import User
 from app.db.models.usage_session import UsageSession
 from app.db.models.wallet import Wallet
@@ -224,6 +228,86 @@ async def upsert_model_provider_key(db: AsyncSession, payload: dict) -> ModelPro
     return mpk
 
 
+async def list_public_models(db: AsyncSession) -> list[PublicModel]:
+    result = await db.execute(select(PublicModel).order_by(PublicModel.slug.asc()))
+    return list(result.scalars().all())
+
+
+async def upsert_public_model(db: AsyncSession, payload: dict) -> PublicModel:
+    item_id = payload.get("id")
+    item = await db.get(PublicModel, item_id) if item_id else None
+    if not item:
+        item = PublicModel(**payload)
+        db.add(item)
+    else:
+        for key, value in payload.items():
+            setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+async def list_upstream_models(db: AsyncSession) -> list[UpstreamModel]:
+    result = await db.execute(select(UpstreamModel).order_by(UpstreamModel.upstream_name.asc()))
+    return list(result.scalars().all())
+
+
+async def upsert_upstream_model(db: AsyncSession, payload: dict) -> UpstreamModel:
+    item_id = payload.get("id")
+    item = await db.get(UpstreamModel, item_id) if item_id else None
+    if not item:
+        item = UpstreamModel(**payload)
+        db.add(item)
+    else:
+        for key, value in payload.items():
+            setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+async def list_provider_credentials(db: AsyncSession) -> list[ProviderCredential]:
+    result = await db.execute(select(ProviderCredential).order_by(ProviderCredential.display_name.asc()))
+    return list(result.scalars().all())
+
+
+async def upsert_provider_credential(db: AsyncSession, payload: dict) -> ProviderCredential:
+    api_key = (payload.pop("api_key", None) or "").strip()
+    if api_key:
+        payload["secret_encrypted"] = encrypt_secret(api_key)
+        payload["secret_last4"] = api_key[-4:]
+    item_id = payload.get("id")
+    item = await db.get(ProviderCredential, item_id) if item_id else None
+    if not item:
+        item = ProviderCredential(**payload)
+        db.add(item)
+    else:
+        for key, value in payload.items():
+            setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+async def list_model_routes(db: AsyncSession) -> list[ModelRoute]:
+    result = await db.execute(select(ModelRoute).order_by(ModelRoute.priority.asc(), ModelRoute.weight.desc()))
+    return list(result.scalars().all())
+
+
+async def upsert_model_route(db: AsyncSession, payload: dict) -> ModelRoute:
+    item_id = payload.get("id")
+    item = await db.get(ModelRoute, item_id) if item_id else None
+    if not item:
+        item = ModelRoute(**payload)
+        db.add(item)
+    else:
+        for key, value in payload.items():
+            setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
 async def list_users(db: AsyncSession) -> list[User]:
     result = await db.execute(
         select(
@@ -268,11 +352,12 @@ async def update_user_status(db: AsyncSession, user_id: str, status: str) -> Use
 async def get_admin_dashboard(db: AsyncSession) -> dict:
     total_users = int((await db.execute(select(func.count()).select_from(User))).scalar() or 0)
     active_users = int((await db.execute(select(func.count()).select_from(User).where(User.status == "active"))).scalar() or 0)
-    total_models = int((await db.execute(select(func.count()).select_from(Model))).scalar() or 0)
-    enabled_models = int((await db.execute(select(func.count()).select_from(Model).where(Model.enabled.is_(True)))).scalar() or 0)
-    provider_keys = int((await db.execute(select(func.count()).select_from(ProviderKey))).scalar() or 0)
-    enabled_provider_keys = int((await db.execute(select(func.count()).select_from(ProviderKey).where(ProviderKey.enabled.is_(True)))).scalar() or 0)
-    model_provider_links = int((await db.execute(select(func.count()).select_from(ModelProviderKey))).scalar() or 0)
+    total_models = int((await db.execute(select(func.count()).select_from(PublicModel))).scalar() or 0)
+    enabled_models = int((await db.execute(select(func.count()).select_from(PublicModel).where(PublicModel.enabled.is_(True)))).scalar() or 0)
+    provider_keys = int((await db.execute(select(func.count()).select_from(ProviderCredential))).scalar() or 0)
+    enabled_provider_keys = int((await db.execute(select(func.count()).select_from(ProviderCredential).where(ProviderCredential.enabled.is_(True)))).scalar() or 0)
+    model_provider_links = int((await db.execute(select(func.count()).select_from(ModelRoute))).scalar() or 0)
+    upstream_models = int((await db.execute(select(func.count()).select_from(UpstreamModel))).scalar() or 0)
     usage_sessions = int((await db.execute(select(func.count()).select_from(UsageSession))).scalar() or 0)
     completed_usage_sessions = int(
         (await db.execute(select(func.count()).select_from(UsageSession).where(UsageSession.status == "completed"))).scalar() or 0
@@ -290,6 +375,10 @@ async def get_admin_dashboard(db: AsyncSession) -> dict:
         "provider_keys": provider_keys,
         "enabled_provider_keys": enabled_provider_keys,
         "model_provider_links": model_provider_links,
+        "public_models": total_models,
+        "upstream_models": upstream_models,
+        "provider_credentials": provider_keys,
+        "model_routes": model_provider_links,
         "usage_sessions": usage_sessions,
         "completed_usage_sessions": completed_usage_sessions,
         "total_usage_credits": float(total_usage_credits),
@@ -333,6 +422,52 @@ async def list_user_chat_sessions(db: AsyncSession, user_id: str, limit: int = 5
 
 
 async def list_api_supported_models(db: AsyncSession) -> list[dict]:
+    routes_rows = await db.execute(
+        select(ModelRoute, PublicModel, UpstreamModel, Provider, ProviderCredential)
+        .join(PublicModel, PublicModel.id == ModelRoute.public_model_id)
+        .join(UpstreamModel, UpstreamModel.id == ModelRoute.upstream_model_id)
+        .join(Provider, Provider.id == UpstreamModel.provider_id)
+        .outerjoin(ProviderCredential, ProviderCredential.id == ModelRoute.provider_credential_id)
+        .order_by(Provider.slug.asc(), ProviderCredential.display_name.asc(), ModelRoute.priority.asc(), ModelRoute.weight.desc())
+    )
+    route_rows = routes_rows.all()
+    if not route_rows:
+        return []
+
+    grouped: dict[str, dict] = {}
+    for route, public_model, upstream_model, provider, credential in route_rows:
+        credential_key = credential.id if credential else f"route:{route.id}"
+        item = grouped.setdefault(
+            credential_key,
+            {
+                "api_id": credential.id if credential else None,
+                "provider": provider.slug,
+                "provider_name": provider.name,
+                "enabled": bool((credential.enabled if credential else True) and provider.enabled),
+                "health_state": credential.health_state if credential else "healthy",
+                "default_base_url": route.base_url_override or provider.default_base_url,
+                "credential_name": credential.display_name if credential else None,
+                "supported_models": [],
+            },
+        )
+        item["supported_models"].append(
+            {
+                "model_id": public_model.id,
+                "model_name": public_model.slug,
+                "display_name": public_model.display_name,
+                "upstream_model_id": upstream_model.id,
+                "upstream_model": upstream_model.upstream_name,
+                "enabled": bool(route.enabled and public_model.enabled and upstream_model.enabled),
+                "priority": route.priority,
+                "weight": route.weight,
+                "base_url": route.base_url_override or provider.default_base_url,
+            }
+        )
+
+    return list(grouped.values())
+
+
+async def list_legacy_api_supported_models(db: AsyncSession) -> list[dict]:
     provider_keys = await list_provider_keys(db)
     if not provider_keys:
         return []

@@ -22,7 +22,7 @@ class ModelRoute(Base):
     public_model_id: Mapped[str] = mapped_column(String, ForeignKey("public_models.id"), index=True)
     upstream_model_id: Mapped[str] = mapped_column(String, ForeignKey("upstream_models.id"), index=True)
     provider_credential_id: Mapped[str | None] = mapped_column(String, ForeignKey("provider_credentials.id"), index=True, nullable=True)
-    provider_endpoint_id: Mapped[str | None] = mapped_column(String, ForeignKey("provider_endpoints.id"), index=True, nullable=True)
+    base_url_override: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     priority: Mapped[int] = mapped_column(Integer, default=1)
     weight: Mapped[int] = mapped_column(Integer, default=1)
