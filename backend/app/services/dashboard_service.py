@@ -1,10 +1,8 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.model import Model
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
-from app.db.models.provider_key import ProviderKey
 from app.db.models.public_model import PublicModel
 from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
@@ -23,8 +21,6 @@ def _usage_value(usage: dict | None, key: str) -> int:
 async def get_user_usage_summary(db: AsyncSession, user_id: str) -> dict:
     model_rows = await db.execute(select(PublicModel.id, PublicModel.slug))
     model_name_map = {row.id: row.slug for row in model_rows.all()}
-    legacy_model_rows = await db.execute(select(Model.id, Model.name))
-    model_name_map.update({row.id: row.name for row in legacy_model_rows.all() if row.id not in model_name_map})
 
     recent_result = await db.execute(
         select(UsageSession)
@@ -77,31 +73,21 @@ async def get_user_usage_summary(db: AsyncSession, user_id: str) -> dict:
 async def get_admin_usage_summary(db: AsyncSession) -> dict:
     model_rows = await db.execute(select(PublicModel.id, PublicModel.slug))
     model_name_map = {row.id: row.slug for row in model_rows.all()}
-    legacy_model_rows = await db.execute(select(Model.id, Model.name))
-    model_name_map.update({row.id: row.name for row in legacy_model_rows.all() if row.id not in model_name_map})
 
     user_rows = await db.execute(select(User.id, User.email))
     user_email_map = {row.id: row.email for row in user_rows.all()}
 
     provider_rows = await db.execute(select(ProviderCredential.id, Provider.slug, ProviderCredential.display_name).join(Provider, Provider.id == ProviderCredential.provider_id))
     provider_map = {
-        row.id: {"provider": row.slug, "key_name": row.display_name}
+        row.id: {"provider": row.slug, "credential_name": row.display_name}
         for row in provider_rows.all()
     }
-    legacy_provider_rows = await db.execute(select(ProviderKey.id, ProviderKey.provider, ProviderKey.key_name))
-    provider_map.update(
-        {
-            row.id: {"provider": row.provider, "key_name": row.key_name}
-            for row in legacy_provider_rows.all()
-            if row.id not in provider_map
-        }
-    )
 
     recent_result = await db.execute(select(UsageSession).order_by(UsageSession.created_at.desc()).limit(30))
     recent_sessions = []
     for session in recent_result.scalars().all():
         usage = session.usage or {}
-        provider_info = provider_map.get(session.upstream_key_id or "", {})
+        provider_info = provider_map.get(session.upstream_credential_id or "", {})
         recent_sessions.append(
             {
                 "id": session.id,
@@ -112,7 +98,7 @@ async def get_admin_usage_summary(db: AsyncSession) -> dict:
                 "model_name": model_name_map.get(session.model_id, session.model_id),
                 "status": session.status,
                 "provider": session.upstream_provider or provider_info.get("provider"),
-                "provider_key_name": provider_info.get("key_name"),
+                "credential_name": provider_info.get("credential_name"),
                 "final_cost_credits": float(session.final_cost_credits or 0),
                 "total_tokens": _usage_value(usage, "total_tokens"),
                 "created_at": session.created_at.isoformat(),

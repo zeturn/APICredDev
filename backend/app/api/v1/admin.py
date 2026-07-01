@@ -6,11 +6,8 @@ from app.core.errors import AppError
 from app.schemas.admin import (
     BrandUpsert,
     ModelRouteUpsert,
-    ModelUpsert,
     ProviderCredentialUpsert,
     ProviderUpsert,
-    ProviderKeyUpsert,
-    ModelProviderKeyUpsert,
     PublicModelUpsert,
     UpstreamModelUpsert,
 )
@@ -21,18 +18,9 @@ from app.services.dashboard_service import get_admin_usage_summary
 from app.services.admin_service import (
     get_admin_dashboard,
     list_brands,
-    list_models,
     list_providers,
     upsert_brand,
-    upsert_model,
     upsert_provider,
-    list_provider_keys,
-    get_provider_key,
-    upsert_provider_key,
-    validate_provider_key,
-    list_model_provider_keys,
-    list_model_provider_keys_by_provider_key,
-    upsert_model_provider_key,
     list_users,
     list_usage_sessions,
     list_user_chat_sessions,
@@ -103,12 +91,6 @@ def _to_dict(obj: object) -> dict:
     return data
 
 
-@router.get("/models")
-async def admin_models_list(db: AsyncSession = Depends(get_db)) -> list:
-    models = await list_models(db)
-    return [_to_dict(m) for m in models]
-
-
 @router.get("/brands")
 async def admin_brands_list(db: AsyncSession = Depends(get_db)) -> list:
     brands = await list_brands(db)
@@ -124,12 +106,6 @@ async def admin_providers_list(db: AsyncSession = Depends(get_db)) -> list:
 @router.get("/dashboard")
 async def admin_dashboard(db: AsyncSession = Depends(get_db)) -> dict:
     return await get_admin_dashboard(db)
-
-
-@router.post("/models")
-async def admin_models_upsert(payload: ModelUpsert, db: AsyncSession = Depends(get_db)) -> dict:
-    model = await upsert_model(db, payload.model_dump())
-    return _to_dict(model)
 
 
 @router.get("/public-models")
@@ -184,59 +160,9 @@ async def admin_providers_upsert(payload: ProviderUpsert, db: AsyncSession = Dep
     return _to_dict(provider)
 
 
-@router.get("/provider-keys")
-async def admin_provider_keys_list(db: AsyncSession = Depends(get_db)) -> list:
-    keys = await list_provider_keys(db)
-    return [_to_dict(k) for k in keys]
-
-
-@router.get("/provider-keys/{provider_key_id}")
-async def admin_provider_key_detail(provider_key_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
-    provider_key = await get_provider_key(db, provider_key_id)
-    if not provider_key:
-        raise AppError("provider_key_not_found", "provider key not found", request.state.request_id, 404)
-    links = await list_model_provider_keys_by_provider_key(db, provider_key_id)
-    return {
-        "provider_key": _to_dict(provider_key),
-        "model_links": [_to_dict(item) for item in links],
-    }
-
-
 @router.get("/provider-presets")
 async def admin_provider_presets() -> list[dict]:
     return list_provider_presets()
-
-
-@router.post("/provider-keys")
-async def admin_provider_keys_upsert(payload: ProviderKeyUpsert, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
-    try:
-        key = await upsert_provider_key(db, payload.model_dump())
-    except ValueError as exc:
-        raise AppError("invalid_provider_base_url", str(exc), request.state.request_id, 400)
-    return _to_dict(key)
-
-
-@router.post("/provider-keys/{provider_key_id}/validate")
-async def admin_provider_key_validate(provider_key_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
-    try:
-        return await validate_provider_key(db, provider_key_id)
-    except ValueError:
-        raise AppError("provider_key_not_found", "provider key not found", request.state.request_id, 404)
-
-
-@router.get("/model-provider-keys")
-async def admin_model_provider_keys_list(db: AsyncSession = Depends(get_db)) -> list:
-    items = await list_model_provider_keys(db)
-    return [_to_dict(i) for i in items]
-
-
-@router.post("/model-provider-keys")
-async def admin_model_provider_keys_upsert(payload: ModelProviderKeyUpsert, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
-    try:
-        item = await upsert_model_provider_key(db, payload.model_dump())
-    except ValueError as exc:
-        raise AppError("invalid_provider_base_url", str(exc), request.state.request_id, 400)
-    return _to_dict(item)
 
 
 @router.get("/users")

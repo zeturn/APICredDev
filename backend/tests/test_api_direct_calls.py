@@ -14,7 +14,7 @@ from app.api.v1 import billing as billing_api
 from app.api.v1 import models as models_api
 from app.api.v1 import tokens as tokens_api
 from app.db.models.ledger import LedgerEntry
-from app.db.models.model import Model
+from app.db.models.public_model import PublicModel
 from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
@@ -33,14 +33,14 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
     obj = SimpleNamespace(a=1, b=now, _hidden=1)
     assert admin_api._to_dict(obj)["b"] == "2026-01-01T00:00:00+00:00"
 
-    monkeypatch.setattr(admin_api, "list_models", lambda db: [SimpleNamespace(id="m1", created_at=now)])
     monkeypatch.setattr(admin_api, "get_admin_dashboard", lambda db: {"total_users": 1})
-    monkeypatch.setattr(admin_api, "upsert_model", lambda db, p: SimpleNamespace(id="m2", created_at=now))
-    monkeypatch.setattr(admin_api, "list_provider_keys", lambda db: [SimpleNamespace(id="p1", created_at=now)])
+    monkeypatch.setattr(admin_api, "list_public_models", lambda db: [SimpleNamespace(id="m1", created_at=now)])
+    monkeypatch.setattr(admin_api, "upsert_public_model", lambda db, p: SimpleNamespace(id="m2", created_at=now))
+    monkeypatch.setattr(admin_api, "list_provider_credentials", lambda db: [SimpleNamespace(id="p1", created_at=now)])
     monkeypatch.setattr(admin_api, "list_provider_presets", lambda: [{"provider": "openai", "base_url": "https://api.openai.com"}])
-    monkeypatch.setattr(admin_api, "upsert_provider_key", lambda db, p: SimpleNamespace(id="p2", created_at=now))
-    monkeypatch.setattr(admin_api, "list_model_provider_keys", lambda db: [SimpleNamespace(id="k1", created_at=now)])
-    monkeypatch.setattr(admin_api, "upsert_model_provider_key", lambda db, p: SimpleNamespace(id="k2", created_at=now))
+    monkeypatch.setattr(admin_api, "upsert_provider_credential", lambda db, p: SimpleNamespace(id="p2", created_at=now))
+    monkeypatch.setattr(admin_api, "list_model_routes", lambda db: [SimpleNamespace(id="k1", created_at=now)])
+    monkeypatch.setattr(admin_api, "upsert_model_route", lambda db, p: SimpleNamespace(id="k2", created_at=now))
     monkeypatch.setattr(admin_api, "list_users", lambda db: [SimpleNamespace(id="u1", created_at=now)])
     monkeypatch.setattr(admin_api, "list_usage_sessions", lambda db: [SimpleNamespace(id="s1", created_at=now)])
     monkeypatch.setattr(admin_api, "update_user_status", lambda db, uid, status: SimpleNamespace(id=uid, status=status, created_at=now))
@@ -49,13 +49,13 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
         return v
 
     for name in (
-        "list_models",
         "get_admin_dashboard",
-        "upsert_model",
-        "list_provider_keys",
-        "upsert_provider_key",
-        "list_model_provider_keys",
-        "upsert_model_provider_key",
+        "list_public_models",
+        "upsert_public_model",
+        "list_provider_credentials",
+        "upsert_provider_credential",
+        "list_model_routes",
+        "upsert_model_route",
         "list_users",
         "list_usage_sessions",
         "update_user_status",
@@ -63,14 +63,14 @@ async def test_admin_api_direct_calls(monkeypatch, db_session):
         fn = getattr(admin_api, name)
         monkeypatch.setattr(admin_api, name, (lambda f: (lambda *a, **k: _await(f(*a, **k))))(fn))
 
-    assert await admin_api.admin_models_list(db_session)
+    assert await admin_api.admin_public_models_list(db_session)
     assert await admin_api.admin_dashboard(db_session)
-    assert await admin_api.admin_models_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
-    assert await admin_api.admin_provider_keys_list(db_session)
+    assert await admin_api.admin_public_models_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_provider_credentials_list(db_session)
     assert await admin_api.admin_provider_presets()
-    assert await admin_api.admin_provider_keys_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
-    assert await admin_api.admin_model_provider_keys_list(db_session)
-    assert await admin_api.admin_model_provider_keys_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_provider_credentials_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
+    assert await admin_api.admin_model_routes_list(db_session)
+    assert await admin_api.admin_model_routes_upsert(SimpleNamespace(model_dump=lambda: {}), db_session)
     assert await admin_api.admin_users(db_session)
     assert await admin_api.admin_user_status_update("u1", _req(), {"status": "disabled"}, db_session)
     assert await admin_api.admin_usage_sessions(db_session)
@@ -134,7 +134,7 @@ async def test_auth_tokens_billing_models_direct_calls(monkeypatch, db_session):
     usage = await billing_api.usage(db_session, user)
     assert usage["recent_sessions"] == []
 
-    model = Model(name="md", category="llm", enabled=True, multiplier=1, pricing={})
+    model = PublicModel(slug="md", display_name="MD", category="llm", enabled=True, multiplier=1, pricing={})
     db_session.add(model)
     await db_session.commit()
     model_list = await models_api.list_models(db_session)

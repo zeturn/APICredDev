@@ -1,16 +1,69 @@
+from datetime import timedelta
+import random
+
 import pytest
 from redis.asyncio import Redis
-import random
 
 from app.core.config import settings
 from app.core.secrets import encrypt_secret
-from app.db.models.model import Model
-from app.db.models.provider_key import ProviderKey
-from app.db.models.model_provider_key import ModelProviderKey
-from app.services.routing_service import get_candidates
-from app.services.quota_service import try_reserve
 from app.core.time import utc_now
-from datetime import timedelta
+from app.db.models.model_route import ModelRoute
+from app.db.models.provider import Provider
+from app.db.models.provider_credential import ProviderCredential
+from app.db.models.public_model import PublicModel
+from app.db.models.upstream_model import UpstreamModel
+from app.services.quota_service import try_reserve
+from app.services.routing_service import get_route_candidates
+
+
+async def _route_fixture(db_session, slug: str, credentials: list[tuple[str, int, int, dict | None]]):
+    provider = Provider(slug=f"provider-{slug}", name=f"Provider {slug}", default_base_url="https://example.com", enabled=True)
+    public_model = PublicModel(slug=slug, display_name=slug, category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
+    db_session.add_all([provider, public_model])
+    await db_session.commit()
+    await db_session.refresh(provider)
+    await db_session.refresh(public_model)
+
+    upstream_model = UpstreamModel(
+        provider_id=provider.id,
+        upstream_name=f"{slug}-upstream",
+        display_name=f"{slug} upstream",
+        capabilities={},
+        default_pricing={},
+        enabled=True,
+    )
+    db_session.add(upstream_model)
+    await db_session.commit()
+    await db_session.refresh(upstream_model)
+
+    created_credentials = {}
+    for name, priority, weight, quota_rules in credentials:
+        credential = ProviderCredential(
+            provider_id=provider.id,
+            display_name=name,
+            secret_encrypted=encrypt_secret(name),
+            secret_last4=name[-4:],
+            enabled=True,
+            health_state="healthy",
+        )
+        db_session.add(credential)
+        await db_session.commit()
+        await db_session.refresh(credential)
+        db_session.add(
+            ModelRoute(
+                public_model_id=public_model.id,
+                upstream_model_id=upstream_model.id,
+                provider_credential_id=credential.id,
+                enabled=True,
+                priority=priority,
+                weight=weight,
+                quota_unit="requests",
+                quota_rules=quota_rules or {},
+            )
+        )
+        created_credentials[name] = credential
+    await db_session.commit()
+    return public_model, created_credentials
 
 
 @pytest.mark.asyncio
@@ -22,46 +75,25 @@ async def test_keypool_rotation(db_session):
         await redis.aclose()
         pytest.skip("redis not available")
 
-    model = Model(name="gpt5", category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
-    db_session.add(model)
-    await db_session.commit()
-    await db_session.refresh(model)
-
-    keys = {}
-    for name in ["b", "a", "d", "c"]:
-        pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
-        db_session.add(pkey)
-        await db_session.commit()
-        await db_session.refresh(pkey)
-        keys[name] = pkey
-
-    priorities = {"b": 1, "a": 2, "d": 3, "c": 4}
-    for name, pkey in keys.items():
-        mpk = ModelProviderKey(
-            model_id=model.id,
-            provider_key_id=pkey.id,
-            enabled=True,
-            priority=priorities[name],
-            quota_unit="requests",
-            quota_rules={"day": 5},
-        )
-        db_session.add(mpk)
-    await db_session.commit()
+    public_model, credentials = await _route_fixture(
+        db_session,
+        "gpt5",
+        [("b", 1, 1, {"day": 5}), ("a", 2, 1, {"day": 5}), ("d", 3, 1, {"day": 5}), ("c", 4, 1, {"day": 5})],
+    )
 
     selected = []
     for _ in range(6):
-        candidates = await get_candidates(db_session, model.id)
         picked = None
-        for candidate in candidates:
-            ok = await try_reserve(redis, candidate.provider_key.id, model.id, 1, candidate.mpk.quota_rules or {})
+        for candidate in await get_route_candidates(db_session, public_model.id):
+            ok = await try_reserve(redis, candidate.credential.id, public_model.id, 1, candidate.route.quota_rules or {})
             if ok:
-                picked = candidate.provider_key.id
+                picked = candidate.credential.id
                 break
         selected.append(picked)
 
-    first_key_id = keys["b"].id
-    assert selected[:5].count(first_key_id) == 5
-    assert selected[5] == keys["a"].id
+    first_credential_id = credentials["b"].id
+    assert selected[:5].count(first_credential_id) == 5
+    assert selected[5] == credentials["a"].id
 
     await redis.aclose()
 
@@ -75,142 +107,53 @@ async def test_multi_window_switch(db_session):
         await redis.aclose()
         pytest.skip("redis not available")
 
-    model = Model(name="gpt5-mini", category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
-    db_session.add(model)
-    await db_session.commit()
-    await db_session.refresh(model)
-
-    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
-    pkey2 = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K2"), secret_last4="K2", enabled=True)
-    db_session.add_all([pkey, pkey2])
-    await db_session.commit()
-    await db_session.refresh(pkey)
-    await db_session.refresh(pkey2)
-
-    mpk1 = ModelProviderKey(
-        model_id=model.id,
-        provider_key_id=pkey.id,
-        enabled=True,
-        priority=1,
-        quota_unit="requests",
-        quota_rules={"minute": 2, "day": 100},
+    public_model, credentials = await _route_fixture(
+        db_session,
+        "gpt5-mini",
+        [("first", 1, 1, {"minute": 2, "day": 100}), ("second", 2, 1, {"minute": 100, "day": 100})],
     )
-    mpk2 = ModelProviderKey(
-        model_id=model.id,
-        provider_key_id=pkey2.id,
-        enabled=True,
-        priority=2,
-        quota_unit="requests",
-        quota_rules={"minute": 100, "day": 100},
-    )
-    db_session.add_all([mpk1, mpk2])
-    await db_session.commit()
 
     selected = []
     for _ in range(3):
-        candidates = await get_candidates(db_session, model.id)
         picked = None
-        for candidate in candidates:
-            ok = await try_reserve(redis, candidate.provider_key.id, model.id, 1, candidate.mpk.quota_rules or {})
+        for candidate in await get_route_candidates(db_session, public_model.id):
+            ok = await try_reserve(redis, candidate.credential.id, public_model.id, 1, candidate.route.quota_rules or {})
             if ok:
-                picked = candidate.provider_key.id
+                picked = candidate.credential.id
                 break
         selected.append(picked)
-    assert selected[0] == pkey.id
-    assert selected[1] == pkey.id
-    assert selected[2] == pkey2.id
+    assert selected == [credentials["first"].id, credentials["first"].id, credentials["second"].id]
 
     await redis.aclose()
 
 
 @pytest.mark.asyncio
-async def test_cooldown_skips_key(db_session):
-    model = Model(name="gpt5-cool", category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
-    db_session.add(model)
-    await db_session.commit()
-    await db_session.refresh(model)
-
-    pkey = ProviderKey(provider="openai_compat", key_name="https://example.com", secret_encrypted=encrypt_secret("K"), secret_last4="K", enabled=True)
-    pkey.cooldown_until = utc_now() + timedelta(seconds=120)
-    db_session.add(pkey)
-    await db_session.commit()
-    await db_session.refresh(pkey)
-
-    mpk = ModelProviderKey(
-        model_id=model.id,
-        provider_key_id=pkey.id,
-        enabled=True,
-        priority=1,
-        quota_unit="requests",
-        quota_rules={"day": 5},
-    )
-    db_session.add(mpk)
+async def test_cooldown_skips_credential(db_session):
+    public_model, credentials = await _route_fixture(db_session, "gpt5-cool", [("cool", 1, 1, {"day": 5})])
+    credentials["cool"].cooldown_until = utc_now() + timedelta(seconds=120)
     await db_session.commit()
 
-    candidates = await get_candidates(db_session, model.id)
-    assert len(candidates) == 0
+    assert await get_route_candidates(db_session, public_model.id) == []
 
 
 @pytest.mark.asyncio
 async def test_weighted_selection_prefers_higher_weight_same_priority(db_session):
     random.seed(7)
+    public_model, credentials = await _route_fixture(db_session, "gpt5-weighted", [("low", 1, 1, None), ("high", 1, 9, None)])
 
-    model = Model(name="gpt5-weighted", category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
-    db_session.add(model)
-    await db_session.commit()
-    await db_session.refresh(model)
-
-    low_key = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("LOW"), secret_last4="LOW", enabled=True, health_state="healthy")
-    high_key = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("HIGH"), secret_last4="IGH", enabled=True, health_state="healthy")
-    db_session.add_all([low_key, high_key])
-    await db_session.commit()
-    await db_session.refresh(low_key)
-    await db_session.refresh(high_key)
-
-    db_session.add_all(
-        [
-            ModelProviderKey(model_id=model.id, provider_key_id=low_key.id, enabled=True, priority=1, weight=1, quota_unit="requests", quota_rules={}),
-            ModelProviderKey(model_id=model.id, provider_key_id=high_key.id, enabled=True, priority=1, weight=9, quota_unit="requests", quota_rules={}),
-        ]
-    )
-    await db_session.commit()
-
-    first_picks = {low_key.id: 0, high_key.id: 0}
+    first_picks = {credentials["low"].id: 0, credentials["high"].id: 0}
     for _ in range(200):
-        candidates = await get_candidates(db_session, model.id)
-        first_picks[candidates[0].provider_key.id] += 1
+        candidates = await get_route_candidates(db_session, public_model.id)
+        first_picks[candidates[0].credential.id] += 1
 
-    assert first_picks[high_key.id] > first_picks[low_key.id]
+    assert first_picks[credentials["high"].id] > first_picks[credentials["low"].id]
 
 
 @pytest.mark.asyncio
 async def test_weighted_selection_keeps_priority_tiers(db_session):
     random.seed(9)
+    public_model, credentials = await _route_fixture(db_session, "gpt5-priority-weight", [("p1a", 1, 1, None), ("p1b", 1, 5, None), ("p2", 2, 100, None)])
 
-    model = Model(name="gpt5-priority-weight", category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
-    db_session.add(model)
-    await db_session.commit()
-    await db_session.refresh(model)
-
-    p1_a = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P1A"), secret_last4="P1A", enabled=True, health_state="healthy")
-    p1_b = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P1B"), secret_last4="P1B", enabled=True, health_state="healthy")
-    p2 = ProviderKey(provider="openai", key_name="https://example.com", secret_encrypted=encrypt_secret("P2"), secret_last4="P2", enabled=True, health_state="healthy")
-    db_session.add_all([p1_a, p1_b, p2])
-    await db_session.commit()
-    await db_session.refresh(p1_a)
-    await db_session.refresh(p1_b)
-    await db_session.refresh(p2)
-
-    db_session.add_all(
-        [
-            ModelProviderKey(model_id=model.id, provider_key_id=p1_a.id, enabled=True, priority=1, weight=1, quota_unit="requests", quota_rules={}),
-            ModelProviderKey(model_id=model.id, provider_key_id=p1_b.id, enabled=True, priority=1, weight=5, quota_unit="requests", quota_rules={}),
-            ModelProviderKey(model_id=model.id, provider_key_id=p2.id, enabled=True, priority=2, weight=100, quota_unit="requests", quota_rules={}),
-        ]
-    )
-    await db_session.commit()
-
-    candidates = await get_candidates(db_session, model.id)
-    assert {candidates[0].provider_key.id, candidates[1].provider_key.id} == {p1_a.id, p1_b.id}
-    assert candidates[2].provider_key.id == p2.id
-
+    candidates = await get_route_candidates(db_session, public_model.id)
+    assert {candidates[0].credential.id, candidates[1].credential.id} == {credentials["p1a"].id, credentials["p1b"].id}
+    assert candidates[2].credential.id == credentials["p2"].id

@@ -19,7 +19,7 @@ class UsageSession(Base):
     estimated_cost_credits: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
     final_cost_credits: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
     upstream_provider: Mapped[str | None] = mapped_column(String, nullable=True)
-    upstream_key_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    upstream_credential_id: Mapped[str | None] = mapped_column(String, nullable=True)
     request_messages: Mapped[list[dict]] = mapped_column(JSON, default=list)
     request_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_text: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -8,7 +8,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 from app.api.v1.admin import get_basalt_client
 from app.api.v1.auth import get_basalt_client as get_auth_basalt_client
 from app.core.deps import get_db
-from app.db.models.model import Model
+from app.db.models.public_model import PublicModel
 from app.db.models.user import User
 from app.db.models.usage_session import UsageSession
 from app.main import create_app
@@ -76,7 +76,7 @@ async def test_api_smoke(db_session, monkeypatch):
         assert me.status_code == 200
 
         # create model for list
-        model = Model(name="gpt5", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 10})
+        model = PublicModel(slug="gpt5", display_name="GPT5", category="llm", enabled=True, multiplier=1, pricing={"unit": "1k_tokens", "price": 10})
         db_session.add(model)
         await db_session.commit()
 
@@ -144,7 +144,7 @@ async def test_api_smoke(db_session, monkeypatch):
 
         # admin endpoints
         admin_headers = {"X-Admin-Authorization": f"Bearer {admin_access_token}"}
-        admin_models = await client.get("/v1/admin/models", headers=admin_headers)
+        admin_models = await client.get("/v1/admin/public-models", headers=admin_headers)
         assert admin_models.status_code == 200
         admin_dashboard = await client.get("/v1/admin/dashboard", headers=admin_headers)
         assert admin_dashboard.status_code == 200

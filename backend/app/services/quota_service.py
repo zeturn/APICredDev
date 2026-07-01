@@ -14,7 +14,7 @@ TTL_SECONDS = {
 
 async def try_reserve(
     redis: Redis,
-    provider_key_id: str,
+    credential_id: str,
     model_id: str,
     delta: int,
     quota_rules: dict,
@@ -31,7 +31,7 @@ async def try_reserve(
         if limit is None:
             limit = -1
         bucket = format_bucket(now, unit)
-        keys.append(f"quota:{provider_key_id}:{model_id}:{unit}:{bucket}")
+        keys.append(f"quota:{credential_id}:{model_id}:{unit}:{bucket}")
         limits.append(int(limit))
         ttls.append(TTL_SECONDS[unit])
     args = [delta] + limits + ttls

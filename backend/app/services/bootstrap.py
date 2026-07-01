@@ -9,12 +9,9 @@ from app.core.config import settings
 from app.core.secrets import encrypt_secret
 from app.core.security import hash_password
 from app.db.models.brand import Brand
-from app.db.models.model import Model
 from app.db.models.provider import Provider
-from app.db.models.model_provider_key import ModelProviderKey
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider_credential import ProviderCredential
-from app.db.models.provider_key import ProviderKey
 from app.db.models.public_model import PublicModel
 from app.db.models.upstream_model import UpstreamModel
 from app.db.models.user import User
@@ -71,13 +68,6 @@ async def ensure_default_brands(db: AsyncSession) -> None:
         created += 1
     await db.commit()
 
-    unknown_brand = (await db.execute(select(Brand).where(Brand.slug == "unknown"))).scalar_one()
-    models = (await db.execute(select(Model).where(Model.brand_id.is_(None)))).scalars().all()
-    if models:
-        for model in models:
-            model.brand_id = unknown_brand.id
-        await db.commit()
-
     if created:
         logger.info("Default brands created: %s", created)
 
@@ -129,22 +119,6 @@ async def ensure_default_providers(db: AsyncSession) -> None:
     await db.commit()
     if credential_created:
         logger.info("Default provider credentials created: %s", credential_created)
-
-
-async def ensure_default_provider_keys(db: AsyncSession) -> None:
-    providers = {
-        provider.slug: provider
-        for provider in (await db.execute(select(Provider))).scalars().all()
-    }
-    existing_keys = (await db.execute(select(ProviderKey))).scalars().all()
-    for provider_key in existing_keys:
-        if provider_key.provider_id:
-            continue
-        provider = providers.get(provider_key.provider)
-        if provider:
-            provider_key.provider_id = provider.id
-
-    await db.commit()
 
 
 async def ensure_default_models(db: AsyncSession) -> None:
@@ -202,36 +176,11 @@ async def ensure_default_models(db: AsyncSession) -> None:
         upstream_created += 1
     await db.commit()
 
-    created = 0
-    for payload in catalog.get("legacy_models", []):
-        brand = brands.get(payload["brand_slug"])
-        public_model = public_models.get(payload["name"], {})
-        model_payload = {
-            "name": payload["name"],
-            "brand_id": brand.id if brand else None,
-            "category": payload.get("category", public_model.get("category", "llm")),
-            "enabled": payload.get("enabled", public_model.get("enabled", True)),
-            "multiplier": payload.get("multiplier", 1),
-            "pricing": payload.get("pricing", public_model.get("pricing", {})),
-        }
-        result = await db.execute(select(Model).where(Model.name == payload["name"]))
-        model = result.scalar_one_or_none()
-        if model:
-            model.brand_id = model_payload["brand_id"]
-            model.category = model_payload["category"]
-            model.enabled = model_payload["enabled"]
-            model.multiplier = model_payload["multiplier"]
-            model.pricing = model_payload["pricing"]
-            continue
-        db.add(Model(**model_payload))
-        created += 1
     await db.commit()
     if public_created:
         logger.info("Default public models created: %s", public_created)
     if upstream_created:
         logger.info("Default upstream models created: %s", upstream_created)
-    if created:
-        logger.info("Default models created: %s", created)
 
 
 async def ensure_default_routes(db: AsyncSession) -> None:
@@ -283,7 +232,7 @@ async def ensure_default_routes(db: AsyncSession) -> None:
         logger.info("Default model routes created: %s", created)
 
 
-async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey | None:
+async def ensure_bootstrap_openai_credential(db: AsyncSession) -> ProviderCredential | None:
     api_key = (settings.bootstrap_openai_api_key or "").strip()
     if not api_key:
         return None
@@ -307,30 +256,7 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
         await db.refresh(provider)
 
     key_name = (settings.bootstrap_openai_key_name or "OpenAI bootstrap key").strip()
-    result = await db.execute(select(ProviderKey).where(ProviderKey.provider == "openai").where(ProviderKey.key_name == key_name))
-    provider_key = result.scalar_one_or_none()
     secret_last4 = api_key[-4:]
-    if not provider_key:
-        provider_key = ProviderKey(
-            provider_id=provider.id,
-            provider="openai",
-            key_name=key_name,
-            secret_encrypted=encrypt_secret(api_key),
-            secret_last4=secret_last4,
-            enabled=True,
-            health_state="healthy",
-        )
-        db.add(provider_key)
-    else:
-        provider_key.provider_id = provider.id
-        provider_key.secret_encrypted = encrypt_secret(api_key)
-        provider_key.secret_last4 = secret_last4
-        provider_key.enabled = True
-        provider_key.health_state = "healthy"
-        provider_key.cooldown_until = None
-    await db.commit()
-    await db.refresh(provider_key)
-
     result = await db.execute(
         select(ProviderCredential)
         .where(ProviderCredential.provider_id == provider.id)
@@ -352,14 +278,23 @@ async def ensure_bootstrap_openai_provider_key(db: AsyncSession) -> ProviderKey 
         for field, value in credential_payload.items():
             setattr(credential, field, value)
     await db.commit()
+    if credential:
+        await db.refresh(credential)
+    else:
+        result = await db.execute(
+            select(ProviderCredential)
+            .where(ProviderCredential.provider_id == provider.id)
+            .where(ProviderCredential.display_name == key_name)
+        )
+        credential = result.scalar_one()
 
-    await ensure_openai_models_and_links(db, provider_key)
+    await ensure_openai_models_and_routes(db, provider, credential)
     await ensure_default_routes(db)
-    logger.info("OpenAI bootstrap provider key configured: key_name=%s last4=%s", key_name, secret_last4)
-    return provider_key
+    logger.info("OpenAI bootstrap credential configured: display_name=%s last4=%s", key_name, secret_last4)
+    return credential
 
 
-async def ensure_openai_models_and_links(db: AsyncSession, provider_key: ProviderKey) -> None:
+async def ensure_openai_models_and_routes(db: AsyncSession, provider: Provider, credential: ProviderCredential) -> None:
     brand = (await db.execute(select(Brand).where(Brand.slug == "openai"))).scalar_one_or_none()
     if not brand:
         brand = Brand(
@@ -374,35 +309,60 @@ async def ensure_openai_models_and_links(db: AsyncSession, provider_key: Provide
         await db.refresh(brand)
 
     for model_name in configured_openai_bootstrap_models():
-        model = (await db.execute(select(Model).where(Model.name == model_name))).scalar_one_or_none()
-        if not model:
-            model = Model(
-                name=model_name,
+        public_model = (await db.execute(select(PublicModel).where(PublicModel.slug == model_name))).scalar_one_or_none()
+        if not public_model:
+            public_model = PublicModel(
+                slug=model_name,
+                display_name=model_name,
                 brand_id=brand.id,
                 category="llm",
                 enabled=True,
                 multiplier=1,
                 pricing={"mode": "free", "source": "openai_free_daily_shared_traffic"},
             )
-            db.add(model)
+            db.add(public_model)
             await db.commit()
-            await db.refresh(model)
+            await db.refresh(public_model)
         else:
-            model.brand_id = model.brand_id or brand.id
-            model.enabled = True
+            public_model.brand_id = public_model.brand_id or brand.id
+            public_model.enabled = True
+
+        upstream_model = (
+            await db.execute(
+                select(UpstreamModel)
+                .where(UpstreamModel.provider_id == provider.id)
+                .where(UpstreamModel.upstream_name == model_name)
+            )
+        ).scalar_one_or_none()
+        if not upstream_model:
+            upstream_model = UpstreamModel(
+                provider_id=provider.id,
+                upstream_name=model_name,
+                display_name=model_name,
+                capabilities={"chat": True, "streaming": True},
+                default_pricing={},
+                enabled=True,
+            )
+            db.add(upstream_model)
+            await db.commit()
+            await db.refresh(upstream_model)
+        else:
+            upstream_model.enabled = True
 
         link = (
             await db.execute(
-                select(ModelProviderKey)
-                .where(ModelProviderKey.model_id == model.id)
-                .where(ModelProviderKey.provider_key_id == provider_key.id)
+                select(ModelRoute)
+                .where(ModelRoute.public_model_id == public_model.id)
+                .where(ModelRoute.upstream_model_id == upstream_model.id)
+                .where(ModelRoute.provider_credential_id == credential.id)
             )
         ).scalar_one_or_none()
         if not link:
             db.add(
-                ModelProviderKey(
-                    model_id=model.id,
-                    provider_key_id=provider_key.id,
+                ModelRoute(
+                    public_model_id=public_model.id,
+                    upstream_model_id=upstream_model.id,
+                    provider_credential_id=credential.id,
                     enabled=True,
                     priority=1,
                     weight=1,

@@ -97,24 +97,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_ledger_entries_user_id"), "ledger_entries", ["user_id"], unique=False)
 
     op.create_table(
-        "models",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("brand_id", sa.String(), nullable=True),
-        sa.Column("icon_slug", sa.String(), nullable=True),
-        sa.Column("icon_url", sa.String(), nullable=True),
-        sa.Column("category", sa.String(), nullable=False),
-        sa.Column("enabled", sa.Boolean(), nullable=False),
-        sa.Column("multiplier", sa.Numeric(20, 6), nullable=False),
-        sa.Column("pricing", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["brand_id"], ["brands.id"]),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_models_brand_id"), "models", ["brand_id"], unique=False)
-    op.create_index(op.f("ix_models_name"), "models", ["name"], unique=True)
-
-    op.create_table(
         "provider_credentials",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("provider_id", sa.String(), nullable=False),
@@ -130,23 +112,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("provider_id", "display_name", name="uq_provider_credential_display_name"),
     )
     op.create_index(op.f("ix_provider_credentials_provider_id"), "provider_credentials", ["provider_id"], unique=False)
-
-    op.create_table(
-        "provider_keys",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("provider_id", sa.String(), nullable=True),
-        sa.Column("provider", sa.String(), nullable=False),
-        sa.Column("key_name", sa.String(), nullable=False),
-        sa.Column("secret_encrypted", sa.String(), nullable=True),
-        sa.Column("secret_last4", sa.String(), nullable=True),
-        sa.Column("enabled", sa.Boolean(), nullable=False),
-        sa.Column("health_state", sa.String(), nullable=False),
-        sa.Column("cooldown_until", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["provider_id"], ["providers.id"]),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_provider_keys_provider_id"), "provider_keys", ["provider_id"], unique=False)
 
     op.create_table(
         "upstream_models",
@@ -192,25 +157,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_api_tokens_user_id"), "api_tokens", ["user_id"], unique=False)
 
     op.create_table(
-        "model_provider_keys",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("model_id", sa.String(), nullable=False),
-        sa.Column("provider_key_id", sa.String(), nullable=False),
-        sa.Column("base_url", sa.String(), nullable=True),
-        sa.Column("enabled", sa.Boolean(), nullable=False),
-        sa.Column("priority", sa.Integer(), nullable=False),
-        sa.Column("weight", sa.Integer(), nullable=False),
-        sa.Column("quota_unit", sa.String(), nullable=False),
-        sa.Column("quota_rules", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["model_id"], ["models.id"]),
-        sa.ForeignKeyConstraint(["provider_key_id"], ["provider_keys.id"]),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_model_provider_keys_model_id"), "model_provider_keys", ["model_id"], unique=False)
-    op.create_index(op.f("ix_model_provider_keys_provider_key_id"), "model_provider_keys", ["provider_key_id"], unique=False)
-
-    op.create_table(
         "model_routes",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("public_model_id", sa.String(), nullable=False),
@@ -245,7 +191,7 @@ def upgrade() -> None:
         sa.Column("estimated_cost_credits", sa.Numeric(20, 6), nullable=False),
         sa.Column("final_cost_credits", sa.Numeric(20, 6), nullable=True),
         sa.Column("upstream_provider", sa.String(), nullable=True),
-        sa.Column("upstream_key_id", sa.String(), nullable=True),
+        sa.Column("upstream_credential_id", sa.String(), nullable=True),
         sa.Column("request_messages", sa.JSON(), nullable=False),
         sa.Column("request_text", sa.Text(), nullable=True),
         sa.Column("response_text", sa.Text(), nullable=True),
@@ -273,9 +219,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_model_routes_public_model_id"), table_name="model_routes")
     op.drop_index(op.f("ix_model_routes_provider_credential_id"), table_name="model_routes")
     op.drop_table("model_routes")
-    op.drop_index(op.f("ix_model_provider_keys_provider_key_id"), table_name="model_provider_keys")
-    op.drop_index(op.f("ix_model_provider_keys_model_id"), table_name="model_provider_keys")
-    op.drop_table("model_provider_keys")
     op.drop_index(op.f("ix_api_tokens_user_id"), table_name="api_tokens")
     op.drop_index(op.f("ix_api_tokens_token_hash"), table_name="api_tokens")
     op.drop_table("api_tokens")
@@ -283,13 +226,8 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_upstream_models_upstream_name"), table_name="upstream_models")
     op.drop_index(op.f("ix_upstream_models_provider_id"), table_name="upstream_models")
     op.drop_table("upstream_models")
-    op.drop_index(op.f("ix_provider_keys_provider_id"), table_name="provider_keys")
-    op.drop_table("provider_keys")
     op.drop_index(op.f("ix_provider_credentials_provider_id"), table_name="provider_credentials")
     op.drop_table("provider_credentials")
-    op.drop_index(op.f("ix_models_name"), table_name="models")
-    op.drop_index(op.f("ix_models_brand_id"), table_name="models")
-    op.drop_table("models")
     op.drop_index(op.f("ix_ledger_entries_user_id"), table_name="ledger_entries")
     op.drop_table("ledger_entries")
     op.drop_index(op.f("ix_users_email"), table_name="users")

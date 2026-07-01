@@ -12,17 +12,15 @@ from app.core.deps import get_db, get_bearer_token, require_scopes, token_permis
 from app.core.errors import AppError
 from app.core.secrets import decrypt_secret
 from app.core.time import utc_now
-from app.db.models.model import Model
 from app.db.models.provider import Provider
 from app.db.models.provider_credential import ProviderCredential
-from app.db.models.provider_key import ProviderKey
 from app.db.models.public_model import PublicModel
 from app.schemas.llm import ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChoice, ChatCompletionUsage, ChatMessage
 from app.services.billing_service import authorize_usage, settle_usage
 from app.services.providers.base import ProviderStreamResult, stream_chunks_from_raw
 from app.services.providers.factory import get_provider_adapter
 from app.services.providers.presets import get_provider_default_base_url
-from app.services.routing_service import ModelRouteCandidate, get_candidates, get_route_candidates
+from app.services.routing_service import ModelRouteCandidate, get_route_candidates
 from app.services.usage_service import estimate_prompt_tokens, estimate_tokens, calculate_cost
 from app.services.quota_service import try_reserve
 from app.redis.client import get_redis
@@ -85,20 +83,7 @@ async def _resolve_base_url(db: AsyncSession, candidate) -> str | None:
             return normalize_upstream_base_url(provider_default_base_url)
         return normalize_upstream_base_url(get_provider_default_base_url(candidate.provider.slug))
 
-    model_provider_base_url = getattr(candidate.mpk, "base_url", None)
-    if model_provider_base_url:
-        return normalize_upstream_base_url(model_provider_base_url)
-    provider_key_base_url = (candidate.provider_key.key_name or "").strip()
-    if is_url_like_base_url(provider_key_base_url):
-        return normalize_upstream_base_url(provider_key_base_url)
-    provider = None
-    provider_id = getattr(candidate.provider_key, "provider_id", None)
-    if provider_id:
-        provider = await db.get(Provider, provider_id)
-    provider_default_base_url = (getattr(provider, "default_base_url", None) or "").strip() if provider else ""
-    if provider_default_base_url:
-        return normalize_upstream_base_url(provider_default_base_url)
-    return normalize_upstream_base_url(get_provider_default_base_url(candidate.provider_key.provider))
+    return None
 
 
 def is_url_like_base_url(value: str) -> bool:
@@ -107,53 +92,32 @@ def is_url_like_base_url(value: str) -> bool:
 
 
 def _resolve_api_key(candidate) -> str:
-    if isinstance(candidate, ModelRouteCandidate):
-        encrypted_secret = getattr(candidate.credential, "secret_encrypted", None) if candidate.credential else None
-        if encrypted_secret:
-            return decrypt_secret(encrypted_secret)
-        return ""
-    encrypted_secret = getattr(candidate.provider_key, "secret_encrypted", None)
+    encrypted_secret = getattr(candidate.credential, "secret_encrypted", None) if candidate.credential else None
     if encrypted_secret:
         return decrypt_secret(encrypted_secret)
     return ""
 
 
 def _candidate_provider(candidate) -> str:
-    if isinstance(candidate, ModelRouteCandidate):
-        return candidate.provider.slug
-    return candidate.provider_key.provider
+    return candidate.provider.slug
 
 
-def _candidate_key_id(candidate) -> str:
-    if isinstance(candidate, ModelRouteCandidate):
-        if candidate.credential:
-            return candidate.credential.id
-        return candidate.route.id
-    return candidate.provider_key.id
+def _candidate_credential_id(candidate) -> str:
+    if candidate.credential:
+        return candidate.credential.id
+    return candidate.route.id
 
 
 def _candidate_quota_unit(candidate) -> str:
-    if isinstance(candidate, ModelRouteCandidate):
-        return candidate.route.quota_unit
-    return candidate.mpk.quota_unit
+    return candidate.route.quota_unit
 
 
 def _candidate_quota_rules(candidate) -> dict:
-    if isinstance(candidate, ModelRouteCandidate):
-        return candidate.route.quota_rules or {}
-    return candidate.mpk.quota_rules or {}
+    return candidate.route.quota_rules or {}
 
 
 def _resolve_upstream_model_name(candidate, model, provider: str) -> str:
-    if isinstance(candidate, ModelRouteCandidate):
-        return candidate.upstream_model.upstream_name
-    quota_rules = getattr(candidate.mpk, "quota_rules", None) or {}
-    if isinstance(quota_rules, dict):
-        configured = str(quota_rules.get("upstream_model") or quota_rules.get("provider_model") or "").strip()
-        if configured:
-            return configured
-    provider_aliases = PROVIDER_MODEL_ALIASES.get((provider or "").lower(), {})
-    return provider_aliases.get(model.name, model.name)
+    return candidate.upstream_model.upstream_name
 
 
 def _payload_for_candidate(payload_dict: dict, candidate, model) -> dict:
@@ -201,14 +165,9 @@ async def chat_completions(
     payload_dict = payload.model_dump(exclude_none=True)
     result = await db.execute(select(PublicModel).where(PublicModel.slug == payload.model))
     model = result.scalar_one_or_none()
-    legacy_mode = False
-    if not model:
-        legacy_result = await db.execute(select(Model).where(Model.name == payload.model))
-        model = legacy_result.scalar_one_or_none()
-        legacy_mode = True
     if not model or not model.enabled:
         raise AppError("model_not_found", "model not available", request_id, 404)
-    public_model_name = model.slug if isinstance(model, PublicModel) else model.name
+    public_model_name = model.slug
 
     prompt_estimate = estimate_prompt_tokens([m.model_dump() for m in payload.messages])
     est_tokens = estimate_tokens([m.model_dump() for m in payload.messages], payload.max_tokens)
@@ -234,7 +193,7 @@ async def chat_completions(
     except ValueError:
         raise AppError("insufficient_balance", "insufficient balance", request_id, 402)
 
-    candidates = await get_candidates(db, model.id) if legacy_mode else await get_route_candidates(db, model.id)
+    candidates = await get_route_candidates(db, model.id)
     if not candidates:
         await settle_usage(db, usage_session, 0, {"error": "no_candidates"})
         raise AppError("no_upstream_capacity", "no available upstream keys", request_id, 503)
@@ -249,28 +208,28 @@ async def chat_completions(
             if attempts > settings.max_key_attempts:
                 break
             delta = 1 if _candidate_quota_unit(candidate) == "requests" else est_tokens
-            ok = await try_reserve(redis, _candidate_key_id(candidate), model.id, delta, _candidate_quota_rules(candidate))
+            ok = await try_reserve(redis, _candidate_credential_id(candidate), model.id, delta, _candidate_quota_rules(candidate))
             if not ok:
                 continue
             api_key = _resolve_api_key(candidate)
             base_url = await _resolve_base_url(db, candidate)
             provider_name = _candidate_provider(candidate)
-            candidate_key_id = _candidate_key_id(candidate)
+            candidate_credential_id = _candidate_credential_id(candidate)
             adapter = get_provider_adapter(provider_name)
             upstream_payload = _payload_for_candidate(payload_dict, candidate, model)
             upstream_model = upstream_payload.get("model")
             try:
                 logger.info(
-                    "llm_request request_id=%s user_id=%s model=%s upstream_model=%s provider=%s provider_key_id=%s",
+                    "llm_request request_id=%s user_id=%s model=%s upstream_model=%s provider=%s credential_id=%s",
                     request_id,
                     api_token.user_id,
                     public_model_name,
                     upstream_model,
                     provider_name,
-                    candidate_key_id,
+                    candidate_credential_id,
                 )
                 usage_session.upstream_provider = provider_name
-                usage_session.upstream_key_id = candidate_key_id
+                usage_session.upstream_credential_id = candidate_credential_id
                 if payload.stream:
                     stream_result = await adapter.stream_chat_completions(upstream_payload, api_key, base_url)
                     stream_response_started = True
@@ -316,10 +275,10 @@ async def chat_completions(
                 info["detail"] = exc.response.text[:2000]
                 last_error_info = info
                 logger.warning(
-                    "llm_upstream_http_error request_id=%s provider=%s provider_key_id=%s model=%s upstream_model=%s code=%s status=%s retryable=%s detail=%s",
+                    "llm_upstream_http_error request_id=%s provider=%s credential_id=%s model=%s upstream_model=%s code=%s status=%s retryable=%s detail=%s",
                     request_id,
                     provider_name,
-                    candidate_key_id,
+                    candidate_credential_id,
                     public_model_name,
                     upstream_model,
                     info.get("code"),
@@ -335,10 +294,10 @@ async def chat_completions(
                 info["detail"] = str(exc)[:2000]
                 last_error_info = info
                 logger.exception(
-                    "llm_upstream_error request_id=%s provider=%s provider_key_id=%s model=%s upstream_model=%s code=%s retryable=%s detail=%s",
+                    "llm_upstream_error request_id=%s provider=%s credential_id=%s model=%s upstream_model=%s code=%s retryable=%s detail=%s",
                     request_id,
                     provider_name,
-                    candidate_key_id,
+                    candidate_credential_id,
                     public_model_name,
                     upstream_model,
                     info.get("code"),
@@ -355,11 +314,7 @@ async def chat_completions(
 
 async def _apply_cooldown(db: AsyncSession, candidate, info: dict) -> None:
     cooldown = int(info.get("cooldown_seconds", 60))
-    credential_or_key: ProviderCredential | ProviderKey | None
-    if isinstance(candidate, ModelRouteCandidate):
-        credential_or_key = candidate.credential
-    else:
-        credential_or_key = candidate.provider_key
+    credential_or_key: ProviderCredential | None = candidate.credential
     if credential_or_key is None:
         return
     if info.get("code") == "auth_failed":
@@ -378,7 +333,7 @@ async def _proxy_stream_and_settle(
     db: AsyncSession,
     redis,
     usage_session,
-    model,
+    model: PublicModel,
     stream_result: ProviderStreamResult,
 ) -> AsyncIterator[str]:
     finalized = False
