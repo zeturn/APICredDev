@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api.v1 import (
     auth,
@@ -18,7 +19,8 @@ from app.api.v1 import (
 from app.core.errors import AppError
 from app.core.config import settings, validate_production_settings
 from app.core.logging import configure_logging
-from app.db.session import SessionLocal
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
 from app.db import models as _models  # noqa: F401
 from app.services.bootstrap import (
     ensure_admin_user,
@@ -34,6 +36,11 @@ from app.services.bootstrap import (
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     validate_production_settings(settings)
+    if settings.startup_create_tables_enabled:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            if settings.startup_schema_compat_enabled:
+                await _apply_startup_schema_compat(conn)
     if settings.startup_bootstrap_enabled:
         async with SessionLocal() as db:
             await ensure_admin_user(db)
@@ -44,6 +51,27 @@ async def lifespan(_: FastAPI):
             await ensure_bootstrap_openai_credential(db)
             await ensure_bootstrap_brave_search_credential(db)
     yield
+
+
+async def _apply_startup_schema_compat(conn) -> None:
+    await conn.execute(text("ALTER TABLE usage_sessions ADD COLUMN IF NOT EXISTS upstream_credential_id VARCHAR"))
+    await conn.execute(
+        text(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name = 'usage_sessions'
+                      AND column_name = 'upstream_key_id'
+                ) THEN
+                    EXECUTE 'UPDATE usage_sessions SET upstream_credential_id = upstream_key_id WHERE upstream_credential_id IS NULL';
+                END IF;
+            END $$;
+            """
+        )
+    )
 
 
 def create_app() -> FastAPI:
@@ -100,4 +128,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
