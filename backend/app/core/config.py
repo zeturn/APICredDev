@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     audit_redaction_enabled: bool = True
     audit_retention_days: int = 90
     audit_hash_content: bool = False
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = ""
 
 
 settings = Settings()

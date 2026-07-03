@@ -12,6 +12,8 @@ import UsagePage from "./pages/Usage";
 import AdminOverviewPage from "./pages/admin/AdminOverview";
 import AdminUsersPage from "./pages/admin/AdminUsers";
 import AdminUsagePage from "./pages/admin/AdminUsage";
+import AdminProviderHealthPage from "./pages/admin/AdminProviderHealth";
+import AdminUsageDashboardPage from "./pages/admin/AdminUsageDashboard";
 import AdminApiModelsPage from "./pages/admin/AdminApiModels";
 import {
   AdminBrandDetailPage,
@@ -77,6 +79,8 @@ const App = () => {
           <Route path="/admin/model-routes/:id" element={<AdminModelRouteDetailPage />} />
           <Route path="/admin/api-models" element={<AdminApiModelsPage />} />
           <Route path="/admin/usage" element={<AdminUsagePage />} />
+          <Route path="/admin/provider-health" element={<AdminProviderHealthPage />} />
+          <Route path="/admin/usage-dashboard" element={<AdminUsageDashboardPage />} />
         </Route>
       </Route>
 

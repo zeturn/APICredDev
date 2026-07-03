@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -31,6 +32,7 @@ from app.services.bootstrap import (
     ensure_default_providers,
     ensure_default_routes,
 )
+from app.services.metrics_service import on_request_end, on_request_start, render_prometheus_metrics
 
 
 @asynccontextmanager
@@ -102,9 +104,13 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
         request.state.request_id = uuid4()
-        response = await call_next(request)
-        response.headers["X-Request-Id"] = str(request.state.request_id)
-        return response
+        on_request_start()
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-Id"] = str(request.state.request_id)
+            return response
+        finally:
+            on_request_end()
 
     @app.exception_handler(AppError)
     async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
@@ -113,6 +119,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "service": "apicred"}
+
+    @app.get("/metrics")
+    async def metrics() -> PlainTextResponse:
+        return PlainTextResponse(render_prometheus_metrics(), media_type="text/plain; version=0.0.4")
 
     app.include_router(auth.router, prefix="/v1")
     app.include_router(auth.runtime_auth_router, prefix="/v1")

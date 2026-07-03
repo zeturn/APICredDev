@@ -16,8 +16,11 @@ from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
 from app.services.dashboard_service import get_admin_usage_summary
-from app.services.provider_health_service import health_check_by_id
 from app.services.quota_ledger_service import list_quota_ledger, list_quota_usage
+from app.services.access_policy_admin_service import delete_policy, get_policy, list_policies, set_policy_enabled, upsert_policy
+from app.services.provider_ops_service import check_credential_health, list_provider_health, model_route_effective_status, rotate_credential_secret, set_credential_enabled
+from app.services.provider_benchmark_service import get_benchmark_run, list_benchmark_runs, run_provider_benchmark
+from app.services.usage_analytics_service import quota_summary, usage_group_by, usage_summary, usage_timeseries
 from app.services.admin_service import (
     get_admin_dashboard,
     list_brands,
@@ -299,7 +302,7 @@ async def admin_quota_ledger(
 @router.post("/provider-credentials/{credential_id}/health-check")
 async def admin_provider_credential_health_check(credential_id: str, db: AsyncSession = Depends(get_db)) -> dict:
     try:
-        return await health_check_by_id(db, credential_id)
+        return await check_credential_health(db, credential_id)
     except ValueError:
         raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
 
@@ -317,4 +320,206 @@ async def admin_provider_credential_health(credential_id: str, db: AsyncSession 
     data["last_error_message"] = credential.last_error_message
     data["consecutive_failures"] = int(credential.consecutive_failures or 0)
     return data
+
+
+@router.get("/provider-health")
+async def admin_provider_health(db: AsyncSession = Depends(get_db)) -> dict:
+    return await list_provider_health(db)
+
+
+@router.post("/provider-credentials/{credential_id}/disable")
+async def admin_provider_credential_disable(credential_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return _to_dict(await set_credential_enabled(db, credential_id, False))
+    except ValueError:
+        raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
+
+
+@router.post("/provider-credentials/{credential_id}/enable")
+async def admin_provider_credential_enable(credential_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return _to_dict(await set_credential_enabled(db, credential_id, True))
+    except ValueError:
+        raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
+
+
+@router.post("/provider-credentials/{credential_id}/rotate-secret")
+async def admin_provider_credential_rotate_secret(credential_id: str, payload: dict, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        credential = await rotate_credential_secret(db, credential_id, str(payload.get("secret") or ""))
+    except ValueError as exc:
+        code = str(exc)
+        if code == "secret_required":
+            raise AppError("secret_required", "secret is required", "admin", 400)
+        raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
+    data = _to_dict(credential)
+    data["rotated"] = True
+    return data
+
+
+@router.get("/model-routes/{route_id}/effective-status")
+async def admin_model_route_effective_status(route_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return await model_route_effective_status(db, route_id)
+    except ValueError:
+        raise AppError("model_route_not_found", "model route not found", "admin", 404)
+
+
+@router.get("/policies")
+async def admin_policies_list(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    return [_to_dict(item) for item in await list_policies(db)]
+
+
+@router.post("/policies")
+async def admin_policies_create(payload: dict, db: AsyncSession = Depends(get_db)) -> dict:
+    return _to_dict(await upsert_policy(db, payload))
+
+
+@router.get("/policies/{policy_id}")
+async def admin_policies_get(policy_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    policy = await get_policy(db, policy_id)
+    if not policy:
+        raise AppError("policy_not_found", "policy not found", "admin", 404)
+    return _to_dict(policy)
+
+
+@router.put("/policies/{policy_id}")
+async def admin_policies_update(policy_id: str, payload: dict, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return _to_dict(await upsert_policy(db, payload, policy_id=policy_id))
+    except ValueError:
+        raise AppError("policy_not_found", "policy not found", "admin", 404)
+
+
+@router.delete("/policies/{policy_id}")
+async def admin_policies_delete(policy_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    ok = await delete_policy(db, policy_id)
+    if not ok:
+        raise AppError("policy_not_found", "policy not found", "admin", 404)
+    return {"ok": True}
+
+
+@router.post("/policies/{policy_id}/enable")
+async def admin_policies_enable(policy_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return _to_dict(await set_policy_enabled(db, policy_id, True))
+    except ValueError:
+        raise AppError("policy_not_found", "policy not found", "admin", 404)
+
+
+@router.post("/policies/{policy_id}/disable")
+async def admin_policies_disable(policy_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return _to_dict(await set_policy_enabled(db, policy_id, False))
+    except ValueError:
+        raise AppError("policy_not_found", "policy not found", "admin", 404)
+
+
+@router.get("/usage/summary")
+async def admin_usage_summary_v2(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    bucket: str = Query(default="hour"),
+    tenant_id: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    return await usage_summary(db, from_ts=from_, to_ts=to, tenant_id=tenant_id, user_id=user_id, provider=provider, model=model)
+
+
+@router.get("/usage/timeseries")
+async def admin_usage_timeseries(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    bucket: str = Query(default="hour"),
+    tenant_id: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await usage_timeseries(db, from_ts=from_, to_ts=to, bucket=bucket, user_id=user_id, provider=provider, model=model)
+
+
+@router.get("/usage/top-users")
+async def admin_usage_top_users(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await usage_group_by(db, "user", from_ts=from_, to_ts=to)
+
+
+@router.get("/usage/by-provider")
+async def admin_usage_by_provider(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await usage_group_by(db, "provider", from_ts=from_, to_ts=to, user_id=user_id, model=model)
+
+
+@router.get("/usage/by-model")
+async def admin_usage_by_model(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await usage_group_by(db, "model", from_ts=from_, to_ts=to, user_id=user_id, provider=provider)
+
+
+@router.get("/usage/errors")
+async def admin_usage_errors(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await usage_group_by(db, "error", from_ts=from_, to_ts=to, user_id=user_id, provider=provider, model=model)
+
+
+@router.get("/quota/summary")
+async def admin_quota_summary(
+    from_: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    return await quota_summary(db, from_ts=from_, to_ts=to, user_id=user_id, provider=provider, model=model)
+
+
+@router.get("/provider-benchmarks")
+async def admin_provider_benchmarks(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    return await list_benchmark_runs(db)
+
+
+@router.post("/provider-benchmarks")
+async def admin_provider_benchmarks_create(payload: dict, db: AsyncSession = Depends(get_db)) -> dict:
+    return await run_provider_benchmark(
+        db,
+        public_model=str(payload.get("public_model") or "").strip() or None,
+        provider=str(payload.get("provider") or "").strip() or None,
+        runs=max(int(payload.get("runs") or 1), 1),
+        dry_run=bool(payload.get("dry_run", True)),
+        mock_mode=bool(payload.get("mock_mode", True)),
+    )
+
+
+@router.get("/provider-benchmarks/{run_id}")
+async def admin_provider_benchmarks_get(run_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return await get_benchmark_run(db, run_id)
+    except ValueError:
+        raise AppError("benchmark_run_not_found", "benchmark run not found", "admin", 404)
 

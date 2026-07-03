@@ -281,6 +281,10 @@ async def settle_usage(
     usage.prompt_tokens = int((usage_meta or {}).get("prompt_tokens", 0) or 0)
     usage.completion_tokens = int((usage_meta or {}).get("completion_tokens", 0) or 0)
     usage.total_tokens = int((usage_meta or {}).get("total_tokens", 0) or 0)
+    usage.latency_ms = int((usage_meta or {}).get("latency_ms", 0) or 0) or None
+    usage.upstream_latency_ms = int((usage_meta or {}).get("upstream_latency_ms", 0) or 0) or None
+    usage.error_code = str((usage_meta or {}).get("error_code") or "").strip() or None
+    usage.error_message = str((usage_meta or {}).get("error_message") or "").strip()[:1000] or None
     usage.response_text = response_text
     usage.usage = usage_meta
     usage.status = "completed"

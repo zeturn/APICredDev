@@ -28,6 +28,8 @@ export const adminConsoleRoutes: ConsoleRoute[] = [
   { path: "/admin/model-routes", label: "Routes", mode: "admin", description: "模型路由策略", apiPath: "/admin/model-routes" },
   { path: "/admin/api-models", label: "API 模型支持", mode: "admin", description: "查看任意 API 支持模型", apiPath: "/admin/api-supported-models" },
   { path: "/admin/usage", label: "使用统计", mode: "admin", description: "全站调用记录与消费汇总", apiPath: "/admin/usage-summary" },
+  { path: "/admin/provider-health", label: "Provider Health", mode: "admin", description: "Provider/credential 健康运营控制台", apiPath: "/admin/provider-health" },
+  { path: "/admin/usage-dashboard", label: "Usage Dashboard", mode: "admin", description: "多维 usage/cost/quota 分析", apiPath: "/admin/usage/summary" },
 ];
 
 export const allConsoleRoutes: ConsoleRoute[] = [...userConsoleRoutes, ...adminConsoleRoutes];

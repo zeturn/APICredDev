@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends
@@ -21,8 +22,10 @@ from app.services.audit_service import extract_response_messages, record_request
 from app.services.providers.base import ProviderStreamResult, stream_chunks_from_raw
 from app.services.providers.factory import get_provider_adapter
 from app.services.providers.presets import get_provider_default_base_url
+from app.services.metrics_service import on_llm_error, on_llm_success
 from app.services.quota_ledger_service import mark_quota_reservation, settle_quota_ledger
 from app.services.routing_service import ModelRouteCandidate, get_route_candidates
+from app.services.policy_service import enforce_pre_authorize_policy, enforce_provider_policy
 from app.services.search_service import latest_user_query, managed_web_search, request_uses_search_tool, search_context_message, search_model_from_tools, strip_managed_search_tools
 from app.services.usage_service import estimate_prompt_tokens, estimate_tokens, calculate_cost
 from app.services.quota_service import try_reserve
@@ -166,6 +169,7 @@ async def chat_completions(
     api_token=Depends(get_bearer_token),
     _: None = Depends(token_permission("user_console")),
 ) -> ChatCompletionResponse:
+    started_at = time.perf_counter()
     request_id = request.state.request_id
     await require_scopes(["llm"], api_token, request)
     payload_dict = payload.model_dump(exclude_none=True)
@@ -184,6 +188,16 @@ async def chat_completions(
         prompt_tokens=prompt_estimate,
         completion_tokens=payload.max_tokens or 0,
     )
+    policy_ok, policy_error, resolved_policy = await enforce_pre_authorize_policy(
+        db,
+        user_id=api_token.user_id,
+        token_id=api_token.id,
+        public_model=public_model_name,
+        estimated_tokens=est_tokens,
+        estimated_cost_credits=estimated_cost,
+    )
+    if not policy_ok:
+        raise AppError("policy_violation", policy_error or "policy_violation", request_id, 403)
     try:
         usage_session = await authorize_usage(
             db,
@@ -240,6 +254,10 @@ async def chat_completions(
             attempts += 1
             if attempts > settings.max_key_attempts:
                 break
+            provider_allowed, provider_error = enforce_provider_policy(resolved_policy, _candidate_provider(candidate))
+            if not provider_allowed:
+                last_error_info = {"code": provider_error, "retryable": True, "status": 403}
+                continue
             delta = 1 if _candidate_quota_unit(candidate) == "requests" else est_tokens
             ok = await try_reserve(redis, _candidate_credential_id(candidate), model.id, delta, _candidate_quota_rules(candidate))
             if not ok:
@@ -262,14 +280,18 @@ async def chat_completions(
             upstream_payload = _payload_for_candidate(payload_dict, candidate, model)
             upstream_model = upstream_payload.get("model")
             try:
+                upstream_started_at = time.perf_counter()
                 logger.info(
-                    "llm_request request_id=%s user_id=%s model=%s upstream_model=%s provider=%s credential_id=%s",
+                    "llm_request request_id=%s user_id=%s token_id=%s public_model=%s upstream_model=%s provider=%s credential_id=%s route_id=%s usage_session_id=%s",
                     request_id,
                     api_token.user_id,
+                    api_token.id,
                     public_model_name,
                     upstream_model,
                     provider_name,
                     candidate_credential_id,
+                    candidate.route.id,
+                    usage_session.id,
                 )
                 usage_session.upstream_provider = provider_name
                 usage_session.upstream_credential_id = candidate_credential_id
@@ -289,6 +311,7 @@ async def chat_completions(
                     )
                 raw, usage = await adapter.chat_completions(upstream_payload, api_key, base_url)
                 await _mark_credential_success(db, candidate)
+                upstream_latency_ms = int((time.perf_counter() - upstream_started_at) * 1000)
                 prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
                 completion_tokens = int(usage.get("completion_tokens", 0) or 0)
                 total_tokens = int(usage.get("total_tokens", 0) or (prompt_tokens + completion_tokens))
@@ -300,7 +323,29 @@ async def chat_completions(
                     completion_tokens=completion_tokens,
                 )
                 await record_response_messages(db, usage_session, extract_response_messages(raw))
+                usage["upstream_latency_ms"] = upstream_latency_ms
+                usage["latency_ms"] = int((time.perf_counter() - started_at) * 1000)
                 await settle_usage(db, usage_session, final_cost, usage, response_text=_extract_response_text(raw))
+                logger.info(
+                    "llm_request_done request_id=%s user_id=%s token_id=%s public_model=%s provider=%s upstream_model=%s credential_id=%s route_id=%s usage_session_id=%s status=completed error_code= latency_ms=%s upstream_latency_ms=%s final_cost_credits=%s",
+                    request_id,
+                    api_token.user_id,
+                    api_token.id,
+                    public_model_name,
+                    provider_name,
+                    upstream_model,
+                    candidate_credential_id,
+                    candidate.route.id,
+                    usage_session.id,
+                    usage.get("latency_ms"),
+                    usage.get("upstream_latency_ms"),
+                    final_cost,
+                )
+                on_llm_success(
+                    tokens=int(usage.get("total_tokens", 0) or 0),
+                    cost_credits=float(final_cost),
+                    upstream_latency_ms=int(usage.get("upstream_latency_ms", 0) or 0),
+                )
                 choices = [
                     ChatCompletionChoice(
                         index=i,
@@ -319,6 +364,11 @@ async def chat_completions(
                 info = adapter.normalize_error(exc)
                 info["status"] = exc.response.status_code
                 info["detail"] = exc.response.text[:2000]
+                info["error_code"] = info.get("code")
+                info["provider"] = provider_name
+                info["upstream_model"] = upstream_model
+                info["credential_id"] = candidate_credential_id
+                info["route_id"] = candidate.route.id
                 last_error_info = info
                 logger.warning(
                     "llm_upstream_http_error request_id=%s provider=%s credential_id=%s model=%s upstream_model=%s code=%s status=%s retryable=%s detail=%s",
@@ -338,6 +388,11 @@ async def chat_completions(
             except Exception as exc:
                 info = adapter.normalize_error(exc)
                 info["detail"] = str(exc)[:2000]
+                info["error_code"] = info.get("code")
+                info["provider"] = provider_name
+                info["upstream_model"] = upstream_model
+                info["credential_id"] = candidate_credential_id
+                info["route_id"] = candidate.route.id
                 last_error_info = info
                 logger.exception(
                     "llm_upstream_error request_id=%s provider=%s credential_id=%s model=%s upstream_model=%s code=%s retryable=%s detail=%s",
@@ -351,7 +406,34 @@ async def chat_completions(
                     str(exc)[:500],
                 )
                 await _apply_cooldown(db, candidate, info)
-        await settle_usage(db, usage_session, 0, {"error": "upstream_failed", "upstream": last_error_info or {}})
+        await settle_usage(
+            db,
+            usage_session,
+            0,
+            {
+                "error": "upstream_failed",
+                "upstream": last_error_info or {},
+                "error_code": (last_error_info or {}).get("code"),
+                "error_message": _upstream_error_message(last_error_info),
+                "latency_ms": int((time.perf_counter() - started_at) * 1000),
+            },
+        )
+        logger.warning(
+            "llm_request_done request_id=%s user_id=%s token_id=%s public_model=%s provider=%s upstream_model=%s credential_id=%s route_id=%s usage_session_id=%s status=failed error_code=%s latency_ms=%s upstream_latency_ms=%s final_cost_credits=0",
+            request_id,
+            api_token.user_id,
+            api_token.id,
+            public_model_name,
+            (last_error_info or {}).get("provider"),
+            (last_error_info or {}).get("upstream_model"),
+            (last_error_info or {}).get("credential_id"),
+            (last_error_info or {}).get("route_id"),
+            usage_session.id,
+            (last_error_info or {}).get("code"),
+            int((time.perf_counter() - started_at) * 1000),
+            (last_error_info or {}).get("upstream_latency_ms"),
+        )
+        on_llm_error(provider=(last_error_info or {}).get("provider") or usage_session.upstream_provider)
         if reserved_for_request:
             await settle_quota_ledger(
                 db,
