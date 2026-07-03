@@ -13,6 +13,7 @@ from app.db.models.usage_session import UsageSession
 from app.db.models.user import User
 from app.db.models.wallet import Wallet
 from app.services.basaltpass_client import BasaltPassClient
+from app.services.quota_ledger_service import reserve_quota_ledger_for_usage, settle_quota_ledger
 
 
 @dataclass
@@ -211,6 +212,17 @@ async def authorize_usage(
     db.add(ledger)
     await db.commit()
     await db.refresh(usage)
+    await reserve_quota_ledger_for_usage(
+        db,
+        usage_session_id=usage.id,
+        request_id=request_id,
+        user_id=user_id,
+        token_id=token_id,
+        public_model_id=model_id,
+        public_model_name=model_name,
+        estimated_cost_credits=float(estimated),
+        metadata_json=meta,
+    )
     return usage
 
 
@@ -274,3 +286,13 @@ async def settle_usage(
     usage.status = "completed"
     usage.completed_at = utc_now()
     await db.commit()
+    await settle_quota_ledger(
+        db,
+        request_id=usage.request_id,
+        status="settled",
+        final_cost_credits=float(final),
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        metadata_patch={"usage": usage_meta or {}},
+    )

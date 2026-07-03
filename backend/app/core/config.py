@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     app_secret: str = "dev-secret"
     token_salt: str = "dev-token-salt"
+    encryption_key: str = Field("", validation_alias=AliasChoices("ENCRYPTION_KEY", "APICRED_ENCRYPTION_KEY"))
+    apicred_encryption_key_id: str = Field("v3", validation_alias=AliasChoices("APICRED_ENCRYPTION_KEY_ID", "ENCRYPTION_KEY_ID"))
+    apicred_previous_encryption_keys: str = Field("", validation_alias=AliasChoices("APICRED_PREVIOUS_ENCRYPTION_KEYS", "PREVIOUS_ENCRYPTION_KEYS"))
     jwt_issuer: str = "apicred"
     jwt_exp_minutes: int = 60 * 24
     auth_cookie_name: str = "apicred_access_token"
@@ -22,6 +25,7 @@ class Settings(BaseSettings):
     admin_password: str = ""
 
     allow_local_password_auth: bool = False
+    production_allow_local_password_auth: bool = False
     allow_test_cli_local_auth: bool = True
     test_cli_auth_secret: str = ""
 
@@ -67,25 +71,57 @@ class Settings(BaseSettings):
     apicred_public_base_url: str = "http://localhost:8103"
     frontend_base_url: str = "http://localhost:5106"
     cors_origins: list[str] = ["http://localhost:5106", "http://127.0.0.1:5106"]
+    audit_store_message_content: bool = True
+    audit_redaction_enabled: bool = True
+    audit_retention_days: int = 90
+    audit_hash_content: bool = False
 
 
 settings = Settings()
+
+
+def _is_empty(value: str | None) -> bool:
+    return not str(value or "").strip()
+
+
+def _has_wildcard_cors(origins: list[str]) -> bool:
+    for origin in origins or []:
+        normalized = str(origin or "").strip().lower()
+        if normalized == "*" or "://" in normalized and "*" in normalized:
+            return True
+    return False
 
 
 def validate_production_settings(current: Settings) -> None:
     if not current.production_mode:
         return
 
-    insecure_values = {
-        "app_secret": {"", "dev-secret"},
-        "token_salt": {"", "dev-token-salt"},
-    }
-    bad = [name for name, blocked in insecure_values.items() if getattr(current, name) in blocked]
-    if bad:
-        raise RuntimeError(f"insecure production settings: {', '.join(sorted(bad))}")
-
+    errors: list[str] = []
+    insecure_values = {"app_secret": {"", "dev-secret"}, "token_salt": {"", "dev-token-salt"}}
+    for name, blocked in insecure_values.items():
+        if getattr(current, name) in blocked:
+            errors.append(f"{name} is insecure")
+    if _is_empty(current.database_url):
+        errors.append("database_url is required")
+    if _is_empty(current.redis_url):
+        errors.append("redis_url is required")
+    if _is_empty(current.admin_password):
+        errors.append("admin_password is required")
+    if _is_empty(current.encryption_key):
+        errors.append("encryption_key is required")
     if current.debug_endpoints_enabled:
-        raise RuntimeError("debug endpoints must be disabled in production mode")
-
+        errors.append("debug_endpoints_enabled must be false")
+    if current.startup_create_tables_enabled:
+        errors.append("startup_create_tables_enabled must be false (use alembic migrations)")
+    if current.startup_schema_compat_enabled:
+        errors.append("startup_schema_compat_enabled must be false")
     if current.startup_bootstrap_enabled:
-        raise RuntimeError("startup bootstrap must be disabled in production mode")
+        errors.append("startup_bootstrap_enabled must be false")
+    if current.allow_test_cli_local_auth:
+        errors.append("allow_test_cli_local_auth must be false")
+    if current.allow_local_password_auth and not current.production_allow_local_password_auth:
+        errors.append("allow_local_password_auth requires production_allow_local_password_auth=true")
+    if _has_wildcard_cors(current.cors_origins):
+        errors.append("cors_origins must not include wildcard")
+    if errors:
+        raise RuntimeError(f"insecure production settings: {', '.join(sorted(errors))}")

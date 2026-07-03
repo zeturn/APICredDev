@@ -17,6 +17,13 @@ from app.services.quota_service import try_reserve
 from app.services.routing_service import get_route_candidates
 
 
+async def _close_redis(redis: Redis) -> None:
+    if hasattr(redis, "aclose"):
+        await redis.aclose()
+    else:
+        await redis.close()
+
+
 async def _route_fixture(db_session, slug: str, credentials: list[tuple[str, int, int, dict | None]]):
     provider = Provider(slug=f"provider-{slug}", name=f"Provider {slug}", default_base_url="https://example.com", enabled=True)
     public_model = PublicModel(slug=slug, display_name=slug, category="llm", enabled=True, multiplier=1, pricing={"unit": "request", "price": 1})
@@ -77,7 +84,7 @@ async def test_keypool_rotation(db_session):
     try:
         await redis.ping()
     except Exception:
-        await redis.aclose()
+        await _close_redis(redis)
         pytest.skip("redis not available")
 
     public_model, credentials = await _route_fixture(
@@ -100,7 +107,7 @@ async def test_keypool_rotation(db_session):
     assert selected[:5].count(first_credential_id) == 5
     assert selected[5] == credentials["a"].id
 
-    await redis.aclose()
+    await _close_redis(redis)
 
 
 @pytest.mark.asyncio
@@ -109,7 +116,7 @@ async def test_multi_window_switch(db_session):
     try:
         await redis.ping()
     except Exception:
-        await redis.aclose()
+        await _close_redis(redis)
         pytest.skip("redis not available")
 
     public_model, credentials = await _route_fixture(
@@ -129,7 +136,7 @@ async def test_multi_window_switch(db_session):
         selected.append(picked)
     assert selected == [credentials["first"].id, credentials["first"].id, credentials["second"].id]
 
-    await redis.aclose()
+    await _close_redis(redis)
 
 
 @pytest.mark.asyncio

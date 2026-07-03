@@ -1,13 +1,27 @@
 from __future__ import annotations
 
+import hashlib
+import re
+from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.time import utc_now
 from app.db.models.audit_llm_message import AuditLLMMessage
 from app.db.models.usage_session import UsageSession
+
+REDACTION_PATTERNS = [
+    re.compile(r"\bsk-[A-Za-z0-9\-_]{16,}\b"),
+    re.compile(r"\bsk-ant-[A-Za-z0-9\-_]{16,}\b"),
+    re.compile(r"\bBearer\s+[A-Za-z0-9\-_\.=+/]{16,}\b", re.IGNORECASE),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b"),
+    re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+    re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
+]
 
 
 def _message_content(message: dict[str, Any]) -> str | None:
@@ -24,6 +38,47 @@ def _message_role(message: dict[str, Any], fallback: str) -> str:
     return role or fallback
 
 
+def _usage_field(usage_session: UsageSession, field: str, default: Any = None) -> Any:
+    return getattr(usage_session, field, default)
+
+
+def _redact_text(content: str | None) -> tuple[str | None, bool]:
+    if content is None:
+        return None, False
+    if not settings.audit_redaction_enabled:
+        return content, False
+    redacted = content
+    applied = False
+    for pattern in REDACTION_PATTERNS:
+        next_value = pattern.sub("[REDACTED]", redacted)
+        if next_value != redacted:
+            applied = True
+            redacted = next_value
+    return redacted, applied
+
+
+def _prepare_audit_content(content: str | None) -> dict[str, Any]:
+    redacted_content, redaction_applied = _redact_text(content)
+    retention_expires_at = utc_now() + timedelta(days=max(int(settings.audit_retention_days or 1), 1))
+    content_hash = None
+    content_preview = None
+    stored_content = redacted_content
+    if redacted_content is not None:
+        content_hash = hashlib.sha256(redacted_content.encode("utf-8")).hexdigest()
+        content_preview = redacted_content[:120] if redacted_content else ""
+    if settings.audit_hash_content:
+        stored_content = None
+    elif not settings.audit_store_message_content:
+        stored_content = None
+    return {
+        "content": stored_content,
+        "content_hash": content_hash,
+        "content_preview": content_preview,
+        "redaction_applied": redaction_applied,
+        "retention_expires_at": retention_expires_at,
+    }
+
+
 async def record_request_messages(
     db: AsyncSession,
     usage_session: UsageSession,
@@ -32,20 +87,24 @@ async def record_request_messages(
     source: str = "request",
 ) -> None:
     rows = [
-        AuditLLMMessage(
-            usage_session_id=usage_session.id,
-            user_id=usage_session.user_id,
-            request_id=usage_session.request_id,
-            model_id=usage_session.model_id,
-            model_name=usage_session.model_name,
-            upstream_provider=usage_session.upstream_provider,
-            upstream_credential_id=usage_session.upstream_credential_id,
+        (lambda prepared: AuditLLMMessage(
+            usage_session_id=_usage_field(usage_session, "id"),
+            user_id=_usage_field(usage_session, "user_id"),
+            request_id=_usage_field(usage_session, "request_id", ""),
+            model_id=_usage_field(usage_session, "model_id"),
+            model_name=_usage_field(usage_session, "model_name"),
+            upstream_provider=_usage_field(usage_session, "upstream_provider"),
+            upstream_credential_id=_usage_field(usage_session, "upstream_credential_id"),
             source=source,
             role=_message_role(message, "user"),
-            content=_message_content(message),
+            content=prepared["content"],
+            content_hash=prepared["content_hash"],
+            content_preview=prepared["content_preview"],
+            redaction_applied=prepared["redaction_applied"],
+            retention_expires_at=prepared["retention_expires_at"],
             sequence=index,
             message_metadata={key: value for key, value in message.items() if key not in {"role", "content"}},
-        )
+        ))(_prepare_audit_content(_message_content(message)))
         for index, message in enumerate(messages)
     ]
     if rows:
@@ -92,20 +151,24 @@ async def record_response_messages(
         or -1
     )
     rows = [
-        AuditLLMMessage(
-            usage_session_id=usage_session.id,
-            user_id=usage_session.user_id,
-            request_id=usage_session.request_id,
-            model_id=usage_session.model_id,
-            model_name=usage_session.model_name,
-            upstream_provider=usage_session.upstream_provider,
-            upstream_credential_id=usage_session.upstream_credential_id,
+        (lambda prepared: AuditLLMMessage(
+            usage_session_id=_usage_field(usage_session, "id"),
+            user_id=_usage_field(usage_session, "user_id"),
+            request_id=_usage_field(usage_session, "request_id", ""),
+            model_id=_usage_field(usage_session, "model_id"),
+            model_name=_usage_field(usage_session, "model_name"),
+            upstream_provider=_usage_field(usage_session, "upstream_provider"),
+            upstream_credential_id=_usage_field(usage_session, "upstream_credential_id"),
             source="response",
             role=_message_role(message, "assistant"),
-            content=_message_content(message),
+            content=prepared["content"],
+            content_hash=prepared["content_hash"],
+            content_preview=prepared["content_preview"],
+            redaction_applied=prepared["redaction_applied"],
+            retention_expires_at=prepared["retention_expires_at"],
             sequence=max_sequence + index + 1,
             message_metadata={key: value for key, value in message.items() if key not in {"role", "content"}},
-        )
+        ))(_prepare_audit_content(_message_content(message)))
         for index, message in enumerate(messages)
     ]
     db.add_all(rows)
@@ -125,9 +188,13 @@ def _message_to_dict(message: AuditLLMMessage, *, include_deleted: bool) -> dict
         "source": message.source,
         "role": message.role,
         "content": message.content,
+        "content_hash": message.content_hash,
+        "content_preview": message.content_preview,
+        "redaction_applied": bool(message.redaction_applied),
         "sequence": message.sequence,
         "metadata": message.message_metadata or {},
         "created_at": message.created_at.isoformat() if message.created_at else None,
+        "retention_expires_at": message.retention_expires_at.isoformat() if message.retention_expires_at else None,
         "user_deleted_at": message.user_deleted_at.isoformat() if include_deleted and message.user_deleted_at else None,
     }
 
@@ -222,3 +289,18 @@ async def soft_delete_user_conversation(db: AsyncSession, user_id: str, usage_se
     )
     await db.commit()
     return int(result.rowcount or 0)
+
+
+async def purge_expired_audit_messages(db: AsyncSession, *, dry_run: bool = True) -> dict[str, Any]:
+    now = utc_now()
+    query = select(func.count()).select_from(AuditLLMMessage).where(AuditLLMMessage.retention_expires_at.is_not(None), AuditLLMMessage.retention_expires_at < now)
+    count = int((await db.execute(query)).scalar() or 0)
+    if not dry_run and count > 0:
+        await db.execute(
+            delete(AuditLLMMessage).where(
+                AuditLLMMessage.retention_expires_at.is_not(None),
+                AuditLLMMessage.retention_expires_at < now,
+            )
+        )
+        await db.commit()
+    return {"dry_run": dry_run, "expired_count": count, "deleted_count": 0 if dry_run else count}

@@ -9,7 +9,8 @@ from app.core.config import settings
 
 
 LEGACY_PREFIX = b"v1:"
-CURRENT_PREFIX = "v2:"
+LEGACY_DERIVED_VERSION = "v2"
+DEFAULT_CURRENT_VERSION = "v3"
 
 
 def _root_key() -> bytes:
@@ -17,9 +18,61 @@ def _root_key() -> bytes:
     return hashlib.sha256(material).digest()
 
 
-def _fernet() -> Fernet:
+def _legacy_fernet() -> Fernet:
     key = base64.urlsafe_b64encode(_root_key())
     return Fernet(key)
+
+
+def _normalized_version(raw: str | None) -> str:
+    value = str(raw or "").strip().lower()
+    if not value:
+        return DEFAULT_CURRENT_VERSION
+    if ":" in value:
+        value = value.split(":", 1)[0]
+    return value
+
+
+def _decode_explicit_key(raw: str) -> bytes:
+    if not raw:
+        raise ValueError("missing encryption key")
+    try:
+        decoded = base64.urlsafe_b64decode(raw.encode("ascii"))
+    except Exception as exc:
+        raise ValueError("invalid encryption key encoding") from exc
+    if len(decoded) != 32:
+        raise ValueError("invalid encryption key length")
+    return base64.urlsafe_b64encode(decoded)
+
+
+def _explicit_keyring() -> dict[str, Fernet]:
+    keyring: dict[str, Fernet] = {}
+    current_key = str(settings.encryption_key or "").strip()
+    if current_key:
+        keyring[_normalized_version(settings.apicred_encryption_key_id)] = Fernet(_decode_explicit_key(current_key))
+
+    previous = str(settings.apicred_previous_encryption_keys or "").strip()
+    if not previous:
+        return keyring
+    for entry in previous.split(","):
+        pair = entry.strip()
+        if not pair or ":" not in pair:
+            continue
+        version_raw, key_raw = pair.split(":", 1)
+        version = _normalized_version(version_raw)
+        key = key_raw.strip()
+        if not key or version in keyring:
+            continue
+        keyring[version] = Fernet(_decode_explicit_key(key))
+    return keyring
+
+
+def _current_version_and_fernet() -> tuple[str, Fernet]:
+    keyring = _explicit_keyring()
+    current_version = _normalized_version(settings.apicred_encryption_key_id)
+    explicit = keyring.get(current_version)
+    if explicit is not None:
+        return current_version, explicit
+    return LEGACY_DERIVED_VERSION, _legacy_fernet()
 
 
 def _keystream(root_key: bytes, nonce: bytes, length: int) -> bytes:
@@ -33,8 +86,9 @@ def _keystream(root_key: bytes, nonce: bytes, length: int) -> bytes:
 
 
 def encrypt_secret(value: str) -> str:
-    token = _fernet().encrypt(value.encode("utf-8")).decode("ascii")
-    return f"{CURRENT_PREFIX}{token}"
+    version, fernet = _current_version_and_fernet()
+    token = fernet.encrypt(value.encode("utf-8")).decode("ascii")
+    return f"{version}:{token}"
 
 
 def _decrypt_legacy_v1(token: str) -> str:
@@ -57,10 +111,25 @@ def _decrypt_legacy_v1(token: str) -> str:
 def decrypt_secret(token: str | None) -> str:
     if not token:
         return ""
-    if token.startswith(CURRENT_PREFIX):
-        fernet_token = token[len(CURRENT_PREFIX):]
+    if ":" in token:
+        version, fernet_token = token.split(":", 1)
+        normalized_version = _normalized_version(version)
+        if normalized_version == LEGACY_DERIVED_VERSION:
+            fernet = _explicit_keyring().get(normalized_version) or _legacy_fernet()
+        else:
+            fernet = _explicit_keyring().get(normalized_version)
+            if fernet is None:
+                raise ValueError("unsupported_secret_version")
         try:
-            return _fernet().decrypt(fernet_token.encode("ascii")).decode("utf-8")
+            return fernet.decrypt(fernet_token.encode("ascii")).decode("utf-8")
         except (InvalidToken, ValueError, UnicodeDecodeError) as exc:
             raise ValueError("secret_integrity_check_failed") from exc
     return _decrypt_legacy_v1(token)
+
+
+def secret_version(token: str | None) -> str:
+    if not token:
+        return "unknown"
+    if ":" in token:
+        return _normalized_version(token.split(":", 1)[0])
+    return "v1"

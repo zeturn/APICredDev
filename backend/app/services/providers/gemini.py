@@ -210,6 +210,8 @@ class GeminiAdapter(ProviderAdapter):
         return ProviderStreamResult(iterator=_iterator(), finalize=_finalize)
 
     def normalize_error(self, exception_or_response: Any) -> Dict[str, Any]:
+        if isinstance(exception_or_response, httpx.TimeoutException):
+            return {"code": "timeout", "retryable": True, "cooldown_seconds": 15}
         if isinstance(exception_or_response, httpx.HTTPStatusError):
             status = exception_or_response.response.status_code
             if status in (401, 403):
@@ -218,5 +220,5 @@ class GeminiAdapter(ProviderAdapter):
                 return {"code": "rate_limited", "retryable": True, "cooldown_seconds": 60}
             if status >= 500:
                 return {"code": "upstream_error", "retryable": True, "cooldown_seconds": 15}
-            return {"code": "invalid_request", "retryable": False, "cooldown_seconds": 0}
+            return {"code": "request_error", "retryable": False, "cooldown_seconds": 0}
         return {"code": "network_error", "retryable": True, "cooldown_seconds": 15}

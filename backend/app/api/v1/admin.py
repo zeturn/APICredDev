@@ -16,6 +16,8 @@ from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
 from app.services.dashboard_service import get_admin_usage_summary
+from app.services.provider_health_service import health_check_by_id
+from app.services.quota_ledger_service import list_quota_ledger, list_quota_usage
 from app.services.admin_service import (
     get_admin_dashboard,
     list_brands,
@@ -242,4 +244,77 @@ async def admin_wallets_sync(payload: dict, db: AsyncSession = Depends(get_db)) 
     user_id = str(payload.get("user_id") or "").strip() or None
     dry_run = bool(payload.get("dry_run", False))
     return await sync_wallets_from_basalt(db, user_id=user_id, dry_run=dry_run)
+
+
+@router.get("/quota/usage")
+async def admin_quota_usage(
+    user_id: str | None = Query(default=None),
+    token_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await list_quota_usage(
+        db,
+        user_id=user_id,
+        token_id=token_id,
+        provider=provider,
+        model=model,
+        date_from=date_from,
+        date_to=date_to,
+        status=status,
+        limit=limit,
+    )
+
+
+@router.get("/quota/ledger")
+async def admin_quota_ledger(
+    user_id: str | None = Query(default=None),
+    token_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    return await list_quota_ledger(
+        db,
+        user_id=user_id,
+        token_id=token_id,
+        provider=provider,
+        model=model,
+        date_from=date_from,
+        date_to=date_to,
+        status=status,
+        limit=limit,
+    )
+
+
+@router.post("/provider-credentials/{credential_id}/health-check")
+async def admin_provider_credential_health_check(credential_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    try:
+        return await health_check_by_id(db, credential_id)
+    except ValueError:
+        raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
+
+
+@router.get("/provider-credentials/{credential_id}/health")
+async def admin_provider_credential_health(credential_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+    credential = next((item for item in await list_provider_credentials(db) if item.id == credential_id), None)
+    if not credential:
+        raise AppError("provider_credential_not_found", "provider credential not found", "admin", 404)
+    data = _to_dict(credential)
+    data["last_checked_at"] = credential.last_checked_at.isoformat() if credential.last_checked_at else None
+    data["last_success_at"] = credential.last_success_at.isoformat() if credential.last_success_at else None
+    data["last_failure_at"] = credential.last_failure_at.isoformat() if credential.last_failure_at else None
+    data["last_error_code"] = credential.last_error_code
+    data["last_error_message"] = credential.last_error_message
+    data["consecutive_failures"] = int(credential.consecutive_failures or 0)
+    return data
 

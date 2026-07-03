@@ -21,6 +21,7 @@ from app.services.audit_service import extract_response_messages, record_request
 from app.services.providers.base import ProviderStreamResult, stream_chunks_from_raw
 from app.services.providers.factory import get_provider_adapter
 from app.services.providers.presets import get_provider_default_base_url
+from app.services.quota_ledger_service import mark_quota_reservation, settle_quota_ledger
 from app.services.routing_service import ModelRouteCandidate, get_route_candidates
 from app.services.search_service import latest_user_query, managed_web_search, request_uses_search_tool, search_context_message, search_model_from_tools, strip_managed_search_tools
 from app.services.usage_service import estimate_prompt_tokens, estimate_tokens, calculate_cost
@@ -223,9 +224,17 @@ async def chat_completions(
         candidates = await get_route_candidates(db, model.id)
         if not candidates:
             await settle_usage(db, usage_session, 0, {"error": "no_candidates"})
+            await settle_quota_ledger(
+                db,
+                request_id=str(request_id),
+                status="rejected",
+                final_cost_credits=0.0,
+                reason="no_candidates",
+            )
             raise AppError("no_upstream_capacity", "no available upstream keys", request_id, 503)
 
         attempts = 0
+        reserved_for_request = False
         last_error_info: dict | None = None
         for candidate in candidates:
             attempts += 1
@@ -235,6 +244,16 @@ async def chat_completions(
             ok = await try_reserve(redis, _candidate_credential_id(candidate), model.id, delta, _candidate_quota_rules(candidate))
             if not ok:
                 continue
+            await mark_quota_reservation(
+                db,
+                request_id=str(request_id),
+                provider=_candidate_provider(candidate),
+                upstream_model=str(candidate.upstream_model.upstream_name),
+                provider_credential_id=_candidate_credential_id(candidate),
+                quota_unit=_candidate_quota_unit(candidate),
+                reserved_delta=delta,
+            )
+            reserved_for_request = True
             api_key = _resolve_api_key(candidate)
             base_url = await _resolve_base_url(db, candidate)
             provider_name = _candidate_provider(candidate)
@@ -256,6 +275,7 @@ async def chat_completions(
                 usage_session.upstream_credential_id = candidate_credential_id
                 if payload.stream:
                     stream_result = await adapter.stream_chat_completions(upstream_payload, api_key, base_url)
+                    await _mark_credential_success(db, candidate)
                     stream_response_started = True
                     return StreamingResponse(
                         _proxy_stream_and_settle(
@@ -268,6 +288,7 @@ async def chat_completions(
                         media_type="text/event-stream",
                     )
                 raw, usage = await adapter.chat_completions(upstream_payload, api_key, base_url)
+                await _mark_credential_success(db, candidate)
                 prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
                 completion_tokens = int(usage.get("completion_tokens", 0) or 0)
                 total_tokens = int(usage.get("total_tokens", 0) or (prompt_tokens + completion_tokens))
@@ -331,6 +352,24 @@ async def chat_completions(
                 )
                 await _apply_cooldown(db, candidate, info)
         await settle_usage(db, usage_session, 0, {"error": "upstream_failed", "upstream": last_error_info or {}})
+        if reserved_for_request:
+            await settle_quota_ledger(
+                db,
+                request_id=str(request_id),
+                status="failed",
+                final_cost_credits=0.0,
+                reason="upstream_failed",
+                metadata_patch={"upstream_error": last_error_info or {}},
+            )
+        else:
+            await settle_quota_ledger(
+                db,
+                request_id=str(request_id),
+                status="rejected",
+                final_cost_credits=0.0,
+                reason="quota_rejected_or_no_capacity",
+                metadata_patch={"upstream_error": last_error_info or {}},
+            )
         raise AppError("upstream_failed", _upstream_error_message(last_error_info), request_id, _client_status_for_upstream_error(last_error_info))
     finally:
         if not stream_response_started:
@@ -342,9 +381,29 @@ async def _apply_cooldown(db: AsyncSession, candidate, info: dict) -> None:
     credential_or_key: ProviderCredential | None = candidate.credential
     if credential_or_key is None:
         return
+    credential_or_key.last_checked_at = utc_now()
     if info.get("code") == "auth_failed":
         credential_or_key.health_state = "disabled"
+    credential_or_key.last_failure_at = utc_now()
+    credential_or_key.last_error_code = str(info.get("code") or "upstream_error")
+    credential_or_key.last_error_message = str(info.get("detail") or info.get("code") or "")[:500]
+    credential_or_key.consecutive_failures = int(credential_or_key.consecutive_failures or 0) + 1
     credential_or_key.cooldown_until = utc_now() if cooldown <= 0 else utc_now() + __import__("datetime").timedelta(seconds=cooldown)
+    await db.commit()
+
+
+async def _mark_credential_success(db: AsyncSession, candidate) -> None:
+    credential_or_key: ProviderCredential | None = candidate.credential
+    if credential_or_key is None:
+        return
+    now = utc_now()
+    credential_or_key.last_checked_at = now
+    credential_or_key.last_success_at = now
+    credential_or_key.last_error_code = None
+    credential_or_key.last_error_message = None
+    credential_or_key.consecutive_failures = 0
+    if credential_or_key.health_state != "disabled":
+        credential_or_key.health_state = "healthy"
     await db.commit()
 
 

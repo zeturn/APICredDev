@@ -126,7 +126,7 @@ async def list_provider_credentials(db: AsyncSession) -> list[ProviderCredential
 
 
 async def upsert_provider_credential(db: AsyncSession, payload: dict) -> ProviderCredential:
-    credential_secret = (payload.pop("credential_secret", None) or "").strip()
+    credential_secret = (payload.pop("credential_secret", None) or payload.pop("api_key", None) or "").strip()
     if credential_secret:
         payload["secret_encrypted"] = encrypt_secret(credential_secret)
         payload["secret_last4"] = credential_secret[-4:]

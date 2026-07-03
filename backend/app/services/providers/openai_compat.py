@@ -159,6 +159,8 @@ class OpenAICompatAdapter(ProviderAdapter):
         return ProviderStreamResult(iterator=_iterator(), finalize=_finalize)
 
     def normalize_error(self, exception_or_response: Any) -> Dict[str, Any]:
+        if isinstance(exception_or_response, httpx.TimeoutException):
+            return {"code": "timeout", "retryable": True, "cooldown_seconds": 15}
         if isinstance(exception_or_response, httpx.HTTPStatusError):
             status = exception_or_response.response.status_code
             if status in (401, 403):
