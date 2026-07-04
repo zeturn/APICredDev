@@ -12,6 +12,7 @@ slug: /
 2. ADMIN_MODEL_CATALOG：管理员如何注册 LLM、搜索模型、API key 与路由
 3. SDK：Python SDK 与 OpenAI SDK 的调用方式
 4. BASALTPASS_QUICKSTART：与 BasaltPass 的本地联调
+5. BEANCS_DEPLOYMENT：部署到 BeanCS k3s 集群、Harbor 和 ArgoCD 的生产流程
 
 ## 当前版本关键说明
 
@@ -32,5 +33,5 @@ slug: /
 
 - 普通用户 / API 调用方：USAGE、SDK
 - 管理员：ADMIN_MODEL_CATALOG、BASALTPASS_QUICKSTART
-- 运维 / 上线同学：DEPLOYMENT、PRODUCTION
+- 运维 / 上线同学：BEANCS_DEPLOYMENT、DEPLOYMENT、PRODUCTION
 - 后端开发：DEVELOPMENT、TESTING

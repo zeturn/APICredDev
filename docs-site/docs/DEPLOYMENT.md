@@ -1,5 +1,7 @@
 # APICred 部署说明
 
+> 当前 `apicred.beancs.hollowdata.com` 生产环境使用 BeanCS k3s、Harbor 和 ArgoCD 发布。请优先阅读 `BEANCS_DEPLOYMENT`。本文保留为通用 docker compose/GHCR 部署参考。
+
 本文档约定 APICred 通过 `GHCR + GitHub Actions + 服务器 docker compose pull && up -d` 自动部署，并使用 `BasaltPass` 作为统一认证服务。
 
 ## 1. 部署目标
