@@ -28,6 +28,19 @@ type CatalogConfig = {
   meta: (item: CatalogItem, state: CatalogState) => Array<[string, string]>;
 };
 
+type CreateField = {
+  name: string;
+  label: string;
+  type: "text" | "number" | "boolean" | "select" | "json" | "secret" | "textarea";
+  required?: boolean;
+  placeholder?: string;
+  helper?: string;
+  options?: Array<{ value: string; label: string }>;
+  optionsFrom?: CatalogKey;
+  optionLabel?: (item: CatalogItem, state: CatalogState) => string;
+  defaultValue?: unknown;
+};
+
 const emptyState: CatalogState = {
   brands: [],
   providers: [],
@@ -218,6 +231,159 @@ const upsertTemplates: Record<CatalogKey, Record<string, unknown>> = {
   },
 };
 
+const createFields: Record<CatalogKey, CreateField[]> = {
+  brands: [
+    { name: "name", label: "名称", type: "text", required: true, placeholder: "OpenAI" },
+    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "openai" },
+    { name: "icon_slug", label: "图标 Slug", type: "text", placeholder: "openai" },
+    { name: "icon_url", label: "图标 URL", type: "text", placeholder: "https://..." },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  providers: [
+    { name: "name", label: "名称", type: "text", required: true, placeholder: "OpenAI" },
+    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "openai" },
+    { name: "icon_slug", label: "图标 Slug", type: "text", placeholder: "openai" },
+    { name: "icon_url", label: "图标 URL", type: "text", placeholder: "https://..." },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  "provider-endpoints": [
+    {
+      name: "provider_id",
+      label: "Provider",
+      type: "select",
+      required: true,
+      optionsFrom: "providers",
+      optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
+    },
+    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "default" },
+    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "OpenAI Default" },
+    { name: "base_url", label: "Base URL", type: "text", required: true, placeholder: "https://api.openai.com/v1" },
+    {
+      name: "health_state",
+      label: "健康状态",
+      type: "select",
+      defaultValue: "healthy",
+      options: [
+        { value: "healthy", label: "healthy" },
+        { value: "disabled", label: "disabled" },
+        { value: "cooldown", label: "cooldown" },
+      ],
+    },
+    { name: "cooldown_until", label: "冷却截止", type: "text", placeholder: "2026-07-04T12:00:00Z" },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  "provider-credentials": [
+    {
+      name: "provider_endpoint_id",
+      label: "Endpoint",
+      type: "select",
+      required: true,
+      optionsFrom: "provider-endpoints",
+      optionLabel: (item, state) => {
+        const provider = byId(state.providers, item.provider_id);
+        return `${provider?.slug || item.provider_id} / ${item.display_name || item.slug}`;
+      },
+    },
+    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "OpenAI production key" },
+    { name: "api_key", label: "API Key", type: "secret", required: true, placeholder: "sk-..." },
+    {
+      name: "health_state",
+      label: "健康状态",
+      type: "select",
+      defaultValue: "healthy",
+      options: [
+        { value: "healthy", label: "healthy" },
+        { value: "disabled", label: "disabled" },
+        { value: "cooldown", label: "cooldown" },
+      ],
+    },
+    { name: "cooldown_until", label: "冷却截止", type: "text", placeholder: "2026-07-04T12:00:00Z" },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  "public-models": [
+    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "gpt-4o-mini" },
+    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "GPT-4o mini" },
+    { name: "description", label: "描述", type: "textarea", placeholder: "面向用户展示的模型说明" },
+    {
+      name: "brand_id",
+      label: "品牌",
+      type: "select",
+      optionsFrom: "brands",
+      optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
+    },
+    {
+      name: "category",
+      label: "类别",
+      type: "select",
+      defaultValue: "llm",
+      options: ["llm", "image", "embedding", "audio", "moderation", "realtime", "search", "agent", "robotics"].map((value) => ({ value, label: value })),
+    },
+    { name: "pricing", label: "计价 JSON", type: "json", required: true, defaultValue: { mode: "request", unit: "request", price: 0 } },
+    { name: "multiplier", label: "倍率", type: "number", defaultValue: 1 },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  "upstream-models": [
+    {
+      name: "provider_id",
+      label: "Provider",
+      type: "select",
+      required: true,
+      optionsFrom: "providers",
+      optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
+    },
+    { name: "upstream_name", label: "上游模型名", type: "text", required: true, placeholder: "gpt-4o-mini" },
+    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "GPT-4o mini" },
+    { name: "context_window", label: "上下文窗口", type: "number", placeholder: "128000" },
+    { name: "capabilities", label: "能力 JSON", type: "json", required: true, defaultValue: { chat: true } },
+    { name: "default_pricing", label: "默认计价 JSON", type: "json", required: true, defaultValue: { mode: "token", unit: "1M tokens" } },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+  "model-routes": [
+    {
+      name: "public_model_id",
+      label: "Public Model",
+      type: "select",
+      required: true,
+      optionsFrom: "public-models",
+      optionLabel: (item) => `${item.display_name || item.slug} (${item.slug})`,
+    },
+    {
+      name: "upstream_model_id",
+      label: "Upstream Model",
+      type: "select",
+      required: true,
+      optionsFrom: "upstream-models",
+      optionLabel: (item, state) => `${byId(state.providers, item.provider_id)?.slug || item.provider_id} / ${item.upstream_name}`,
+    },
+    {
+      name: "provider_credential_id",
+      label: "Credential",
+      type: "select",
+      optionsFrom: "provider-credentials",
+      optionLabel: (item, state) => {
+        const endpoint = byId(state["provider-endpoints"], item.provider_endpoint_id);
+        const provider = byId(state.providers, endpoint?.provider_id);
+        return `${provider?.slug || "provider"} / ${item.display_name || item.id}`;
+      },
+    },
+    { name: "base_url_override", label: "Base URL Override", type: "text", placeholder: "可选" },
+    { name: "priority", label: "优先级", type: "number", defaultValue: 1 },
+    { name: "weight", label: "权重", type: "number", defaultValue: 1 },
+    {
+      name: "quota_unit",
+      label: "配额单位",
+      type: "select",
+      defaultValue: "tokens",
+      options: [
+        { value: "tokens", label: "tokens" },
+        { value: "requests", label: "requests" },
+      ],
+    },
+    { name: "quota_rules", label: "配额规则 JSON", type: "json", required: true, defaultValue: { day: 2000 } },
+    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+  ],
+};
+
 async function loadCatalogState(): Promise<CatalogState> {
   const responses = await Promise.all(catalogKeys.map((key) => adminApi.get(`/admin/${key}`)));
   return catalogKeys.reduce((next, key, index) => {
@@ -350,12 +516,10 @@ const DetailBody = ({ config, item, state }: { config: CatalogConfig; item: Cata
 
 export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
   const config = configs[catalogKey];
+  const navigate = useNavigate();
   const [state, setState] = useState<CatalogState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [draft, setDraft] = useState(JSON.stringify(upsertTemplates[catalogKey], null, 2));
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
 
   const refresh = async () => {
     const next = await loadCatalogState();
@@ -377,25 +541,6 @@ export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
     };
   }, []);
 
-  useEffect(() => {
-    setDraft(JSON.stringify(upsertTemplates[catalogKey], null, 2));
-    setSaveError("");
-  }, [catalogKey]);
-
-  const saveDraft = async () => {
-    setSaving(true);
-    setSaveError("");
-    try {
-      const payload = JSON.parse(draft);
-      await adminApi.post(`/admin/${catalogKey}`, payload);
-      await refresh();
-    } catch (error: any) {
-      setSaveError(error?.response?.data?.message || error?.message || "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const items = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return state[catalogKey];
@@ -406,30 +551,6 @@ export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
     <div className="space-y-6">
       <AdminPageIntro title={config.title} description={config.description} />
       <Card className="p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="lg:w-80">
-            <Typography variant="h6">新增或更新 {config.singular}</Typography>
-            <Typography variant="body2" color="textSecondary" className="mt-1">
-              填写 JSON 后保存；带 `id` 时更新对应对象，不带 `id` 时创建新对象。
-            </Typography>
-            {saveError ? <div className="mt-3 border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">{saveError}</div> : null}
-          </div>
-          <div className="min-w-0 flex-1">
-            <textarea
-              className="h-64 w-full border border-slate-300 bg-slate-950 p-4 font-mono text-xs leading-5 text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              spellCheck={false}
-            />
-            <div className="mt-3 flex justify-end">
-              <Button buttonStyle="filled" variant="primary" onClick={saveDraft} disabled={saving}>
-                {saving ? "保存中..." : "保存"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-      <Card className="p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <Typography variant="h6">{config.singular} 列表</Typography>
@@ -437,18 +558,256 @@ export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
               {loading ? "正在加载..." : `${items.length} / ${state[catalogKey].length}`}
             </Typography>
           </div>
-          <input
-            className="w-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300 md:w-80"
-            placeholder={`搜索 ${config.singular}`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <input
+              className="w-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300 md:w-80"
+              placeholder={`搜索 ${config.singular}`}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <Button buttonStyle="filled" variant="primary" onClick={() => navigate(`${config.path}/new`)}>
+              新建 {config.singular}
+            </Button>
+          </div>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
           {items.map((item) => <CatalogCard key={item.id} config={config} item={item} state={state} />)}
           {!loading && items.length === 0 && (
             <div className="border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">暂无数据</div>
           )}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const initialFormValues = (catalogKey: CatalogKey): Record<string, unknown> => {
+  const values: Record<string, unknown> = {};
+  for (const field of createFields[catalogKey]) {
+    if (field.type === "boolean") {
+      values[field.name] = field.defaultValue ?? false;
+    } else if (field.type === "json") {
+      values[field.name] = JSON.stringify(field.defaultValue ?? {}, null, 2);
+    } else if (field.defaultValue !== undefined) {
+      values[field.name] = field.defaultValue;
+    } else {
+      values[field.name] = "";
+    }
+  }
+  return values;
+};
+
+const fieldClass =
+  "w-full border border-slate-300 bg-white px-3 py-3 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300";
+
+const fieldLabel = (field: CreateField) => (
+  <span className="mb-2 block text-sm font-medium text-slate-700">
+    {field.label}
+    {field.required ? <span className="text-slate-500"> *</span> : null}
+  </span>
+);
+
+const FormField = ({
+  field,
+  value,
+  state,
+  onChange,
+}: {
+  field: CreateField;
+  value: unknown;
+  state: CatalogState;
+  onChange: (value: unknown) => void;
+}) => {
+  const common = (
+    <>
+      {fieldLabel(field)}
+      {field.helper ? <div className="mb-2 text-xs text-slate-500">{field.helper}</div> : null}
+    </>
+  );
+
+  if (field.type === "boolean") {
+    return (
+      <label className="flex min-h-[46px] items-center gap-3 border border-slate-200 bg-slate-50 px-3 py-2">
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+          className="h-4 w-4 accent-slate-800"
+        />
+        <span className="text-sm font-medium text-slate-700">{field.label}</span>
+      </label>
+    );
+  }
+
+  if (field.type === "select") {
+    const relatedOptions =
+      field.optionsFrom?.length
+        ? state[field.optionsFrom].map((item) => ({
+            value: item.id,
+            label: field.optionLabel ? field.optionLabel(item, state) : String(item.name || item.slug || item.id),
+          }))
+        : [];
+    const options = field.options ?? relatedOptions;
+    return (
+      <label className="block">
+        {common}
+        <select className={fieldClass} value={String(value ?? "")} onChange={(event) => onChange(event.target.value)}>
+          <option value="">未选择</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.type === "textarea" || field.type === "json") {
+    return (
+      <label className="block">
+        {common}
+        <textarea
+          className={`${fieldClass} min-h-28 ${field.type === "json" ? "font-mono text-xs leading-5" : ""}`}
+          value={String(value ?? "")}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={field.placeholder}
+          spellCheck={field.type !== "json"}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <label className="block">
+      {common}
+      <input
+        className={fieldClass}
+        type={field.type === "number" ? "number" : field.type === "secret" ? "password" : "text"}
+        value={String(value ?? "")}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={field.placeholder}
+      />
+    </label>
+  );
+};
+
+const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): Record<string, unknown> => {
+  const payload: Record<string, unknown> = {};
+  for (const field of createFields[catalogKey]) {
+    const value = values[field.name];
+    if (field.type === "boolean") {
+      payload[field.name] = Boolean(value);
+      continue;
+    }
+    if (field.type === "number") {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        if (field.required) payload[field.name] = 0;
+        continue;
+      }
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        throw new Error(`${field.label} 必须是数字`);
+      }
+      payload[field.name] = parsed;
+      continue;
+    }
+    if (field.type === "json") {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        if (field.required) throw new Error(`${field.label} 不能为空`);
+        continue;
+      }
+      try {
+        payload[field.name] = JSON.parse(raw);
+      } catch {
+        throw new Error(`${field.label} 不是有效 JSON`);
+      }
+      continue;
+    }
+    const text = String(value ?? "").trim();
+    if (text) {
+      payload[field.name] = text;
+    } else if (field.required) {
+      throw new Error(`${field.label} 不能为空`);
+    }
+  }
+  return payload;
+};
+
+export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
+  const config = configs[catalogKey];
+  const navigate = useNavigate();
+  const [state, setState] = useState<CatalogState>(emptyState);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [values, setValues] = useState<Record<string, unknown>>(() => initialFormValues(catalogKey));
+
+  useEffect(() => {
+    let active = true;
+    loadCatalogState()
+      .then((next) => {
+        if (active) setState(next);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const payload = buildPayload(catalogKey, values);
+      const response = await adminApi.post(`/admin/${catalogKey}`, payload);
+      const id = response.data?.id;
+      navigate(id ? `${config.path}/${id}` : config.path);
+    } catch (error: any) {
+      setError(error?.response?.data?.error?.message || error?.response?.data?.message || error?.message || "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <Button buttonStyle="text" variant="secondary" onClick={() => navigate(config.path)}>
+            返回列表
+          </Button>
+          <Typography variant="h5" className="mt-3">新建 {config.singular}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-1">{config.description}</Typography>
+        </div>
+        <Badge variant="secondary">{loading ? "加载依赖中" : config.singular}</Badge>
+      </div>
+
+      <Card className="p-6">
+        {error ? <div className="mb-5 border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">{error}</div> : null}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {createFields[catalogKey].map((field) => (
+            <div key={field.name} className={field.type === "json" || field.type === "textarea" ? "lg:col-span-2" : ""}>
+              <FormField
+                field={field}
+                value={values[field.name]}
+                state={state}
+                onChange={(next) => setValues((current) => ({ ...current, [field.name]: next }))}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button buttonStyle="text" variant="secondary" onClick={() => setValues(initialFormValues(catalogKey))} disabled={saving}>
+            重置
+          </Button>
+          <Button buttonStyle="filled" variant="primary" onClick={save} disabled={saving || loading}>
+            {saving ? "创建中..." : `创建 ${config.singular}`}
+          </Button>
         </div>
       </Card>
     </div>
@@ -503,16 +862,23 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
 };
 
 export const AdminBrandsPage = () => <CatalogListPage catalogKey="brands" />;
+export const AdminBrandCreatePage = () => <CatalogCreatePage catalogKey="brands" />;
 export const AdminBrandDetailPage = () => <CatalogDetailPage catalogKey="brands" />;
 export const AdminProvidersPage = () => <CatalogListPage catalogKey="providers" />;
+export const AdminProviderCreatePage = () => <CatalogCreatePage catalogKey="providers" />;
 export const AdminProviderDetailPage = () => <CatalogDetailPage catalogKey="providers" />;
 export const AdminProviderEndpointsPage = () => <CatalogListPage catalogKey="provider-endpoints" />;
+export const AdminProviderEndpointCreatePage = () => <CatalogCreatePage catalogKey="provider-endpoints" />;
 export const AdminProviderEndpointDetailPage = () => <CatalogDetailPage catalogKey="provider-endpoints" />;
 export const AdminProviderCredentialsPage = () => <CatalogListPage catalogKey="provider-credentials" />;
+export const AdminProviderCredentialCreatePage = () => <CatalogCreatePage catalogKey="provider-credentials" />;
 export const AdminProviderCredentialDetailPage = () => <CatalogDetailPage catalogKey="provider-credentials" />;
 export const AdminPublicModelsPage = () => <CatalogListPage catalogKey="public-models" />;
+export const AdminPublicModelCreatePage = () => <CatalogCreatePage catalogKey="public-models" />;
 export const AdminPublicModelDetailPage = () => <CatalogDetailPage catalogKey="public-models" />;
 export const AdminUpstreamModelsPage = () => <CatalogListPage catalogKey="upstream-models" />;
+export const AdminUpstreamModelCreatePage = () => <CatalogCreatePage catalogKey="upstream-models" />;
 export const AdminUpstreamModelDetailPage = () => <CatalogDetailPage catalogKey="upstream-models" />;
 export const AdminModelRoutesPage = () => <CatalogListPage catalogKey="model-routes" />;
+export const AdminModelRouteCreatePage = () => <CatalogCreatePage catalogKey="model-routes" />;
 export const AdminModelRouteDetailPage = () => <CatalogDetailPage catalogKey="model-routes" />;

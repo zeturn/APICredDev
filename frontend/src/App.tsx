@@ -17,17 +17,24 @@ import AdminUsageDashboardPage from "./pages/admin/AdminUsageDashboard";
 import AdminApiModelsPage from "./pages/admin/AdminApiModels";
 import {
   AdminBrandDetailPage,
+  AdminBrandCreatePage,
   AdminBrandsPage,
+  AdminModelRouteCreatePage,
   AdminModelRouteDetailPage,
   AdminModelRoutesPage,
+  AdminProviderCredentialCreatePage,
   AdminProviderCredentialDetailPage,
   AdminProviderCredentialsPage,
+  AdminProviderCreatePage,
   AdminProviderDetailPage,
+  AdminProviderEndpointCreatePage,
   AdminProviderEndpointDetailPage,
   AdminProviderEndpointsPage,
   AdminProvidersPage,
+  AdminPublicModelCreatePage,
   AdminPublicModelDetailPage,
   AdminPublicModelsPage,
+  AdminUpstreamModelCreatePage,
   AdminUpstreamModelDetailPage,
   AdminUpstreamModelsPage,
 } from "./pages/admin/AdminCatalogPages";
@@ -64,18 +71,25 @@ const App = () => {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/models" element={<Navigate to="/admin/public-models" replace />} />
           <Route path="/admin/brands" element={<AdminBrandsPage />} />
+          <Route path="/admin/brands/new" element={<AdminBrandCreatePage />} />
           <Route path="/admin/brands/:id" element={<AdminBrandDetailPage />} />
           <Route path="/admin/public-models" element={<AdminPublicModelsPage />} />
+          <Route path="/admin/public-models/new" element={<AdminPublicModelCreatePage />} />
           <Route path="/admin/public-models/:id" element={<AdminPublicModelDetailPage />} />
           <Route path="/admin/upstream-models" element={<AdminUpstreamModelsPage />} />
+          <Route path="/admin/upstream-models/new" element={<AdminUpstreamModelCreatePage />} />
           <Route path="/admin/upstream-models/:id" element={<AdminUpstreamModelDetailPage />} />
           <Route path="/admin/providers" element={<AdminProvidersPage />} />
+          <Route path="/admin/providers/new" element={<AdminProviderCreatePage />} />
           <Route path="/admin/providers/:id" element={<AdminProviderDetailPage />} />
           <Route path="/admin/provider-endpoints" element={<AdminProviderEndpointsPage />} />
+          <Route path="/admin/provider-endpoints/new" element={<AdminProviderEndpointCreatePage />} />
           <Route path="/admin/provider-endpoints/:id" element={<AdminProviderEndpointDetailPage />} />
           <Route path="/admin/provider-credentials" element={<AdminProviderCredentialsPage />} />
+          <Route path="/admin/provider-credentials/new" element={<AdminProviderCredentialCreatePage />} />
           <Route path="/admin/provider-credentials/:id" element={<AdminProviderCredentialDetailPage />} />
           <Route path="/admin/model-routes" element={<AdminModelRoutesPage />} />
+          <Route path="/admin/model-routes/new" element={<AdminModelRouteCreatePage />} />
           <Route path="/admin/model-routes/:id" element={<AdminModelRouteDetailPage />} />
           <Route path="/admin/api-models" element={<AdminApiModelsPage />} />
           <Route path="/admin/usage" element={<AdminUsagePage />} />
