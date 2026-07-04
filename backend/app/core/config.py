@@ -56,7 +56,8 @@ class Settings(BaseSettings):
     basalt_s2s_client_secret: str = ""
     basalt_credit_currency: str = "CREDIT"
     basalt_credit_scale: int = 1000000
-    basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin"
+    basalt_tenant_admin_role_codes: str = "tenant,owner,admin,tenant_admin,aadmin,apicred_admin"
+    basalt_admin_permission_codes: str = "admin_console,apicred.admin"
     basalt_rbac_enforce: bool = True
     basalt_rbac_strict_user_binding: bool = True
     basalt_default_tenant_id: str = ""

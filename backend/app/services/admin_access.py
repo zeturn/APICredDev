@@ -21,6 +21,14 @@ def _admin_role_codes() -> set[str]:
     }
 
 
+def _admin_permission_codes() -> set[str]:
+    return {
+        item.strip().lower()
+        for item in settings.basalt_admin_permission_codes.split(",")
+        if item.strip()
+    }
+
+
 def _extract_role_codes(payload: Any) -> set[str]:
     codes: set[str] = set()
     if not isinstance(payload, dict):
@@ -45,24 +53,53 @@ def _extract_role_codes(payload: Any) -> set[str]:
     return codes
 
 
+def _extract_permission_codes(payload: Any) -> set[str]:
+    codes: set[str] = set()
+    if not isinstance(payload, dict):
+        return codes
+
+    permission_codes = payload.get("permission_codes")
+    if isinstance(permission_codes, list):
+        for permission in permission_codes:
+            if isinstance(permission, str) and permission:
+                codes.add(permission.strip().lower())
+
+    permissions = payload.get("permissions")
+    if isinstance(permissions, list):
+        for permission in permissions:
+            if isinstance(permission, str) and permission:
+                codes.add(permission.strip().lower())
+            elif isinstance(permission, dict):
+                code = permission.get("code") or permission.get("permission_code") or permission.get("permission_key")
+                if isinstance(code, str) and code:
+                    codes.add(code.strip().lower())
+
+    return codes
+
+
+def _extract_admin_codes(payload: Any) -> set[str]:
+    role_matches = _extract_role_codes(payload).intersection(_admin_role_codes())
+    permission_matches = _extract_permission_codes(payload).intersection(_admin_permission_codes())
+    return role_matches.union(permission_matches)
+
+
 async def is_tenant_admin(user: Any, client: BasaltPassClient) -> bool:
     basalt_user_id = getattr(user, "basalt_user_id", None)
     if not basalt_user_id:
         return False
     tenant_id = str(getattr(user, "basalt_tenant_id", "") or "") or None
 
-    candidate_codes = _admin_role_codes()
-    if not candidate_codes:
+    if not _admin_role_codes() and not _admin_permission_codes():
         return False
 
     permissions_payload = await client.s2s_get_user_permissions(str(basalt_user_id), tenant_id=tenant_id)
-    role_codes = _extract_role_codes(permissions_payload)
-    if role_codes.intersection(candidate_codes):
+    admin_codes = _extract_admin_codes(permissions_payload)
+    if admin_codes:
         return True
 
     roles_payload = await client.s2s_get_user_roles(str(basalt_user_id), tenant_id=tenant_id)
-    role_codes.update(_extract_role_codes(roles_payload))
-    return bool(role_codes.intersection(candidate_codes))
+    admin_codes.update(_extract_admin_codes(roles_payload))
+    return bool(admin_codes)
 
 
 async def resolve_tenant_admin_role_codes(user: Any, client: BasaltPassClient) -> set[str]:
@@ -70,16 +107,15 @@ async def resolve_tenant_admin_role_codes(user: Any, client: BasaltPassClient) -
     if not basalt_user_id:
         return set()
     tenant_id = str(getattr(user, "basalt_tenant_id", "") or "") or None
-    candidate_codes = _admin_role_codes()
-    if not candidate_codes:
+    if not _admin_role_codes() and not _admin_permission_codes():
         return set()
 
     permissions_payload = await client.s2s_get_user_permissions(str(basalt_user_id), tenant_id=tenant_id)
-    role_codes = _extract_role_codes(permissions_payload)
+    admin_codes = _extract_admin_codes(permissions_payload)
 
     roles_payload = await client.s2s_get_user_roles(str(basalt_user_id), tenant_id=tenant_id)
-    role_codes.update(_extract_role_codes(roles_payload))
-    return role_codes.intersection(candidate_codes)
+    admin_codes.update(_extract_admin_codes(roles_payload))
+    return admin_codes
 
 
 async def issue_admin_access_token(user: Any, client: BasaltPassClient) -> str:

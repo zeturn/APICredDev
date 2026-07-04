@@ -201,6 +201,47 @@ async def test_basalt_admin_allows_tenant_admin_bearer(db_session):
 
 
 @pytest.mark.asyncio
+async def test_basalt_admin_allows_apicred_app_admin(db_session):
+    app = create_app()
+    fake = FakeBasaltClient()
+    fake.permission_codes = ["user_console", "admin_console", "apicred.admin"]
+    fake.permission_role_codes = ["apicred_admin"]
+    fake.roles = [{"code": "apicred_admin"}]
+
+    async def _override_db():
+        yield db_session
+
+    def _override_basalt():
+        return fake
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_basalt_client] = _override_basalt
+    app.dependency_overrides[get_auth_basalt_client] = _override_basalt
+
+    user = await register_user(db_session, "apicred-admin@example.com", "pass")
+    user.basalt_user_id = "bp-apicred-admin-user"
+    user.basalt_tenant_id = "bp-tenant-1"
+    await db_session.commit()
+    token = await login_user(db_session, "apicred-admin@example.com", "pass")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token_resp = await client.get(
+            "/v1/auth/admin-token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert admin_token_resp.status_code == 200
+        admin_access_token = admin_token_resp.json()["admin_access_token"]
+
+        resp = await client.get(
+            "/v1/admin/basalt/users",
+            headers={"X-Admin-Authorization": f"Bearer {admin_access_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["path"] == "/api/v1/admin/users/"
+
+
+@pytest.mark.asyncio
 async def test_basalt_proxy_forwards_custom_basalt_token_and_path_params(db_session):
     app = create_app()
     fake = FakeBasaltClient()
