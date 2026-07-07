@@ -1,6 +1,7 @@
 import logging
 import time
 from collections.abc import AsyncIterator
+import json
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -58,7 +59,13 @@ def _messages_to_records(messages: list[ChatMessage]) -> list[dict]:
 def _messages_to_text(messages: list[ChatMessage]) -> str:
     parts: list[str] = []
     for message in messages:
-        content = (message.content or "").strip()
+        raw_content = message.content
+        if isinstance(raw_content, str):
+            content = raw_content.strip()
+        elif raw_content is None:
+            content = ""
+        else:
+            content = json.dumps(raw_content, ensure_ascii=False)
         if not content:
             continue
         parts.append(f"{message.role}: {content}")
@@ -347,10 +354,12 @@ async def chat_completions(
                     upstream_latency_ms=int(usage.get("upstream_latency_ms", 0) or 0),
                 )
                 choices = [
-                    ChatCompletionChoice(
-                        index=i,
-                        message=ChatMessage(role=c["message"]["role"], content=c["message"]["content"]),
-                        finish_reason=c.get("finish_reason"),
+                    ChatCompletionChoice.model_validate(
+                        {
+                            "index": i,
+                            **c,
+                            "message": ChatMessage.model_validate(c.get("message") or {"role": "assistant", "content": None}),
+                        }
                     )
                     for i, c in enumerate(raw.get("choices", []))
                 ]

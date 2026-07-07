@@ -38,6 +38,10 @@ def configured_openai_bootstrap_models() -> list[str]:
     return [item.strip() for item in (settings.bootstrap_openai_models or "").split(",") if item.strip()]
 
 
+def configured_openrouter_bootstrap_models() -> list[str]:
+    return [item.strip() for item in (settings.bootstrap_openrouter_models or "").split(",") if item.strip()]
+
+
 async def ensure_admin_user(db: AsyncSession) -> None:
     _assert_bootstrap_admin_password()
     result = await db.execute(select(User).where(User.email == settings.admin_email))
@@ -354,6 +358,91 @@ async def ensure_bootstrap_openai_credential(db: AsyncSession) -> ProviderCreden
     return credential
 
 
+async def ensure_bootstrap_openrouter_credential(db: AsyncSession) -> ProviderCredential | None:
+    api_key = (settings.bootstrap_openrouter_api_key or "").strip()
+    if not api_key:
+        return None
+
+    await ensure_default_brands(db)
+    await ensure_default_providers(db)
+    await ensure_default_models(db)
+
+    provider = (await db.execute(select(Provider).where(Provider.slug == "openrouter"))).scalar_one_or_none()
+    if not provider:
+        provider = Provider(
+            name="OpenRouter",
+            slug="openrouter",
+            default_base_url=settings.bootstrap_openrouter_base_url,
+            icon_slug="openrouter",
+            icon_url="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openrouter.svg",
+            enabled=True,
+        )
+        db.add(provider)
+        await db.commit()
+        await db.refresh(provider)
+
+    endpoint = (
+        await db.execute(
+            select(ProviderEndpoint)
+            .where(ProviderEndpoint.provider_id == provider.id)
+            .where(ProviderEndpoint.slug == "default")
+        )
+    ).scalar_one_or_none()
+    if not endpoint:
+        endpoint = ProviderEndpoint(
+            provider_id=provider.id,
+            slug="default",
+            display_name="OpenRouter Default",
+            base_url=settings.bootstrap_openrouter_base_url,
+            enabled=True,
+            health_state="healthy",
+        )
+        db.add(endpoint)
+        await db.commit()
+        await db.refresh(endpoint)
+    else:
+        endpoint.base_url = settings.bootstrap_openrouter_base_url
+        endpoint.enabled = True
+
+    key_name = (settings.bootstrap_openrouter_key_name or "OpenRouter bootstrap key").strip()
+    secret_last4 = api_key[-4:]
+    result = await db.execute(
+        select(ProviderCredential)
+        .where(ProviderCredential.provider_endpoint_id == endpoint.id)
+        .where(ProviderCredential.display_name == key_name)
+    )
+    credential = result.scalar_one_or_none()
+    credential_payload = {
+        "provider_endpoint_id": endpoint.id,
+        "display_name": key_name,
+        "secret_encrypted": encrypt_secret(api_key),
+        "secret_last4": secret_last4,
+        "enabled": True,
+        "health_state": "healthy",
+        "cooldown_until": None,
+    }
+    if not credential:
+        db.add(ProviderCredential(**credential_payload))
+    else:
+        for field, value in credential_payload.items():
+            setattr(credential, field, value)
+    await db.commit()
+    if credential:
+        await db.refresh(credential)
+    else:
+        result = await db.execute(
+            select(ProviderCredential)
+            .where(ProviderCredential.provider_endpoint_id == endpoint.id)
+            .where(ProviderCredential.display_name == key_name)
+        )
+        credential = result.scalar_one()
+
+    await ensure_openrouter_models_and_routes(db, provider, credential)
+    await ensure_default_routes(db)
+    logger.info("OpenRouter bootstrap credential configured: display_name=%s last4=%s", key_name, secret_last4)
+    return credential
+
+
 async def ensure_bootstrap_brave_search_credential(db: AsyncSession) -> ProviderCredential | None:
     api_key = (settings.brave_search_api_key or "").strip()
     if not api_key:
@@ -464,6 +553,75 @@ async def ensure_openai_models_and_routes(db: AsyncSession, provider: Provider, 
                 upstream_name=model_name,
                 display_name=model_name,
                 capabilities={"chat": True, "streaming": True},
+                default_pricing={},
+                enabled=True,
+            )
+            db.add(upstream_model)
+            await db.commit()
+            await db.refresh(upstream_model)
+        else:
+            upstream_model.enabled = True
+
+        link = (
+            await db.execute(
+                select(ModelRoute)
+                .where(ModelRoute.public_model_id == public_model.id)
+                .where(ModelRoute.upstream_model_id == upstream_model.id)
+                .where(ModelRoute.provider_credential_id == credential.id)
+            )
+        ).scalar_one_or_none()
+        if not link:
+            db.add(
+                ModelRoute(
+                    public_model_id=public_model.id,
+                    upstream_model_id=upstream_model.id,
+                    provider_credential_id=credential.id,
+                    enabled=True,
+                    priority=1,
+                    weight=1,
+                    quota_unit="tokens",
+                    quota_rules={},
+                )
+            )
+        else:
+            link.enabled = True
+            link.priority = 1
+            link.weight = max(link.weight or 1, 1)
+            link.quota_unit = link.quota_unit or "tokens"
+    await db.commit()
+
+
+async def ensure_openrouter_models_and_routes(db: AsyncSession, provider: Provider, credential: ProviderCredential) -> None:
+    for model_name in configured_openrouter_bootstrap_models():
+        public_model = (await db.execute(select(PublicModel).where(PublicModel.slug == model_name))).scalar_one_or_none()
+        if not public_model:
+            public_model = PublicModel(
+                slug=model_name,
+                display_name=model_name,
+                category="llm",
+                enabled=True,
+                multiplier=1,
+                pricing={"mode": "free", "source": "openrouter_bootstrap"},
+            )
+            db.add(public_model)
+            await db.commit()
+            await db.refresh(public_model)
+        else:
+            public_model.enabled = True
+
+        upstream_model = (
+            await db.execute(
+                select(UpstreamModel)
+                .where(UpstreamModel.provider_id == provider.id)
+                .where(UpstreamModel.upstream_name == model_name)
+            )
+        ).scalar_one_or_none()
+        if not upstream_model:
+            upstream_model = UpstreamModel(
+                provider_id=provider.id,
+                upstream_name=model_name,
+                display_name=model_name,
+                capabilities={"chat": True, "streaming": True, "reasoning": True},
                 default_pricing={},
                 enabled=True,
             )

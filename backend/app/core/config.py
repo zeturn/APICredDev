@@ -44,6 +44,17 @@ class Settings(BaseSettings):
         "gpt-5.4-mini,gpt-5.4-nano,gpt-5.1-codex-mini,gpt-5-mini,gpt-5-nano,"
         "gpt-4.1-mini,gpt-4.1-nano,gpt-4o-mini,o1-mini,o3-mini,o4-mini,codex-mini-latest"
     )
+    bootstrap_openrouter_api_key: str = Field(
+        "",
+        validation_alias=AliasChoices(
+            "APICRED_OPENROUTER_API_KEY",
+            "BOOTSTRAP_OPENROUTER_API_KEY",
+            "OPENROUTER_API_KEY",
+        ),
+    )
+    bootstrap_openrouter_key_name: str = "OpenRouter main key"
+    bootstrap_openrouter_base_url: str = "https://openrouter.ai/api"
+    bootstrap_openrouter_models: str = "tencent/hy3:free"
 
     basalt_base_url: str = "http://localhost:8101"
     basalt_internal_base_url: str = "http://localhost:8101"

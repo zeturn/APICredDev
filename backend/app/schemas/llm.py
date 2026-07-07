@@ -4,8 +4,10 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ChatMessage(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     role: str
-    content: str
+    content: Any | None = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -21,18 +23,24 @@ class ChatCompletionRequest(BaseModel):
 
 
 class ChatCompletionUsage(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
 
 
 class ChatCompletionChoice(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     index: int
     message: ChatMessage
     finish_reason: str | None = None
 
 
 class ChatCompletionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     id: str
     object: str = "chat.completion"
     choices: list[ChatCompletionChoice]

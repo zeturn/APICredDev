@@ -151,6 +151,12 @@ public_models:
     category: llm
     pricing: {mode: token_segments, input_per_million: 0.8, cached_input_per_million: 0.08, output_per_million: 4}
     enabled: true
+  - slug: tencent/hy3:free
+    display_name: Tencent Hunyuan 3 Free
+    description: Tencent HY3 via OpenRouter free tier.
+    category: llm
+    pricing: {mode: free, source: openrouter}
+    enabled: true
 
 upstream_models:
   - provider: openai
@@ -187,6 +193,13 @@ upstream_models:
     context_window: 200000
     capabilities: {chat: true, streaming: true, tools: true}
     default_pricing: {}
+    enabled: true
+  - provider: openrouter
+    upstream_name: tencent/hy3:free
+    display_name: Tencent Hunyuan 3 Free
+    context_window: 128000
+    capabilities: {chat: true, streaming: true, tools: true, reasoning: true}
+    default_pricing: {mode: free, source: openrouter}
     enabled: true
 
 legacy_models:

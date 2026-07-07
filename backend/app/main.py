@@ -27,6 +27,7 @@ from app.services.bootstrap import (
     ensure_admin_user,
     ensure_bootstrap_brave_search_credential,
     ensure_bootstrap_openai_credential,
+    ensure_bootstrap_openrouter_credential,
     ensure_default_brands,
     ensure_default_models,
     ensure_default_providers,
@@ -51,6 +52,7 @@ async def lifespan(_: FastAPI):
             await ensure_default_models(db)
             await ensure_default_routes(db)
             await ensure_bootstrap_openai_credential(db)
+            await ensure_bootstrap_openrouter_credential(db)
             await ensure_bootstrap_brave_search_credential(db)
     yield
 

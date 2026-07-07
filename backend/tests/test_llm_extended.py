@@ -131,3 +131,96 @@ async def test_llm_model_missing_returns_404(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post("/v1/chat/completions", json={"model": "missing", "messages": [{"role": "user", "content": "hi"}]})
         assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_llm_openrouter_reasoning_details_roundtrip(db_session, monkeypatch):
+    app = create_app()
+    provider = Provider(name="OpenRouter", slug="openrouter", default_base_url="https://openrouter.ai/api", enabled=True)
+    public_model = PublicModel(slug="tencent/hy3:free", display_name="Tencent Hunyuan 3 Free", category="llm", pricing={"mode": "free"}, enabled=True)
+    db_session.add_all([provider, public_model])
+    await db_session.commit()
+    await db_session.refresh(provider)
+    await db_session.refresh(public_model)
+    endpoint = ProviderEndpoint(provider_id=provider.id, slug="default", display_name="OpenRouter Default", base_url="https://openrouter.ai/api", enabled=True, health_state="healthy")
+    db_session.add(endpoint)
+    await db_session.commit()
+    await db_session.refresh(endpoint)
+
+    upstream_model = UpstreamModel(provider_id=provider.id, upstream_name="tencent/hy3:free", display_name="Tencent Hunyuan 3 Free", context_window=128000, capabilities={"chat": True, "reasoning": True}, default_pricing={}, enabled=True)
+    credential = ProviderCredential(provider_endpoint_id=endpoint.id, display_name="openrouter-main-key", secret_encrypted=encrypt_secret("sk-or-route"), secret_last4="oute", enabled=True, health_state="healthy")
+    db_session.add_all([upstream_model, credential])
+    await db_session.commit()
+    await db_session.refresh(upstream_model)
+    await db_session.refresh(credential)
+    db_session.add(
+        ModelRoute(
+            public_model_id=public_model.id,
+            upstream_model_id=upstream_model.id,
+            provider_credential_id=credential.id,
+            base_url_override="https://openrouter.ai/api",
+            enabled=True,
+            priority=1,
+            weight=1,
+            quota_unit="requests",
+            quota_rules={},
+        )
+    )
+    await db_session.commit()
+
+    async def _override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_bearer_token] = _fake_token
+    monkeypatch.setattr("app.api.v1.llm.get_redis", lambda: _FakeRedis())
+    monkeypatch.setattr("app.api.v1.llm.try_reserve", lambda *args, **kwargs: _await(True))
+    monkeypatch.setattr("app.api.v1.llm.authorize_usage", lambda *args, **kwargs: _await(SimpleNamespace(id="usage-openrouter", status="started", user_id="user-llm", estimated_cost_credits=0, upstream_provider=None, upstream_credential_id=None)))
+    monkeypatch.setattr("app.api.v1.llm.settle_usage", lambda *args, **kwargs: _await(None))
+
+    async def _chat_ok(payload, api_key, base_url):
+        assert payload["model"] == "tencent/hy3:free"
+        assert payload["reasoning"] == {"enabled": True}
+        assert payload["messages"][1]["reasoning_details"] == [{"type": "reasoning.text", "text": "counting letters"}]
+        assert api_key == "sk-or-route"
+        assert base_url == "https://openrouter.ai/api"
+        return (
+            {
+                "id": "cmpl-openrouter",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "There are 3 r's.",
+                            "reasoning_details": [{"type": "reasoning.text", "text": "counting letters"}],
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+            {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        )
+
+    monkeypatch.setattr("app.api.v1.llm.get_provider_adapter", lambda provider: _Adapter(chat_impl=_chat_ok))
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "tencent/hy3:free",
+                "reasoning": {"enabled": True},
+                "messages": [
+                    {"role": "user", "content": "How many r's are in strawberry?"},
+                    {
+                        "role": "assistant",
+                        "content": "There are 3 r's.",
+                        "reasoning_details": [{"type": "reasoning.text", "text": "counting letters"}],
+                    },
+                    {"role": "user", "content": "Are you sure? Think carefully."},
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["id"] == "cmpl-openrouter"
+        assert payload["choices"][0]["message"]["reasoning_details"] == [{"type": "reasoning.text", "text": "counting letters"}]

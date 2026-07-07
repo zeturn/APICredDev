@@ -120,7 +120,15 @@ async def test_get_bearer_token_rejects_cross_app_token_for_other_client(monkeyp
 
 @pytest.mark.asyncio
 async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
-    calls = {"admin": False, "brands": False, "providers": False, "models": False, "routes": False, "bootstrap_credential": False}
+    calls = {
+        "admin": False,
+        "brands": False,
+        "providers": False,
+        "models": False,
+        "routes": False,
+        "bootstrap_credential": False,
+        "bootstrap_openrouter_credential": False,
+    }
 
     class _SessionCtx:
         async def __aenter__(self):
@@ -147,6 +155,9 @@ async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     async def _ensure_bootstrap_openai_credential(db):
         calls["bootstrap_credential"] = True
 
+    async def _ensure_bootstrap_openrouter_credential(db):
+        calls["bootstrap_openrouter_credential"] = True
+
     monkeypatch.setattr("app.main.SessionLocal", lambda: _SessionCtx())
     monkeypatch.setattr("app.main.ensure_admin_user", _ensure_admin_user)
     monkeypatch.setattr("app.main.ensure_default_brands", _ensure_default_brands)
@@ -154,6 +165,9 @@ async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     monkeypatch.setattr("app.main.ensure_default_models", _ensure_default_models)
     monkeypatch.setattr("app.main.ensure_default_routes", _ensure_default_routes)
     monkeypatch.setattr("app.main.ensure_bootstrap_openai_credential", _ensure_bootstrap_openai_credential)
+    monkeypatch.setattr("app.main.ensure_bootstrap_openrouter_credential", _ensure_bootstrap_openrouter_credential)
+    monkeypatch.setattr(settings, "startup_create_tables_enabled", False)
+    monkeypatch.setattr(settings, "startup_schema_compat_enabled", False)
     monkeypatch.setattr(settings, "startup_bootstrap_enabled", True)
 
     app = create_app()
@@ -166,6 +180,7 @@ async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     assert calls["models"] is True
     assert calls["routes"] is True
     assert calls["bootstrap_credential"] is True
+    assert calls["bootstrap_openrouter_credential"] is True
 
 
 @pytest.mark.asyncio
