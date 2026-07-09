@@ -27,6 +27,17 @@ def _get_basalt_client() -> BasaltPassClient:
     return BasaltPassClient()
 
 
+def get_basalt_client() -> BasaltPassClient:
+    """Public alias kept for test imports that reach into ``app.api.v1.admin``.
+
+    The helper is a thin wrapper around :class:`BasaltPassClient` — it used to
+    live in ``admin.py`` itself, so a small set of smoke/extended tests import
+    it by path. Re-exporting the same underlying factory here preserves that
+    contract without re-implementing the client construction.
+    """
+    return _get_basalt_client()
+
+
 async def require_admin_access(
     request: Request,
     authorization: str | None = Header(default=None),

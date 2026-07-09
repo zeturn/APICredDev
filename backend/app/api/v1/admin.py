@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request
-from app.api.v1.admin_auth import require_admin_access as _shared_require
+from app.api.v1.admin_auth import require_admin_access as _shared_require, get_basalt_client
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
