@@ -1,5 +1,5 @@
 import logging
-import uuid
+import uuid6
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +49,7 @@ async def ensure_admin_user(db: AsyncSession) -> None:
     if user:
         return
 
-    admin_id = str(uuid.uuid4())
+    admin_id = str(uuid6.uuid7())
     admin = User(id=admin_id, email=settings.admin_email, password_hash=hash_password(settings.admin_password))
     wallet = Wallet(user_id=admin_id, balance_credits=0)
     db.add(admin)

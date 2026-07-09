@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -11,7 +11,7 @@ class ProviderCredential(Base):
     __tablename__ = "provider_credentials"
     __table_args__ = (UniqueConstraint("provider_endpoint_id", "display_name", name="uq_provider_credential_display_name"),)
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     provider_endpoint_id: Mapped[str] = mapped_column(String, ForeignKey("provider_endpoints.id"), index=True)
     display_name: Mapped[str] = mapped_column(String)
     secret_encrypted: Mapped[str | None] = mapped_column(String, nullable=True)

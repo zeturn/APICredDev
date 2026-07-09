@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from uuid import uuid4
+import uuid6
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -105,7 +105,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
-        request.state.request_id = uuid4()
+        request.state.request_id = uuid6.uuid7()
         on_request_start()
         try:
             response = await call_next(request)

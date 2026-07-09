@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ async def register_user(db: AsyncSession, email: str, password: str) -> User:
     existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
         raise ValueError("email_exists")
-    user_id = str(uuid.uuid4())
+    user_id = str(uuid6.uuid7())
     user = User(id=user_id, email=email, password_hash=hash_password(password))
     wallet = Wallet(user_id=user_id, balance_credits=0)
     db.add(user)
@@ -88,8 +88,8 @@ async def get_or_create_oauth_user(
             await db.refresh(user)
         return user
 
-    user_id = str(uuid.uuid4())
-    random_password = str(uuid.uuid4()) + str(uuid.uuid4())
+    user_id = str(uuid6.uuid7())
+    random_password = str(uuid6.uuid7()) + str(uuid6.uuid7())
     user = User(
         id=user_id,
         email=email,

@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import Boolean, DateTime, Integer, JSON, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,7 +10,7 @@ from app.db.base import Base
 class AccessPolicy(Base):
     __tablename__ = "access_policies"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     scope_type: Mapped[str] = mapped_column(String, index=True)
     scope_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)

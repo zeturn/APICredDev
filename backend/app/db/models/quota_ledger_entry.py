@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import DateTime, Integer, JSON, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,7 +10,7 @@ from app.db.base import Base
 class QuotaLedgerEntry(Base):
     __tablename__ = "quota_ledger_entries"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     usage_session_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     request_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     user_id: Mapped[str] = mapped_column(String, index=True)

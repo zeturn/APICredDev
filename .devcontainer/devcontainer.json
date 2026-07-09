@@ -1,5 +1,6 @@
 {
   "name": "APICred",
+  "remoteUser": "root",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "runArgs": [

@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 from sqlalchemy import String, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,7 +9,7 @@ from app.db.base import Base
 class ApiToken(Base):
     __tablename__ = "api_tokens"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String)
     token_hash: Mapped[str] = mapped_column(String, unique=True, index=True)

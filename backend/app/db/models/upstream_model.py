@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -11,7 +11,7 @@ class UpstreamModel(Base):
     __tablename__ = "upstream_models"
     __table_args__ = (UniqueConstraint("provider_id", "upstream_name", name="uq_upstream_model_provider_name"),)
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     provider_id: Mapped[str] = mapped_column(String, ForeignKey("providers.id"), index=True)
     upstream_name: Mapped[str] = mapped_column(String, index=True)
     display_name: Mapped[str] = mapped_column(String)

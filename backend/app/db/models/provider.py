@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 from typing import Any
 
 from sqlalchemy import Boolean, DateTime, String
@@ -15,7 +15,7 @@ class Provider(Base):
         kwargs.pop("default_base_url", None)
         super().__init__(**kwargs)
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True)
     icon_slug: Mapped[str | None] = mapped_column(String, nullable=True)

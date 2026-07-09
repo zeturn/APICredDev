@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-import uuid
+import uuid6
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -184,7 +184,7 @@ async def authorize_usage(
             raise ValueError("insufficient_balance")
         wallet.balance_credits = local_balance - estimated
 
-    usage_id = str(uuid.uuid4())
+    usage_id = str(uuid6.uuid7())
     usage = UsageSession(
         id=usage_id,
         user_id=user_id,

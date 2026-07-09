@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 from sqlalchemy import String, DateTime, JSON, Numeric, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,7 +9,7 @@ from app.db.base import Base
 class UsageSession(Base):
     __tablename__ = "usage_sessions"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     user_id: Mapped[str] = mapped_column(String, index=True)
     token_id: Mapped[str] = mapped_column(String, index=True)
     request_id: Mapped[str] = mapped_column(String, unique=True, index=True)

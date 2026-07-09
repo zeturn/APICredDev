@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -18,7 +18,7 @@ class ModelRoute(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     public_model_id: Mapped[str] = mapped_column(String, ForeignKey("public_models.id"), index=True)
     upstream_model_id: Mapped[str] = mapped_column(String, ForeignKey("upstream_models.id"), index=True)
     provider_credential_id: Mapped[str | None] = mapped_column(String, ForeignKey("provider_credentials.id"), index=True, nullable=True)

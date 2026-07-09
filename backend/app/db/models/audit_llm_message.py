@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 from sqlalchemy import String, DateTime, Integer, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,7 +9,7 @@ from app.db.base import Base
 class AuditLLMMessage(Base):
     __tablename__ = "audit_llm_messages"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     usage_session_id: Mapped[str] = mapped_column(String, index=True)
     user_id: Mapped[str] = mapped_column(String, index=True)
     request_id: Mapped[str] = mapped_column(String, index=True)

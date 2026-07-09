@@ -1,4 +1,4 @@
-import uuid
+import uuid6
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -11,7 +11,7 @@ class ProviderEndpoint(Base):
     __tablename__ = "provider_endpoints"
     __table_args__ = (UniqueConstraint("provider_id", "slug", name="uq_provider_endpoint_slug"),)
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     provider_id: Mapped[str] = mapped_column(String, ForeignKey("providers.id"), index=True)
     slug: Mapped[str] = mapped_column(String, index=True)
     display_name: Mapped[str] = mapped_column(String)
