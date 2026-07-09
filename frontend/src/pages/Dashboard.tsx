@@ -20,11 +20,13 @@ const DashboardPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const summaryResp = await api.get("/billing/summary");
+        const [summaryResp, walletResp, ledgerResp] = await Promise.all([
+          api.get("/billing/summary"),
+          api.get("/billing/wallet"),
+          api.get("/billing/ledger"),
+        ]);
         setSummary(summaryResp.data);
-        const walletResp = await api.get("/billing/wallet");
         setBalance(walletResp.data.balance_credits);
-        const ledgerResp = await api.get("/billing/ledger");
         setLedger(ledgerResp.data.slice(0, 10));
       } finally {
         setLoading(false);
