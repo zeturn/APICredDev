@@ -16,7 +16,7 @@ from app.api.v1 import (
     audit,
     admin,
     basalt,
-    graphql_endpoint,
+    tableGraphql,
 )
 from app.core.errors import AppError
 from app.core.config import settings, validate_production_settings
@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
-    app.include_router(graphql_endpoint.router, prefix="/graphql")
+    app.include_router(tableGraphql.router, prefix="/graphql")
 
     return app
 
