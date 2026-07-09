@@ -5,6 +5,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db
 from app.services.dashboard_service import get_admin_usage_summary
+from app.services.usage_analytics_service import usage_summary, usage_group_by, quota_summary
 
 @strawberry.type
 class RecentSession:
@@ -34,6 +35,83 @@ class ModelUsageStat:
 class AdminUsageSummary:
     recent_sessions: list[RecentSession]
     by_model: list[ModelUsageStat]
+
+@strawberry.type
+class UsageSummary:
+    request_count: int
+    success_count: int
+    error_count: int
+    error_rate: float
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    estimated_cost_credits: float
+    final_cost_credits: float
+    avg_latency_ms: float
+
+@strawberry.type
+class UsageByProvider:
+    provider: str
+    label: str
+    request_count: int
+    success_count: int
+    error_count: int
+    error_rate: float
+    total_tokens: int
+    final_cost_credits: float
+
+@strawberry.type
+class UsageByModel:
+    model: str
+    label: str
+    request_count: int
+    success_count: int
+    error_count: int
+    error_rate: float
+    total_tokens: int
+    final_cost_credits: float
+
+@strawberry.type
+class UsageByUser:
+    user: str
+    label: str
+    request_count: int
+    success_count: int
+    error_count: int
+    error_rate: float
+    total_tokens: int
+    final_cost_credits: float
+
+@strawberry.type
+class UsageByError:
+    error: str
+    label: str
+    request_count: int
+    success_count: int
+    error_count: int
+    error_rate: float
+    total_tokens: int
+    final_cost_credits: float
+
+@strawberry.type
+class QuotaSummary:
+    entry_count: int
+    reserved_count: int
+    settled_count: int
+    rejected_count: int
+    failed_count: int
+    reserved_delta: int
+    total_tokens: int
+    final_cost_credits: float
+
+@strawberry.type
+class AdminDashboardData:
+    summary: UsageSummary
+    by_provider: list[UsageByProvider]
+    by_model: list[UsageByModel]
+    top_users: list[UsageByUser]
+    errors: list[UsageByError]
+    quota: QuotaSummary
 
 @strawberry.type
 class Query:
@@ -77,6 +155,27 @@ class Query:
         ]
         
         return AdminUsageSummary(recent_sessions=recent_sessions, by_model=by_model)
+
+    @strawberry.field
+    async def admin_dashboard_data(self, info: strawberry.Info) -> AdminDashboardData:
+        db = info.context["db"]
+        
+        # Sequentially await to avoid asyncpg single connection concurrent issues
+        summary_data = await usage_summary(db)
+        by_provider_data = await usage_group_by(db, "provider")
+        by_model_data = await usage_group_by(db, "model")
+        top_users_data = await usage_group_by(db, "user")
+        errors_data = await usage_group_by(db, "error")
+        quota_data = await quota_summary(db)
+        
+        return AdminDashboardData(
+            summary=UsageSummary(**summary_data),
+            by_provider=[UsageByProvider(**p) for p in by_provider_data],
+            by_model=[UsageByModel(**m) for m in by_model_data],
+            top_users=[UsageByUser(**u) for u in top_users_data],
+            errors=[UsageByError(**e) for e in errors_data],
+            quota=QuotaSummary(**quota_data)
+        )
 
 async def get_context(db: AsyncSession = Depends(get_db)):
     return {"db": db}
