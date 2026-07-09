@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 import uuid6
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -179,10 +179,14 @@ async def authorize_usage(
         await _adjust_remote_credit(user, -estimated, f"apicred:usage_pending:{request_id}")
         await _sync_local_wallet_from_remote(db, user, wallet)
     else:
-        local_balance = _as_decimal(wallet.balance_credits)
-        if local_balance < estimated:
+        result = await db.execute(
+            update(Wallet)
+            .where(Wallet.user_id == user_id)
+            .where(Wallet.balance_credits >= estimated)
+            .values(balance_credits=Wallet.balance_credits - estimated, updated_at=utc_now())
+        )
+        if result.rowcount == 0:
             raise ValueError("insufficient_balance")
-        wallet.balance_credits = local_balance - estimated
 
     usage_id = str(uuid6.uuid7())
     usage = UsageSession(
@@ -271,8 +275,11 @@ async def settle_usage(
         if _is_remote_wallet_enabled(user):
             await _sync_local_wallet_from_remote(db, user, wallet)
         else:
-            wallet.balance_credits = _as_decimal(wallet.balance_credits) - diff
-            wallet.updated_at = utc_now()
+            await db.execute(
+                update(Wallet)
+                .where(Wallet.user_id == usage.user_id)
+                .values(balance_credits=Wallet.balance_credits - diff, updated_at=utc_now())
+            )
         db.add(adjustment)
     elif _is_remote_wallet_enabled(user):
         await _sync_local_wallet_from_remote(db, user, wallet)
