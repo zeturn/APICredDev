@@ -23,19 +23,18 @@ from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 
 
+
 def _get_basalt_client() -> BasaltPassClient:
     return BasaltPassClient()
 
-
-def get_basalt_client() -> BasaltPassClient:
-    """Public alias kept for test imports that reach into ``app.api.v1.admin``.
-
-    The helper is a thin wrapper around :class:`BasaltPassClient` — it used to
-    live in ``admin.py`` itself, so a small set of smoke/extended tests import
-    it by path. Re-exporting the same underlying factory here preserves that
-    contract without re-implementing the client construction.
-    """
-    return _get_basalt_client()
+# ``get_basalt_client`` is the public entry point kept for test imports that
+# reach into ``app.api.v1.admin``.  It is intentionally an alias for the same
+# factory object registered as a FastAPI dependency — overriding either name on
+# an app's dependency map therefore overrides both.
+#
+# See: tests/test_api_extended.py and tests/test_api_smoke.py which import it via:
+#     ``from app.api.v1.admin import get_basalt_client``
+get_basalt_client = _get_basalt_client
 
 
 async def require_admin_access(
