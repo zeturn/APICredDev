@@ -1,6 +1,6 @@
 """ops console policy observability
 
-Revision ID: 0005_ops_console_policy_observability
+Revision ID: 0005_ops_policy_obs
 Revises: 0004_apicred_hardening_features
 Create Date: 2026-07-03
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "0005_ops_console_policy_observability"
+revision: str = "0005_ops_policy_obs"
 down_revision: str | None = "0004_apicred_hardening_features"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
