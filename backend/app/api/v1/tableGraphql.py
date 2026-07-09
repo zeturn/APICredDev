@@ -3,6 +3,7 @@ import strawberry
 from strawberry.fastapi import GraphQLRouter
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.admin_auth import require_admin_access
 from app.core.deps import get_db
 from app.services.dashboard_service import get_admin_usage_summary
 from app.services.usage_analytics_service import usage_summary, usage_group_by, quota_summary
@@ -180,6 +181,15 @@ class Query:
 async def get_context(db: AsyncSession = Depends(get_db)):
     return {"db": db}
 
+# Mount at ``/v1/graphql`` so the GraphQL endpoint is scoped under the same
+# admin API base URL as every other authenticated route.  The default dependency
+# below ensures **every** query (including introspection) carries a valid
+# ``X-Admin-Authorization`` bearer token before reaching the schema — aligning
+# this router with the security policy enforced by ``router.py``.
 schema = strawberry.Schema(query=Query)
 
-router = GraphQLRouter(schema, context_getter=get_context)
+router = GraphQLRouter(
+    schema=schema,
+    dependencies=[Depends(require_admin_access)],
+    context_getter=get_context,
+)

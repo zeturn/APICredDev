@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.admin_auth import require_admin_access as _shared_require
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
@@ -12,8 +13,6 @@ from app.schemas.admin import (
     PublicModelUpsert,
     UpstreamModelUpsert,
 )
-from app.services.admin_access import assert_admin_access
-from app.services.basaltpass_client import BasaltPassClient
 from app.services.providers.presets import list_provider_presets
 from app.services.dashboard_service import get_admin_usage_summary
 from app.services.quota_ledger_service import list_quota_ledger, list_quota_usage
@@ -47,26 +46,7 @@ from app.services.admin_service import (
 from app.services.audit_service import list_user_audit_conversations
 
 
-def get_basalt_client() -> BasaltPassClient:
-    return BasaltPassClient()
-
-
-async def require_admin_access(
-    request: Request,
-    authorization: str | None = Header(default=None),
-    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
-    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
-    db: AsyncSession = Depends(get_db),
-    client: BasaltPassClient = Depends(get_basalt_client),
-) -> None:
-    await assert_admin_access(
-        request=request,
-        authorization=authorization,
-        x_admin_authorization=x_admin_authorization,
-        x_admin_token=x_admin_token,
-        db=db,
-        client=client,
-    )
+require_admin_access = _shared_require
 
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_access)])
