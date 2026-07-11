@@ -49,8 +49,8 @@ const UserLayout = () => {
                   to={item.to}
                   selected={location.pathname === item.to}
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <AdminIcon icon={iconByPath[item.to] ?? "home"} className="h-4 w-4" />
+                  <span className="inline-flex items-center gap-3">
+                    <AdminIcon icon={iconByPath[item.to] ?? "home"} className="h-5 w-5" />
                     {item.label}
                   </span>
                 </ListItem>
