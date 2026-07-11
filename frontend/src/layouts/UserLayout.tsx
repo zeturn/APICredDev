@@ -33,8 +33,8 @@ const UserLayout = () => {
             <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
               apicred
             </Typography>
-            <Typography variant="h6" className="mt-2">
-              用户工作台
+            <Typography variant="h6" className="mt-2 px-3">
+              用户终端
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
               日常调用、Token 与余额管理。
