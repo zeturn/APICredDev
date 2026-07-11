@@ -56,7 +56,7 @@ const AdminLayout = () => {
     <div className="min-h-screen bg-slate-100">
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
         <aside className="sticky top-4 h-fit w-64 shrink-0 self-start">
-          <Card className="p-5">
+          <div className="px-2 py-4">
             <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
               apicred
             </Typography>
@@ -98,7 +98,7 @@ const AdminLayout = () => {
                 退出登录
               </Button>
             </div>
-          </Card>
+            </div>
         </aside>
         <main className="min-w-0 flex-1">
           {!adminReady && (
