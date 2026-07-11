@@ -115,6 +115,24 @@ def create_app() -> FastAPI:
         finally:
             on_request_end()
 
+    @app.middleware("http")
+    async def graphql_auth_guard(request: Request, call_next):
+        """Reject ``/graphql`` requests that lack admin auth headers.
+
+        This middleware runs *before* the FastAPI dependency layer, so it
+        cannot be bypassed by ``app.dependency_overrides``.  The downstream
+        ``require_admin_access`` dependency still validates the actual token.
+        """
+        if request.url.path.startswith("/graphql"):
+            has_admin = request.headers.get("x-admin-authorization")
+            has_auth = request.headers.get("authorization")
+            if not has_admin and not has_auth:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication required"},
+                )
+        return await call_next(request)
+
     @app.exception_handler(AppError)
     async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
