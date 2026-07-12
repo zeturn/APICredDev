@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { AdminIcon } from "./admin/adminCommon";
 import Skeleton from "../ui/Skeleton";
+import { LedgerItem, normalizeLedger } from "./dashboardData";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const DashboardPage = () => {
     available_models: 0,
   });
   const [balance, setBalance] = useState(0);
-  const [ledger, setLedger] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<LedgerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ const DashboardPage = () => {
         ]);
         setSummary(summaryResp.data);
         setBalance(walletResp.data.balance_credits);
-        setLedger(ledgerResp.data.slice(0, 10));
+        setLedger(normalizeLedger(ledgerResp.data));
       } finally {
         setLoading(false);
       }
@@ -151,4 +152,3 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
-
