@@ -4,12 +4,16 @@
   "images": [
     {
       "name": "backend",
+      "beancs_project": "apicred-backend",
+      "image_repository": "registry.beancs.hollowdata.com/hollowdata/apicred-backend",
       "context": "./backend",
       "dockerfile": "./backend/Dockerfile",
       "port": 8103
     },
     {
       "name": "frontend",
+      "beancs_project": "apicred-frontend",
+      "image_repository": "registry.beancs.hollowdata.com/hollowdata/apicred-frontend",
       "context": "./frontend",
       "dockerfile": "./frontend/Dockerfile",
       "port": 80,
