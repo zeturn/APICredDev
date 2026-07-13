@@ -1,32 +1,27 @@
 import { Button, Card, Typography } from "../lib/watercolor";
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { useI18n } from "../i18n";
+import LanguageSwitcher from "../i18n/LanguageSwitcher";
+import { apiBaseUrl } from "../api/client";
 
 const LoginPage = () => {
-  const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const from = (location.state as any)?.from?.pathname || "/workspace/dashboard";
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
-
-  useEffect(() => {
-    const query = new URLSearchParams(location.search);
-    const nextPath = query.get("next") || "/workspace/dashboard";
-    const source = query.get("source");
-    if (source === "basaltpass") {
-      navigate(nextPath, { replace: true });
-    }
-  }, [location.search, navigate]);
 
   return (
     <Card className="p-6">
-      <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.35em]">
-        apicred access
-      </Typography>
+      <div className="flex items-center justify-between gap-2">
+        <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.35em]">
+          apicred access
+        </Typography>
+        <LanguageSwitcher />
+      </div>
       <Typography variant="h5" className="mt-2">
-        BasaltPass SSO 登录
+        {t("login.title")}
       </Typography>
       <Typography variant="body2" color="textSecondary" className="mt-1">
-        APICred 已禁用本地账号注册和密码登录，请使用 BasaltPass 单点登录。
+        {t("login.desc")}
       </Typography>
 
       <div className="mt-6 grid gap-4">
@@ -39,7 +34,7 @@ const LoginPage = () => {
             window.location.href = `${apiBaseUrl}/auth/basalt/login?next=${nextPath}`;
           }}
         >
-          使用 BasaltPass 登录
+          {t("login.button")}
         </Button>
       </div>
     </Card>

@@ -2,8 +2,10 @@ import { Badge, Card, Grid, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminIcon, AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 const AdminUsagePage = () => {
+  const { t } = useI18n();
   const [usage, setUsage] = useState<{ recent_sessions: any[]; by_model: any[]; by_provider: any[] }>({
     recent_sessions: [],
     by_model: [],
@@ -24,7 +26,7 @@ const AdminUsagePage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="使用统计" description="查看全站最近调用记录，并按模型与服务商聚合额度消耗。" />
+      <AdminPageIntro title={t("ausage.title")} description={t("ausage.desc")} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -32,7 +34,7 @@ const AdminUsagePage = () => {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <AdminIcon icon="models" className="h-5 w-5" />
-                <Typography variant="h6">按模型汇总</Typography>
+                <Typography variant="h6">{t("ausage.byModel")}</Typography>
               </div>
               <Badge variant="primary">{usage.by_model.length}</Badge>
             </div>
@@ -41,11 +43,11 @@ const AdminUsagePage = () => {
                 <div key={item.model_id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-medium text-slate-900">{item.model_name}</span>
-                    <span className="text-slate-500">请求 {item.requests} · 额度 {item.used_credits}</span>
+                    <span className="text-slate-500">{t("ausage.requestsLine", { n: item.requests, c: item.used_credits })}</span>
                   </div>
                 </div>
               ))}
-              {usage.by_model.length === 0 && <div className="text-sm text-slate-500">暂无统计数据</div>}
+              {usage.by_model.length === 0 && <div className="text-sm text-slate-500">{t("ausage.noStats")}</div>}
             </div>
           </Card>
         </Grid>
@@ -54,7 +56,7 @@ const AdminUsagePage = () => {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <AdminIcon icon="provider" className="h-5 w-5" />
-                <Typography variant="h6">按服务商汇总</Typography>
+                <Typography variant="h6">{t("ausage.byProvider")}</Typography>
               </div>
               <Badge variant="warning">{usage.by_provider.length}</Badge>
             </div>
@@ -63,11 +65,11 @@ const AdminUsagePage = () => {
                 <div key={item.provider} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-medium text-slate-900">{item.provider}</span>
-                    <span className="text-slate-500">请求 {item.requests} · 额度 {item.used_credits}</span>
+                    <span className="text-slate-500">{t("ausage.requestsLine", { n: item.requests, c: item.used_credits })}</span>
                   </div>
                 </div>
               ))}
-              {usage.by_provider.length === 0 && <div className="text-sm text-slate-500">暂无统计数据</div>}
+              {usage.by_provider.length === 0 && <div className="text-sm text-slate-500">{t("ausage.noStats")}</div>}
             </div>
           </Card>
         </Grid>
@@ -77,7 +79,7 @@ const AdminUsagePage = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AdminIcon icon="usage" className="h-5 w-5" />
-            <Typography variant="h6">最近调用记录</Typography>
+            <Typography variant="h6">{t("ausage.recentCalls")}</Typography>
           </div>
           <Badge variant="secondary">{usage.recent_sessions.length}</Badge>
         </div>
@@ -89,10 +91,10 @@ const AdminUsagePage = () => {
                 <Badge variant={item.status === "completed" ? "primary" : "warning"}>{item.status}</Badge>
               </div>
               <div className="mt-1 text-sm text-slate-700">{item.model_name} · {item.provider ?? "-"}</div>
-              <div className="mt-1 text-xs text-slate-500">tokens: {item.total_tokens} · fee: {item.final_cost_credits}</div>
+              <div className="mt-1 text-xs text-slate-500">{t("usage.tokens")}: {item.total_tokens} · {t("usage.cost")}: {item.final_cost_credits}</div>
             </div>
           ))}
-          {usage.recent_sessions.length === 0 && <div className="text-sm text-slate-500">暂无调用记录</div>}
+          {usage.recent_sessions.length === 0 && <div className="text-sm text-slate-500">{t("ausage.noCalls")}</div>}
         </div>
       </Card>
     </div>

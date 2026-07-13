@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe('admin API client', () => {
   test('uses the default API base URL outside Vite', () => {
-    assert.strictEqual(apiBaseUrl, 'http://localhost:8103/v1');
+    assert.strictEqual(apiBaseUrl, '/v1');
     assert.strictEqual(adminApi.defaults.baseURL, apiBaseUrl);
     assert.strictEqual(adminApi.defaults.withCredentials, true);
   });

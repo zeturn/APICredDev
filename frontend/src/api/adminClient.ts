@@ -1,7 +1,8 @@
 import axios from "axios";
+import { translate } from "../i18n/translate.ts";
 
 const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "/v1";
 
 const adminApi = axios.create({
   baseURL: apiBaseUrl,
@@ -91,7 +92,7 @@ adminApi.interceptors.response.use(
     if (status === 401) {
       clearAdminAccessToken();
     }
-    const msg = error?.response?.data?.error?.message ?? "请求失败";
+    const msg = error?.response?.data?.error?.message ?? translate("api.requestFailed");
     alert(msg);
     return Promise.reject(error);
   }

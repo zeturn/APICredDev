@@ -4,9 +4,11 @@ import api from "../api/client";
 import { formatPricingSummary } from "../shared/pricing";
 import Skeleton from "../ui/Skeleton";
 import { useNavigate } from "react-router-dom";
+import { useI18n } from "../i18n";
 
 const ModelsPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [models, setModels] = useState<any[]>([]);
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,27 +42,27 @@ const ModelsPage = () => {
     <div className="space-y-6">
       <div className="space-y-1">
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
-          models
+          {t("over.models")}
         </Typography>
-        <Typography variant="h5">可用模型目录</Typography>
+        <Typography variant="h5">{t("models.title")}</Typography>
         <Typography variant="body2" color="textSecondary">
-          独立展示模型图标、倍率与价格明细，便于快速选型。
+          {t("models.desc")}
         </Typography>
       </div>
 
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-600">搜索模型</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("models.search")}</label>
             <input
               className="w-full rounded-xl border border-ink-100 bg-white/70 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
-              placeholder="输入模型名、品牌或分类"
+              placeholder={t("models.searchPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <Typography variant="body2" color="textSecondary">当前可见模型</Typography>
+            <Typography variant="body2" color="textSecondary">{t("models.visibleModels")}</Typography>
             <Typography variant="h3" className="mt-1">{filteredModels.length}</Typography>
           </div>
         </div>
@@ -104,20 +106,20 @@ const ModelsPage = () => {
                   <div>
                     <Typography variant="h6">{m.name}</Typography>
                     <Typography variant="caption" color="textSecondary" className="mt-1 block">
-                      {m.brand_name || "未标注品牌"} · {m.category || "llm"}
+                      {m.brand_name || t("models.noBrand")} · {m.category || "llm"}
                     </Typography>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={m.enabled ? "primary" : "warning"}>{m.enabled ? "enabled" : "disabled"}</Badge>
+                  <Badge variant={m.enabled ? "primary" : "warning"}>{m.enabled ? t("common.enabled") : t("common.disabled")}</Badge>
                   <Badge variant="secondary">x{m.multiplier}</Badge>
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <Typography variant="subtitle2" className="text-slate-900">价格</Typography>
+                <Typography variant="subtitle2" className="text-slate-900">{t("models.price")}</Typography>
                 <div className="mt-2 space-y-1">
-                  {formatPricingSummary(m.pricing).map((line) => (
+                  {formatPricingSummary(m.pricing, t).map((line) => (
                     <Typography key={`${m.id}-${line}`} variant="body2" color="textSecondary">
                       {line}
                     </Typography>
@@ -131,16 +133,16 @@ const ModelsPage = () => {
         {filteredModels.length === 0 && (
           <Grid item xs={12}>
             <Card className="p-6">
-              <Typography variant="h6">当前暂无可用模型</Typography>
+              <Typography variant="h6">{t("models.noModels")}</Typography>
               <Typography variant="body2" color="textSecondary" className="mt-2">
-                可能是模型目录尚未初始化，或当前环境尚未同步默认模型数据。
+                {t("models.noModelsDesc")}
               </Typography>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="secondary" buttonStyle="outlined" onClick={() => window.location.reload()}>
-                  重新加载
+                  {t("models.reload")}
                 </Button>
                 <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/admin/public-models")}>
-                  通知管理员检查模型配置
+                  {t("models.notifyAdmin")}
                 </Button>
               </div>
             </Card>

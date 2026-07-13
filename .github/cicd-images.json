@@ -12,7 +12,8 @@
       "name": "frontend",
       "context": "./frontend",
       "dockerfile": "./frontend/Dockerfile",
-      "port": 80
+      "port": 80,
+      "build_args": "VITE_API_BASE_URL=https://apicred.beancs.hollowdata.com/v1\nVITE_BASALTPASS_BASE_URL=https://auth.beancs.hollowdata.com"
     }
   ]
 }

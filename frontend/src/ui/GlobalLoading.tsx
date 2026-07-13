@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { loadingEventName } from "./loadingBus";
+import { useI18n } from "../i18n";
 
 const MIN_VISIBLE_MS = 350;
 
 const GlobalLoading = () => {
   const [pending, setPending] = useState(0);
   const [visible, setVisible] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const onLoading = (evt: Event) => {
@@ -51,7 +53,7 @@ const GlobalLoading = () => {
       <div className="ui-loading-bar" />
       <div className="absolute right-4 top-3 flex items-center gap-2 border border-slate-300 bg-white/95 px-3 py-1.5 text-xs text-slate-700">
         <span className="ui-loading-spinner" aria-hidden="true" />
-        加载中...
+        {t("loading.global")}
       </div>
     </div>
   );

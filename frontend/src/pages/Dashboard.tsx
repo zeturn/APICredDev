@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { AdminIcon } from "./admin/adminCommon";
+import { useI18n } from "../i18n";
 import Skeleton from "../ui/Skeleton";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [summary, setSummary] = useState({
     balance_credits: 0,
     used_credits: 0,
@@ -39,9 +41,9 @@ const DashboardPage = () => {
     <div className="space-y-6">
       <div className="space-y-1">
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
-          overview
+          {t("over.overview")}
         </Typography>
-        <Typography variant="h5">总览</Typography>
+        <Typography variant="h5">{t("dash.title")}</Typography>
       </div>
 
       <Grid container spacing={3}>
@@ -51,16 +53,16 @@ const DashboardPage = () => {
               <Card className="p-6">
                 <div className="mb-2 flex items-center justify-between">
                   <Typography variant="body2" color="textSecondary">
-                    剩余额度
+                    {t("dash.balanceRemaining")}
                   </Typography>
                   <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
                 </div>
                 <Typography variant="h3" className="mt-2">
                   {loading ? <Skeleton className="h-10 w-24" /> : balance}
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  credits
-                </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {t("over.credits")}
+                  </Typography>
               </Card>
             </Grid>
 
@@ -68,7 +70,7 @@ const DashboardPage = () => {
               <Card className="p-6">
                 <div className="mb-2 flex items-center justify-between">
                   <Typography variant="body2" color="textSecondary">
-                    已使用额度
+                    {t("dash.usedCredits")}
                   </Typography>
                   <AdminIcon icon="usage" className="h-4 w-4 text-slate-500" />
                 </div>
@@ -76,7 +78,7 @@ const DashboardPage = () => {
                   {loading ? <Skeleton className="h-10 w-24" /> : summary.used_credits}
                 </Typography>
                 <Typography variant="caption" color="textSecondary" className="mt-3 block">
-                  {loading ? <Skeleton className="h-3 w-40" /> : `共 ${summary.usage_sessions} 次调用已完成结算。`}
+                  {loading ? <Skeleton className="h-3 w-40" /> : t("dash.usedCalls", { count: summary.usage_sessions })}
                 </Typography>
               </Card>
             </Grid>
@@ -85,23 +87,23 @@ const DashboardPage = () => {
 
         <Grid item xs={12} md={4}>
           <Card className="h-full p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <Typography variant="body2" color="textSecondary">
-                可用模型
-              </Typography>
-              <AdminIcon icon="models" className="h-4 w-4 text-slate-500" />
-            </div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Typography variant="body2" color="textSecondary">
+                    {t("dash.availableModels")}
+                  </Typography>
+                  <AdminIcon icon="models" className="h-4 w-4 text-slate-500" />
+                </div>
             <Typography variant="h3" className="mt-2">
               {loading ? <Skeleton className="h-10 w-20" /> : summary.available_models}
             </Typography>
             <Typography variant="caption" color="textSecondary" className="mt-3 block">
-              当前已启用并可调用的模型数量。
+              {t("dash.availableModelsDesc")}
             </Typography>
             <div className="mt-4">
               <Button variant="secondary" buttonStyle="text" onClick={() => navigate("/workspace/models")}>
                 <span className="inline-flex items-center gap-2">
                   <AdminIcon icon="api" className="h-4 w-4" />
-                  查看模型价格与图标
+                  {t("dash.viewPricing")}
                 </span>
               </Button>
             </div>
@@ -113,11 +115,11 @@ const DashboardPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.28em]">
-              ledger
+              {t("over.ledger")}
             </Typography>
             <div className="mt-2 flex items-center gap-2">
               <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
-              <Typography variant="h6">最近 10 笔</Typography>
+              <Typography variant="h6">{t("dash.recent10")}</Typography>
             </div>
           </div>
           <Badge variant="secondary">append-only</Badge>
@@ -143,7 +145,7 @@ const DashboardPage = () => {
             </div>
           ))}
 
-          {!loading && ledger.length === 0 && <div className="text-sm text-slate-500">暂无账本记录</div>}
+          {!loading && ledger.length === 0 && <div className="text-sm text-slate-500">{t("dash.noLedger")}</div>}
         </div>
       </Card>
     </div>

@@ -2,6 +2,7 @@ import { Badge, Button, Card, Grid, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminIcon, AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 type ChatSession = {
   usage_session_id: string;
@@ -16,6 +17,7 @@ type ChatSession = {
 };
 
 const AdminUsersPage = () => {
+  const { t } = useI18n();
   const [users, setUsers] = useState<any[]>([]);
   const [activeUserId, setActiveUserId] = useState<string>("");
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -71,12 +73,12 @@ const AdminUsersPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="用户管理" description="查看用户余额、使用情况，并启用或禁用账号。" />
+      <AdminPageIntro title={t("users.title")} description={t("users.desc")} />
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
             <AdminIcon icon="users" className="h-5 w-5" />
-            用户列表
+            {t("users.list")}
           </div>
           <Badge variant="warning">{users.length}</Badge>
         </div>
@@ -94,31 +96,31 @@ const AdminUsersPage = () => {
               <Grid container spacing={2} className="mt-3">
                 <Grid item xs={4}>
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 text-center">
-                    <div className="text-xs text-slate-500">余额</div>
+                    <div className="text-xs text-slate-500">{t("users.balance")}</div>
                     <div className="mt-1 text-sm font-semibold text-slate-900">{item.balance_credits}</div>
                   </div>
                 </Grid>
                 <Grid item xs={4}>
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 text-center">
-                    <div className="text-xs text-slate-500">已用</div>
+                    <div className="text-xs text-slate-500">{t("users.used")}</div>
                     <div className="mt-1 text-sm font-semibold text-slate-900">{item.used_credits}</div>
                   </div>
                 </Grid>
                 <Grid item xs={4}>
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 text-center">
-                    <div className="text-xs text-slate-500">会话</div>
+                    <div className="text-xs text-slate-500">{t("users.sessions")}</div>
                     <div className="mt-1 text-sm font-semibold text-slate-900">{item.usage_sessions}</div>
                   </div>
                 </Grid>
               </Grid>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button buttonStyle="text" variant="secondary" onClick={() => updateStatus(item.id, "active")}>启用</Button>
-                <Button buttonStyle="text" variant="error" onClick={() => updateStatus(item.id, "disabled")}>禁用</Button>
+                <Button buttonStyle="text" variant="secondary" onClick={() => updateStatus(item.id, "active")}>{t("users.enable")}</Button>
+                <Button buttonStyle="text" variant="error" onClick={() => updateStatus(item.id, "disabled")}>{t("users.disable")}</Button>
                 <Button buttonStyle="text" variant="warning" onClick={() => loadUserChats(item.id, 1)}>
                   <span className="inline-flex items-center gap-2">
                     <AdminIcon icon="chat" className="h-4 w-4" />
-                    {activeUserId === item.id ? "收起聊天记录" : "查看聊天记录"}
+                    {activeUserId === item.id ? t("users.collapseChat") : t("users.viewChat")}
                   </span>
                 </Button>
               </div>
@@ -126,7 +128,7 @@ const AdminUsersPage = () => {
           ))}
 
           {users.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无用户数据</div>
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">{t("users.noUsers")}</div>
           )}
         </div>
       </Card>
@@ -136,28 +138,28 @@ const AdminUsersPage = () => {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
               <AdminIcon icon="chat" className="h-5 w-5" />
-              用户审计对话
+              {t("users.auditChat")}
             </div>
             <Badge variant="secondary">{chatTotal}</Badge>
           </div>
 
           {chatLoading ? (
-            <div className="mt-4 text-sm text-slate-500">加载中...</div>
+            <div className="mt-4 text-sm text-slate-500">{t("common.loading")}</div>
           ) : (
             <div className="mt-4 space-y-3">
               {chatSessions.map((item) => (
                 <div key={item.usage_session_id} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-semibold text-slate-900">{item.model_name || "unknown model"}</div>
+                    <div className="text-sm font-semibold text-slate-900">{item.model_name || t("users.unknownModel")}</div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{item.upstream_provider || "-"}</Badge>
                       <Badge variant={item.status === "completed" ? "primary" : "warning"}>{item.status}</Badge>
-                      {item.deleted_for_user ? <Badge variant="warning">用户已删除</Badge> : null}
+                      {item.deleted_for_user ? <Badge variant="warning">{t("users.userDeleted")}</Badge> : null}
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-slate-500">{item.created_at ? item.created_at.replace("T", " ").slice(0, 19) : "-"}</div>
                   <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
-                    <div className="font-medium text-slate-900">首条内容</div>
+                    <div className="font-medium text-slate-900">{t("users.firstContent")}</div>
                     <div className="mt-1 break-words">{getPromptPreview(item)}</div>
                   </div>
                   <div className="mt-3 space-y-2">
@@ -176,7 +178,7 @@ const AdminUsersPage = () => {
                   <div className="mt-3 text-xs text-slate-500">tokens: {item.total_tokens} · cost: {item.final_cost_credits}</div>
                 </div>
               ))}
-              {chatSessions.length === 0 && <div className="text-sm text-slate-500">暂无聊天记录</div>}
+              {chatSessions.length === 0 && <div className="text-sm text-slate-500">{t("users.noChat")}</div>}
               {chatSessions.length > 0 && (
                 <div className="flex items-center justify-between gap-3">
                   <Button
@@ -185,7 +187,7 @@ const AdminUsersPage = () => {
                     disabled={chatPage <= 1 || chatLoading}
                     onClick={() => loadUserChats(activeUserId, chatPage - 1)}
                   >
-                    上一页
+                    {t("users.prev")}
                   </Button>
                   <div className="text-sm text-slate-500">{chatPage} / {chatTotalPages}</div>
                   <Button
@@ -194,7 +196,7 @@ const AdminUsersPage = () => {
                     disabled={chatPage >= chatTotalPages || chatLoading}
                     onClick={() => loadUserChats(activeUserId, chatPage + 1)}
                   >
-                    下一页
+                    {t("users.next")}
                   </Button>
                 </div>
               )}

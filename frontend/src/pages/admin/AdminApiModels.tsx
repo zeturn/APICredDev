@@ -2,6 +2,7 @@ import { Badge, Card, Grid, TextField, Typography } from "../../lib/watercolor";
 import { useEffect, useMemo, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminIcon, AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 type ApiModelLink = {
   model_id: string;
@@ -27,6 +28,7 @@ type ApiSupportItem = {
 };
 
 const AdminApiModelsPage = () => {
+  const { t } = useI18n();
   const [items, setItems] = useState<ApiSupportItem[]>([]);
   const [keyword, setKeyword] = useState("");
 
@@ -64,14 +66,14 @@ const AdminApiModelsPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="API 模型支持" description="管理员可查看任意 Credential / Endpoint 当前支持的模型列表。" />
+      <AdminPageIntro title={t("apimodels.title")} description={t("apimodels.desc")} />
 
       <Card className="p-6">
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={8}>
             <TextField
-              label="搜索 Credential / Endpoint / Provider / 模型"
-              placeholder="输入 provider、credential、endpoint 或 model name"
+              label={t("apimodels.search")}
+              placeholder={t("apimodels.searchPlaceholder")}
               value={keyword}
               onChange={(e: any) => setKeyword(e.target.value)}
               fullWidth
@@ -79,7 +81,7 @@ const AdminApiModelsPage = () => {
           </Grid>
           <Grid item xs={12} md={4}>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              当前 API 数：<span className="font-semibold text-slate-900">{filtered.length}</span>
+              {t("apimodels.currentCount")}<span className="font-semibold text-slate-900">{filtered.length}</span>
             </div>
           </Grid>
         </Grid>
@@ -95,7 +97,7 @@ const AdminApiModelsPage = () => {
                   <Typography variant="subtitle1">{item.credential_name || item.endpoint_name || item.provider_name}</Typography>
                 </div>
                 <Typography variant="caption" color="textSecondary" className="mt-1 break-all">
-                  Provider: {item.provider_name} · Endpoint: {item.endpoint_name || "-"}
+                  {t("common.provider")}: {item.provider_name} · {t("health.colEndpoint")}: {item.endpoint_name || "-"}
                 </Typography>
               </div>
               <div className="flex items-center gap-2">
@@ -105,17 +107,17 @@ const AdminApiModelsPage = () => {
             </div>
 
             <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <Typography variant="caption" color="textSecondary" className="block">Endpoint Base URL</Typography>
+              <Typography variant="caption" color="textSecondary" className="block">{t("apimodels.endpointBaseUrl")}</Typography>
               <Typography variant="body2" className="mt-1 break-all">{item.base_url || "-"}</Typography>
             </div>
 
             <div className="mt-4">
               <div className="mb-2 flex items-center justify-between">
-                <Typography variant="subtitle2">支持模型</Typography>
+                <Typography variant="subtitle2">{t("apimodels.supportedModels")}</Typography>
                 <Badge variant="warning">{item.supported_models.length}</Badge>
               </div>
               {item.supported_models.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无模型绑定</div>
+                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">{t("apimodels.noBound")}</div>
               ) : (
                 <div className="space-y-2">
                   {item.supported_models.map((model) => (
@@ -125,12 +127,12 @@ const AdminApiModelsPage = () => {
                           <AdminIcon icon="models" className="h-4 w-4" />
                           {model.model_name}
                         </div>
-                        <Badge variant={model.enabled ? "primary" : "warning"}>{model.enabled ? "enabled" : "disabled"}</Badge>
+                        <Badge variant={model.enabled ? "primary" : "warning"}>{model.enabled ? t("common.enabled") : t("common.disabled")}</Badge>
                       </div>
                       <div className="mt-1 text-xs text-slate-500">
-                        priority: {model.priority} · weight: {model.weight}
+                        {t("apimodels.priorityWeight", { p: model.priority, w: model.weight })}
                       </div>
-                      {model.base_url ? <div className="mt-1 break-all text-xs text-slate-500">base_url: {model.base_url}</div> : null}
+                      {model.base_url ? <div className="mt-1 break-all text-xs text-slate-500">{t("apimodels.baseUrlLine", { u: model.base_url })}</div> : null}
                     </div>
                   ))}
                 </div>
@@ -141,7 +143,7 @@ const AdminApiModelsPage = () => {
 
         {filtered.length === 0 && (
           <Card className="p-6">
-            <Typography variant="body2" color="textSecondary">暂无可展示的 API 模型支持数据。</Typography>
+            <Typography variant="body2" color="textSecondary">{t("apimodels.noData")}</Typography>
           </Card>
         )}
       </div>

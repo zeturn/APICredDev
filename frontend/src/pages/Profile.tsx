@@ -1,6 +1,7 @@
 import { Card, Grid, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import { useI18n } from "../i18n";
 import Skeleton from "../ui/Skeleton";
 
 type Me = {
@@ -12,6 +13,7 @@ type Me = {
 const ProfilePage = () => {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
     let active = true;
@@ -37,11 +39,11 @@ const ProfilePage = () => {
     <div className="space-y-6">
       <div className="space-y-1">
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
-          profile
+          {t("over.profile")}
         </Typography>
-        <Typography variant="h5">个人信息</Typography>
+        <Typography variant="h5">{t("profile.title")}</Typography>
         <Typography variant="body2" color="textSecondary">
-          查看当前登录账号的基础资料。
+          {t("profile.desc")}
         </Typography>
       </div>
 
@@ -66,15 +68,15 @@ const ProfilePage = () => {
         {!loading && me && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={4}>
-              <Typography variant="caption" color="textSecondary">用户 ID</Typography>
+              <Typography variant="caption" color="textSecondary">{t("profile.userId")}</Typography>
               <Typography variant="body2" className="mt-1 break-all">{me.id}</Typography>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Typography variant="caption" color="textSecondary">邮箱</Typography>
+              <Typography variant="caption" color="textSecondary">{t("profile.email")}</Typography>
               <Typography variant="body2" className="mt-1 break-all">{me.email}</Typography>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Typography variant="caption" color="textSecondary">状态</Typography>
+              <Typography variant="caption" color="textSecondary">{t("profile.status")}</Typography>
               <Typography variant="body2" className="mt-1">{me.status}</Typography>
             </Grid>
           </Grid>

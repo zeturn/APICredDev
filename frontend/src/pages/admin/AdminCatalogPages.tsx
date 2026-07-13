@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
 import { formatPricingSummary } from "../../shared/pricing";
+import { useI18n } from "../../i18n";
 
 type CatalogKey =
   | "brands"
@@ -16,21 +17,22 @@ type CatalogKey =
 
 type CatalogItem = Record<string, any> & { id: string; enabled?: boolean };
 type CatalogState = Record<CatalogKey, CatalogItem[]>;
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 type CatalogConfig = {
   key: CatalogKey;
   path: string;
-  title: string;
-  description: string;
-  singular: string;
+  titleKey: string;
+  descriptionKey: string;
+  singularKey: string;
   primary: (item: CatalogItem, state: CatalogState) => string;
-  secondary: (item: CatalogItem, state: CatalogState) => string;
-  meta: (item: CatalogItem, state: CatalogState) => Array<[string, string]>;
+  secondary: (item: CatalogItem, state: CatalogState, t: TranslateFn) => string;
+  meta: (item: CatalogItem, state: CatalogState, t: TranslateFn) => Array<[string, string]>;
 };
 
 type CreateField = {
   name: string;
-  label: string;
+  labelKey: string;
   type: "text" | "number" | "boolean" | "select" | "json" | "secret" | "textarea";
   required?: boolean;
   placeholder?: string;
@@ -60,124 +62,130 @@ const jsonSummary = (value: unknown) => {
   return JSON.stringify(value);
 };
 
-const enabledBadge = (item: CatalogItem) => {
-  if (typeof item.enabled !== "boolean") return null;
-  return <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? "enabled" : "disabled"}</Badge>;
+const EnabledBadge = ({ enabled }: { enabled?: boolean }) => {
+  const { t } = useI18n();
+  if (typeof enabled !== "boolean") return null;
+  return <Badge variant={enabled ? "primary" : "warning"}>{t(enabled ? "common.enabled" : "common.disabled")}</Badge>;
 };
 
 const configs: Record<CatalogKey, CatalogConfig> = {
   brands: {
     key: "brands",
     path: "/admin/brands",
-    title: "品牌管理",
-    description: "管理展示给用户的模型品牌，包括名称、slug、图标和启用状态。",
-    singular: "品牌",
+    titleKey: "catalog.brands.title",
+    descriptionKey: "catalog.brands.desc",
+    singularKey: "catalog.brands.singular",
     primary: (item) => item.name || item.slug,
     secondary: (item) => item.slug,
     meta: (item) => [
-      ["ID", item.id],
-      ["Icon", item.icon_url || item.icon_slug || "-"],
-      ["Created", item.created_at || "-"],
+      ["catalog.meta.id", item.id],
+      ["catalog.meta.icon", item.icon_url || item.icon_slug || "-"],
+      ["catalog.meta.created", item.created_at || "-"],
     ],
   },
   providers: {
     key: "providers",
     path: "/admin/providers",
-    title: "Provider 管理",
-    description: "管理上游供应商主体，例如 OpenAI、OpenRouter、Azure OpenAI。",
-    singular: "Provider",
+    titleKey: "catalog.providers.title",
+    descriptionKey: "catalog.providers.desc",
+    singularKey: "catalog.providers.singular",
     primary: (item) => item.name || item.slug,
     secondary: (item) => item.slug,
     meta: (item, state) => [
-      ["ID", item.id],
-      ["Endpoints", String(state["provider-endpoints"].filter((endpoint) => endpoint.provider_id === item.id).length)],
-      ["Upstream Models", String(state["upstream-models"].filter((model) => model.provider_id === item.id).length)],
+      ["catalog.meta.id", item.id],
+      ["catalog.meta.endpoints", String(state["provider-endpoints"].filter((endpoint) => endpoint.provider_id === item.id).length)],
+      ["catalog.meta.upstreamModels", String(state["upstream-models"].filter((model) => model.provider_id === item.id).length)],
     ],
   },
   "provider-endpoints": {
     key: "provider-endpoints",
     path: "/admin/provider-endpoints",
-    title: "Endpoint 管理",
-    description: "管理 Provider 的可用上游入口，包括 base URL、健康状态和冷却时间。",
-    singular: "Endpoint",
+    titleKey: "catalog.providerEndpoints.title",
+    descriptionKey: "catalog.providerEndpoints.desc",
+    singularKey: "catalog.providerEndpoints.singular",
     primary: (item) => item.display_name || item.slug,
     secondary: (item, state) => `${byId(state.providers, item.provider_id)?.name || item.provider_id} / ${item.slug}`,
     meta: (item, state) => [
-      ["Provider", byId(state.providers, item.provider_id)?.name || item.provider_id],
-      ["Base URL", item.base_url || "-"],
-      ["Health", item.health_state || "-"],
-      ["Credentials", String(state["provider-credentials"].filter((credential) => credential.provider_endpoint_id === item.id).length)],
+      ["catalog.meta.provider", byId(state.providers, item.provider_id)?.name || item.provider_id],
+      ["catalog.meta.baseUrl", item.base_url || "-"],
+      ["catalog.meta.health", item.health_state || "-"],
+      ["catalog.meta.credentials", String(state["provider-credentials"].filter((credential) => credential.provider_endpoint_id === item.id).length)],
     ],
   },
   "provider-credentials": {
     key: "provider-credentials",
     path: "/admin/provider-credentials",
-    title: "Credential 管理",
-    description: "管理上游调用凭据。密钥只显示保存状态和 last4，不在前端回显明文。",
-    singular: "Credential",
+    titleKey: "catalog.providerCredentials.title",
+    descriptionKey: "catalog.providerCredentials.desc",
+    singularKey: "catalog.providerCredentials.singular",
     primary: (item) => item.display_name || item.id,
-    secondary: (item, state) => {
+    secondary: (item, state, t) => {
       const endpoint = byId(state["provider-endpoints"], item.provider_endpoint_id);
       const provider = byId(state.providers, endpoint?.provider_id);
-      return `${provider?.name || "provider"} / ${endpoint?.display_name || item.provider_endpoint_id}`;
+      return `${provider?.name || t("catalog.meta.provider")} / ${endpoint?.display_name || item.provider_endpoint_id}`;
     },
-    meta: (item, state) => {
+    meta: (item, state, t) => {
       const endpoint = byId(state["provider-endpoints"], item.provider_endpoint_id);
+      const secretValue = item.has_secret
+        ? item.secret_last4
+          ? t("catalog.savedLast4", { last4: item.secret_last4 })
+          : t("catalog.saved")
+        : t("catalog.missing");
       return [
-        ["Endpoint", endpoint?.display_name || item.provider_endpoint_id],
-        ["Secret", item.has_secret ? `saved${item.secret_last4 ? ` / ****${item.secret_last4}` : ""}` : "missing"],
-        ["Health", item.health_state || "-"],
-        ["Cooldown", item.cooldown_until || "-"],
+        ["catalog.meta.endpoint", endpoint?.display_name || item.provider_endpoint_id],
+        ["catalog.meta.secret", secretValue],
+        ["catalog.meta.health", item.health_state || "-"],
+        ["catalog.meta.cooldown", item.cooldown_until || "-"],
       ];
     },
   },
   "public-models": {
     key: "public-models",
     path: "/admin/public-models",
-    title: "Public Model 管理",
-    description: "管理用户看到、购买和调用的模型产品目录。",
-    singular: "Public Model",
+    titleKey: "catalog.publicModels.title",
+    descriptionKey: "catalog.publicModels.desc",
+    singularKey: "catalog.publicModels.singular",
     primary: (item) => item.display_name || item.slug,
-    secondary: (item, state) => `${item.slug} / ${byId(state.brands, item.brand_id)?.name || "no brand"}`,
+    secondary: (item, state, t) => `${item.slug} / ${byId(state.brands, item.brand_id)?.name || t("catalog.noBrand")}`,
     meta: (item, state) => [
-      ["Brand", byId(state.brands, item.brand_id)?.name || item.brand_id || "-"],
-      ["Category", item.category || "-"],
-      ["Multiplier", `x${item.multiplier ?? 1}`],
-      ["Routes", String(state["model-routes"].filter((route) => route.public_model_id === item.id).length)],
+      ["catalog.meta.brand", byId(state.brands, item.brand_id)?.name || item.brand_id || "-"],
+      ["catalog.meta.category", item.category || "-"],
+      ["catalog.meta.multiplier", `x${item.multiplier ?? 1}`],
+      ["catalog.meta.routes", String(state["model-routes"].filter((route) => route.public_model_id === item.id).length)],
     ],
   },
   "upstream-models": {
     key: "upstream-models",
     path: "/admin/upstream-models",
-    title: "Upstream Model 管理",
-    description: "管理真实传给上游的模型名和能力信息。",
-    singular: "Upstream Model",
+    titleKey: "catalog.upstreamModels.title",
+    descriptionKey: "catalog.upstreamModels.desc",
+    singularKey: "catalog.upstreamModels.singular",
     primary: (item) => item.display_name || item.upstream_name,
     secondary: (item, state) => `${byId(state.providers, item.provider_id)?.name || item.provider_id} / ${item.upstream_name}`,
     meta: (item, state) => [
-      ["Provider", byId(state.providers, item.provider_id)?.name || item.provider_id],
-      ["Context", item.context_window ? String(item.context_window) : "-"],
-      ["Capabilities", jsonSummary(item.capabilities)],
-      ["Routes", String(state["model-routes"].filter((route) => route.upstream_model_id === item.id).length)],
+      ["catalog.meta.provider", byId(state.providers, item.provider_id)?.name || item.provider_id],
+      ["catalog.meta.context", item.context_window ? String(item.context_window) : "-"],
+      ["catalog.meta.capabilities", jsonSummary(item.capabilities)],
+      ["catalog.meta.routes", String(state["model-routes"].filter((route) => route.upstream_model_id === item.id).length)],
     ],
   },
   "model-routes": {
     key: "model-routes",
     path: "/admin/model-routes",
-    title: "Model Route 管理",
-    description: "管理 Public Model 到真实上游模型和 credential 的路由关系。",
-    singular: "Model Route",
+    titleKey: "catalog.modelRoutes.title",
+    descriptionKey: "catalog.modelRoutes.desc",
+    singularKey: "catalog.modelRoutes.singular",
     primary: (item, state) => byId(state["public-models"], item.public_model_id)?.slug || item.public_model_id,
-    secondary: (item, state) => {
+    secondary: (item, state, t) => {
       const upstream = byId(state["upstream-models"], item.upstream_model_id);
       const provider = byId(state.providers, upstream?.provider_id);
-      return `${provider?.slug || "provider"} / ${upstream?.upstream_name || item.upstream_model_id}`;
+      return `${provider?.slug || t("catalog.meta.provider")} / ${upstream?.upstream_name || item.upstream_model_id}`;
     },
     meta: (item, state) => [
-      ["Public Model", byId(state["public-models"], item.public_model_id)?.slug || item.public_model_id],
-      ["Upstream", byId(state["upstream-models"], item.upstream_model_id)?.upstream_name || item.upstream_model_id],
-      ["Credential", byId(state["provider-credentials"], item.provider_credential_id)?.display_name || item.provider_credential_id || "-"],
-      ["Priority / Weight", `${item.priority ?? "-"} / ${item.weight ?? "-"}`],
+      ["catalog.meta.publicModel", byId(state["public-models"], item.public_model_id)?.slug || item.public_model_id],
+      ["catalog.meta.upstream", byId(state["upstream-models"], item.upstream_model_id)?.upstream_name || item.upstream_model_id],
+      ["catalog.meta.credential", byId(state["provider-credentials"], item.provider_credential_id)?.display_name || item.provider_credential_id || "-"],
+      ["catalog.meta.priorityWeight", `${item.priority ?? "-"} / ${item.weight ?? "-"}`],
     ],
   },
 };
@@ -233,49 +241,49 @@ const upsertTemplates: Record<CatalogKey, Record<string, unknown>> = {
 
 const createFields: Record<CatalogKey, CreateField[]> = {
   brands: [
-    { name: "name", label: "名称", type: "text", required: true, placeholder: "OpenAI" },
-    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "openai" },
-    { name: "icon_slug", label: "图标 Slug", type: "text", placeholder: "openai" },
-    { name: "icon_url", label: "图标 URL", type: "text", placeholder: "https://..." },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "name", labelKey: "catalog.field.name", type: "text", required: true, placeholder: "OpenAI" },
+    { name: "slug", labelKey: "catalog.field.slug", type: "text", required: true, placeholder: "openai" },
+    { name: "icon_slug", labelKey: "catalog.field.iconSlug", type: "text", placeholder: "openai" },
+    { name: "icon_url", labelKey: "catalog.field.iconUrl", type: "text", placeholder: "https://..." },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   providers: [
-    { name: "name", label: "名称", type: "text", required: true, placeholder: "OpenAI" },
-    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "openai" },
-    { name: "icon_slug", label: "图标 Slug", type: "text", placeholder: "openai" },
-    { name: "icon_url", label: "图标 URL", type: "text", placeholder: "https://..." },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "name", labelKey: "catalog.field.name", type: "text", required: true, placeholder: "OpenAI" },
+    { name: "slug", labelKey: "catalog.field.slug", type: "text", required: true, placeholder: "openai" },
+    { name: "icon_slug", labelKey: "catalog.field.iconSlug", type: "text", placeholder: "openai" },
+    { name: "icon_url", labelKey: "catalog.field.iconUrl", type: "text", placeholder: "https://..." },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   "provider-endpoints": [
     {
       name: "provider_id",
-      label: "Provider",
+      labelKey: "catalog.field.provider",
       type: "select",
       required: true,
       optionsFrom: "providers",
       optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
     },
-    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "default" },
-    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "OpenAI Default" },
-    { name: "base_url", label: "Base URL", type: "text", required: true, placeholder: "https://api.openai.com/v1" },
+    { name: "slug", labelKey: "catalog.field.slug", type: "text", required: true, placeholder: "default" },
+    { name: "display_name", labelKey: "catalog.field.displayName", type: "text", required: true, placeholder: "OpenAI Default" },
+    { name: "base_url", labelKey: "catalog.field.baseUrl", type: "text", required: true, placeholder: "https://api.openai.com/v1" },
     {
       name: "health_state",
-      label: "健康状态",
+      labelKey: "catalog.field.healthState",
       type: "select",
       defaultValue: "healthy",
       options: [
-        { value: "healthy", label: "healthy" },
-        { value: "disabled", label: "disabled" },
-        { value: "cooldown", label: "cooldown" },
+        { value: "healthy", label: "catalog.field.healthHealthy" },
+        { value: "disabled", label: "catalog.field.healthDisabled" },
+        { value: "cooldown", label: "catalog.field.healthCooldown" },
       ],
     },
-    { name: "cooldown_until", label: "冷却截止", type: "text", placeholder: "2026-07-04T12:00:00Z" },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "cooldown_until", labelKey: "catalog.field.cooldownUntil", type: "text", placeholder: "2026-07-04T12:00:00Z" },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   "provider-credentials": [
     {
       name: "provider_endpoint_id",
-      label: "Endpoint",
+      labelKey: "catalog.field.endpoint",
       type: "select",
       required: true,
       optionsFrom: "provider-endpoints",
@@ -284,64 +292,64 @@ const createFields: Record<CatalogKey, CreateField[]> = {
         return `${provider?.slug || item.provider_id} / ${item.display_name || item.slug}`;
       },
     },
-    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "OpenAI production key" },
-    { name: "api_key", label: "API Key", type: "secret", required: true, placeholder: "sk-..." },
+    { name: "display_name", labelKey: "catalog.field.displayName", type: "text", required: true, placeholder: "OpenAI production key" },
+    { name: "api_key", labelKey: "catalog.field.apiKey", type: "secret", required: true, placeholder: "sk-..." },
     {
       name: "health_state",
-      label: "健康状态",
+      labelKey: "catalog.field.healthState",
       type: "select",
       defaultValue: "healthy",
       options: [
-        { value: "healthy", label: "healthy" },
-        { value: "disabled", label: "disabled" },
-        { value: "cooldown", label: "cooldown" },
+        { value: "healthy", label: "catalog.field.healthHealthy" },
+        { value: "disabled", label: "catalog.field.healthDisabled" },
+        { value: "cooldown", label: "catalog.field.healthCooldown" },
       ],
     },
-    { name: "cooldown_until", label: "冷却截止", type: "text", placeholder: "2026-07-04T12:00:00Z" },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "cooldown_until", labelKey: "catalog.field.cooldownUntil", type: "text", placeholder: "2026-07-04T12:00:00Z" },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   "public-models": [
-    { name: "slug", label: "Slug", type: "text", required: true, placeholder: "gpt-4o-mini" },
-    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "GPT-4o mini" },
-    { name: "description", label: "描述", type: "textarea", placeholder: "面向用户展示的模型说明" },
+    { name: "slug", labelKey: "catalog.field.slug", type: "text", required: true, placeholder: "gpt-4o-mini" },
+    { name: "display_name", labelKey: "catalog.field.displayName", type: "text", required: true, placeholder: "GPT-4o mini" },
+    { name: "description", labelKey: "catalog.field.description", type: "textarea", placeholder: "面向用户展示的模型说明" },
     {
       name: "brand_id",
-      label: "品牌",
+      labelKey: "catalog.field.brand",
       type: "select",
       optionsFrom: "brands",
       optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
     },
     {
       name: "category",
-      label: "类别",
+      labelKey: "catalog.field.category",
       type: "select",
       defaultValue: "llm",
       options: ["llm", "image", "embedding", "audio", "moderation", "realtime", "search", "agent", "robotics"].map((value) => ({ value, label: value })),
     },
-    { name: "pricing", label: "计价 JSON", type: "json", required: true, defaultValue: { mode: "request", unit: "request", price: 0 } },
-    { name: "multiplier", label: "倍率", type: "number", defaultValue: 1 },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "pricing", labelKey: "catalog.field.pricingJson", type: "json", required: true, defaultValue: { mode: "request", unit: "request", price: 0 } },
+    { name: "multiplier", labelKey: "catalog.field.multiplier", type: "number", defaultValue: 1 },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   "upstream-models": [
     {
       name: "provider_id",
-      label: "Provider",
+      labelKey: "catalog.field.provider",
       type: "select",
       required: true,
       optionsFrom: "providers",
       optionLabel: (item) => `${item.name || item.slug} (${item.slug})`,
     },
-    { name: "upstream_name", label: "上游模型名", type: "text", required: true, placeholder: "gpt-4o-mini" },
-    { name: "display_name", label: "显示名称", type: "text", required: true, placeholder: "GPT-4o mini" },
-    { name: "context_window", label: "上下文窗口", type: "number", placeholder: "128000" },
-    { name: "capabilities", label: "能力 JSON", type: "json", required: true, defaultValue: { chat: true } },
-    { name: "default_pricing", label: "默认计价 JSON", type: "json", required: true, defaultValue: { mode: "token", unit: "1M tokens" } },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "upstream_name", labelKey: "catalog.field.upstreamName", type: "text", required: true, placeholder: "gpt-4o-mini" },
+    { name: "display_name", labelKey: "catalog.field.displayName", type: "text", required: true, placeholder: "GPT-4o mini" },
+    { name: "context_window", labelKey: "catalog.field.contextWindow", type: "number", placeholder: "128000" },
+    { name: "capabilities", labelKey: "catalog.field.capabilitiesJson", type: "json", required: true, defaultValue: { chat: true } },
+    { name: "default_pricing", labelKey: "catalog.field.defaultPricingJson", type: "json", required: true, defaultValue: { mode: "token", unit: "1M tokens" } },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
   "model-routes": [
     {
       name: "public_model_id",
-      label: "Public Model",
+      labelKey: "catalog.field.publicModel",
       type: "select",
       required: true,
       optionsFrom: "public-models",
@@ -349,7 +357,7 @@ const createFields: Record<CatalogKey, CreateField[]> = {
     },
     {
       name: "upstream_model_id",
-      label: "Upstream Model",
+      labelKey: "catalog.field.upstreamModel",
       type: "select",
       required: true,
       optionsFrom: "upstream-models",
@@ -357,7 +365,7 @@ const createFields: Record<CatalogKey, CreateField[]> = {
     },
     {
       name: "provider_credential_id",
-      label: "Credential",
+      labelKey: "catalog.field.credential",
       type: "select",
       optionsFrom: "provider-credentials",
       optionLabel: (item, state) => {
@@ -366,12 +374,12 @@ const createFields: Record<CatalogKey, CreateField[]> = {
         return `${provider?.slug || "provider"} / ${item.display_name || item.id}`;
       },
     },
-    { name: "base_url_override", label: "Base URL Override", type: "text", placeholder: "可选" },
-    { name: "priority", label: "优先级", type: "number", defaultValue: 1 },
-    { name: "weight", label: "权重", type: "number", defaultValue: 1 },
+    { name: "base_url_override", labelKey: "catalog.field.baseUrlOverride", type: "text", placeholder: "可选" },
+    { name: "priority", labelKey: "catalog.field.priority", type: "number", defaultValue: 1 },
+    { name: "weight", labelKey: "catalog.field.weight", type: "number", defaultValue: 1 },
     {
       name: "quota_unit",
-      label: "配额单位",
+      labelKey: "catalog.field.quotaUnit",
       type: "select",
       defaultValue: "tokens",
       options: [
@@ -379,8 +387,8 @@ const createFields: Record<CatalogKey, CreateField[]> = {
         { value: "requests", label: "requests" },
       ],
     },
-    { name: "quota_rules", label: "配额规则 JSON", type: "json", required: true, defaultValue: { day: 2000 } },
-    { name: "enabled", label: "启用", type: "boolean", defaultValue: true },
+    { name: "quota_rules", labelKey: "catalog.field.quotaRulesJson", type: "json", required: true, defaultValue: { day: 2000 } },
+    { name: "enabled", labelKey: "catalog.field.enabled", type: "boolean", defaultValue: true },
   ],
 };
 
@@ -392,19 +400,23 @@ async function loadCatalogState(): Promise<CatalogState> {
   }, { ...emptyState });
 }
 
-const MetaGrid = ({ rows }: { rows: Array<[string, string]> }) => (
-  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-    {rows.map(([label, value]) => (
-      <div key={label} className="min-w-0 border border-slate-200 bg-slate-50 px-3 py-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
-        <div className="mt-1 break-words text-sm text-slate-800">{value || "-"}</div>
-      </div>
-    ))}
-  </div>
-);
+const MetaGrid = ({ rows }: { rows: Array<[string, string]> }) => {
+  const { t } = useI18n();
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {rows.map(([label, value]) => (
+        <div key={label} className="min-w-0 border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t(label)}</div>
+          <div className="mt-1 break-words text-sm text-slate-800">{value || "-"}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const CatalogCard = ({ config, item, state }: { config: CatalogConfig; item: CatalogItem; state: CatalogState }) => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -414,14 +426,14 @@ const CatalogCard = ({ config, item, state }: { config: CatalogConfig; item: Cat
       <div className="flex min-h-10 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-slate-900">{config.primary(item, state)}</div>
-          <div className="mt-1 truncate text-xs text-slate-500">{config.secondary(item, state)}</div>
+          <div className="mt-1 truncate text-xs text-slate-500">{config.secondary(item, state, t)}</div>
         </div>
-        {enabledBadge(item)}
+        <EnabledBadge enabled={item.enabled} />
       </div>
       <div className="mt-4 space-y-2">
-        {config.meta(item, state).slice(0, 3).map(([label, value]) => (
+        {config.meta(item, state, t).slice(0, 3).map(([label, value]) => (
           <div key={label} className="flex gap-3 text-xs">
-            <span className="w-24 shrink-0 text-slate-400">{label}</span>
+            <span className="w-24 shrink-0 text-slate-400">{t(label)}</span>
             <span className="min-w-0 truncate text-slate-700">{value || "-"}</span>
           </div>
         ))}
@@ -431,32 +443,33 @@ const CatalogCard = ({ config, item, state }: { config: CatalogConfig; item: Cat
 };
 
 const RelatedLinks = ({ item, state, catalogKey }: { item: CatalogItem; state: CatalogState; catalogKey: CatalogKey }) => {
+  const { t } = useI18n();
   const links: Array<{ label: string; path: string; name: string }> = [];
-  const push = (label: string, configKey: CatalogKey, related: CatalogItem | undefined, name?: string) => {
+  const push = (labelKey: string, configKey: CatalogKey, related: CatalogItem | undefined, name?: string) => {
     if (!related) return;
-    links.push({ label, path: `${configs[configKey].path}/${related.id}`, name: name || configs[configKey].primary(related, state) });
+    links.push({ label: t(labelKey), path: `${configs[configKey].path}/${related.id}`, name: name || configs[configKey].primary(related, state) });
   };
 
-  if (catalogKey === "provider-endpoints") push("Provider", "providers", byId(state.providers, item.provider_id));
+  if (catalogKey === "provider-endpoints") push("catalog.meta.provider", "providers", byId(state.providers, item.provider_id));
   if (catalogKey === "provider-credentials") {
     const endpoint = byId(state["provider-endpoints"], item.provider_endpoint_id);
-    push("Endpoint", "provider-endpoints", endpoint);
-    push("Provider", "providers", byId(state.providers, endpoint?.provider_id));
+    push("catalog.meta.endpoint", "provider-endpoints", endpoint);
+    push("catalog.meta.provider", "providers", byId(state.providers, endpoint?.provider_id));
   }
-  if (catalogKey === "public-models") push("Brand", "brands", byId(state.brands, item.brand_id));
-  if (catalogKey === "upstream-models") push("Provider", "providers", byId(state.providers, item.provider_id));
+  if (catalogKey === "public-models") push("catalog.meta.brand", "brands", byId(state.brands, item.brand_id));
+  if (catalogKey === "upstream-models") push("catalog.meta.provider", "providers", byId(state.providers, item.provider_id));
   if (catalogKey === "model-routes") {
-    push("Public Model", "public-models", byId(state["public-models"], item.public_model_id));
+    push("catalog.meta.publicModel", "public-models", byId(state["public-models"], item.public_model_id));
     const upstream = byId(state["upstream-models"], item.upstream_model_id);
-    push("Upstream Model", "upstream-models", upstream);
-    push("Provider", "providers", byId(state.providers, upstream?.provider_id));
-    push("Credential", "provider-credentials", byId(state["provider-credentials"], item.provider_credential_id));
+    push("catalog.meta.upstream", "upstream-models", upstream);
+    push("catalog.meta.provider", "providers", byId(state.providers, upstream?.provider_id));
+    push("catalog.meta.credential", "provider-credentials", byId(state["provider-credentials"], item.provider_credential_id));
   }
 
   if (!links.length) return null;
   return (
     <Card className="p-6">
-      <Typography variant="h6">关联对象</Typography>
+      <Typography variant="h6">{t("catalog.related")}</Typography>
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         {links.map((link) => (
           <Link key={`${link.label}-${link.path}`} to={link.path} className="border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
@@ -470,11 +483,12 @@ const RelatedLinks = ({ item, state, catalogKey }: { item: CatalogItem; state: C
 };
 
 const DetailBody = ({ config, item, state }: { config: CatalogConfig; item: CatalogItem; state: CatalogState }) => {
+  const { t } = useI18n();
   const pricing =
     config.key === "public-models"
-      ? formatPricingSummary(item.pricing)
+      ? formatPricingSummary(item.pricing, t)
       : config.key === "upstream-models"
-        ? formatPricingSummary(item.default_pricing)
+        ? formatPricingSummary(item.default_pricing, t)
         : [];
   return (
     <div className="space-y-6">
@@ -483,19 +497,19 @@ const DetailBody = ({ config, item, state }: { config: CatalogConfig; item: Cata
           <div className="min-w-0">
             <Typography variant="h5" className="break-words">{config.primary(item, state)}</Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1 break-words">
-              {config.secondary(item, state)}
+              {config.secondary(item, state, t)}
             </Typography>
           </div>
-          {enabledBadge(item)}
+          <EnabledBadge enabled={item.enabled} />
         </div>
         <div className="mt-6">
-          <MetaGrid rows={config.meta(item, state)} />
+          <MetaGrid rows={config.meta(item, state, t)} />
         </div>
       </Card>
 
       {pricing.length > 0 && (
         <Card className="p-6">
-          <Typography variant="h6">计价信息</Typography>
+          <Typography variant="h6">{t("catalog.pricingInfo")}</Typography>
           <div className="mt-4 space-y-2 text-sm text-slate-700">
             {pricing.map((line) => <div key={line}>{line}</div>)}
           </div>
@@ -505,7 +519,7 @@ const DetailBody = ({ config, item, state }: { config: CatalogConfig; item: Cata
       <RelatedLinks item={item} state={state} catalogKey={config.key} />
 
       <Card className="p-6">
-        <Typography variant="h6">原始数据</Typography>
+        <Typography variant="h6">{t("catalog.rawData")}</Typography>
         <pre className="mt-4 max-h-[460px] overflow-auto border border-slate-200 bg-slate-950 p-4 text-xs leading-6 text-slate-100">
           {JSON.stringify(item, null, 2)}
         </pre>
@@ -517,6 +531,7 @@ const DetailBody = ({ config, item, state }: { config: CatalogConfig; item: Cata
 export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
   const config = configs[catalogKey];
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [state, setState] = useState<CatalogState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -549,31 +564,31 @@ export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title={config.title} description={config.description} />
+      <AdminPageIntro title={t(config.titleKey)} description={t(config.descriptionKey)} />
       <Card className="p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <Typography variant="h6">{config.singular} 列表</Typography>
+            <Typography variant="h6">{t("catalog.listTitle", { singular: t(config.singularKey) })}</Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              {loading ? "正在加载..." : `${items.length} / ${state[catalogKey].length}`}
+              {loading ? t("catalog.loading") : t("catalog.listCount", { loaded: items.length, total: state[catalogKey].length })}
             </Typography>
           </div>
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <input
               className="w-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300 md:w-80"
-              placeholder={`搜索 ${config.singular}`}
+              placeholder={t("catalog.search", { singular: t(config.singularKey) })}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             <Button buttonStyle="filled" variant="primary" onClick={() => navigate(`${config.path}/new`)}>
-              新建 {config.singular}
+              {t("catalog.new", { singular: t(config.singularKey) })}
             </Button>
           </div>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
           {items.map((item) => <CatalogCard key={item.id} config={config} item={item} state={state} />)}
           {!loading && items.length === 0 && (
-            <div className="border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">暂无数据</div>
+            <div className="border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">{t("catalog.noData")}</div>
           )}
         </div>
       </Card>
@@ -600,12 +615,15 @@ const initialFormValues = (catalogKey: CatalogKey): Record<string, unknown> => {
 const fieldClass =
   "w-full border border-slate-300 bg-white px-3 py-3 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300";
 
-const fieldLabel = (field: CreateField) => (
-  <span className="mb-2 block text-sm font-medium text-slate-700">
-    {field.label}
-    {field.required ? <span className="text-slate-500"> *</span> : null}
-  </span>
-);
+const FieldLabel = ({ field }: { field: CreateField }) => {
+  const { t } = useI18n();
+  return (
+    <span className="mb-2 block text-sm font-medium text-slate-700">
+      {t(field.labelKey)}
+      {field.required ? <span className="text-slate-500"> *</span> : null}
+    </span>
+  );
+};
 
 const FormField = ({
   field,
@@ -618,9 +636,10 @@ const FormField = ({
   state: CatalogState;
   onChange: (value: unknown) => void;
 }) => {
+  const { t } = useI18n();
   const common = (
     <>
-      {fieldLabel(field)}
+      <FieldLabel field={field} />
       {field.helper ? <div className="mb-2 text-xs text-slate-500">{field.helper}</div> : null}
     </>
   );
@@ -634,7 +653,7 @@ const FormField = ({
           onChange={(event) => onChange(event.target.checked)}
           className="h-4 w-4 accent-slate-800"
         />
-        <span className="text-sm font-medium text-slate-700">{field.label}</span>
+        <span className="text-sm font-medium text-slate-700">{t(field.labelKey)}</span>
       </label>
     );
   }
@@ -652,10 +671,10 @@ const FormField = ({
       <label className="block">
         {common}
         <select className={fieldClass} value={String(value ?? "")} onChange={(event) => onChange(event.target.value)}>
-          <option value="">未选择</option>
+          <option value="">{t("catalog.field.unselected")}</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.label)}
             </option>
           ))}
         </select>
@@ -692,7 +711,7 @@ const FormField = ({
   );
 };
 
-const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): Record<string, unknown> => {
+const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>, t: TranslateFn): Record<string, unknown> => {
   const payload: Record<string, unknown> = {};
   for (const field of createFields[catalogKey]) {
     const value = values[field.name];
@@ -708,7 +727,7 @@ const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): 
       }
       const parsed = Number(raw);
       if (!Number.isFinite(parsed)) {
-        throw new Error(`${field.label} 必须是数字`);
+        throw new Error(t("catalog.errNumber", { label: t(field.labelKey) }));
       }
       payload[field.name] = parsed;
       continue;
@@ -716,13 +735,13 @@ const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): 
     if (field.type === "json") {
       const raw = String(value ?? "").trim();
       if (!raw) {
-        if (field.required) throw new Error(`${field.label} 不能为空`);
+        if (field.required) throw new Error(t("catalog.errEmpty", { label: t(field.labelKey) }));
         continue;
       }
       try {
         payload[field.name] = JSON.parse(raw);
       } catch {
-        throw new Error(`${field.label} 不是有效 JSON`);
+        throw new Error(t("catalog.errJson", { label: t(field.labelKey) }));
       }
       continue;
     }
@@ -730,7 +749,7 @@ const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): 
     if (text) {
       payload[field.name] = text;
     } else if (field.required) {
-      throw new Error(`${field.label} 不能为空`);
+      throw new Error(t("catalog.errEmpty", { label: t(field.labelKey) }));
     }
   }
   return payload;
@@ -739,6 +758,7 @@ const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>): 
 export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
   const config = configs[catalogKey];
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [state, setState] = useState<CatalogState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -763,12 +783,12 @@ export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
     setSaving(true);
     setError("");
     try {
-      const payload = buildPayload(catalogKey, values);
+      const payload = buildPayload(catalogKey, values, t);
       const response = await adminApi.post(`/admin/${catalogKey}`, payload);
       const id = response.data?.id;
       navigate(id ? `${config.path}/${id}` : config.path);
     } catch (error: any) {
-      setError(error?.response?.data?.error?.message || error?.response?.data?.message || error?.message || "保存失败");
+      setError(error?.response?.data?.error?.message || error?.response?.data?.message || error?.message || t("catalog.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -779,12 +799,12 @@ export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <Button buttonStyle="text" variant="secondary" onClick={() => navigate(config.path)}>
-            返回列表
+            {t("catalog.backToList")}
           </Button>
-          <Typography variant="h5" className="mt-3">新建 {config.singular}</Typography>
-          <Typography variant="body2" color="textSecondary" className="mt-1">{config.description}</Typography>
+          <Typography variant="h5" className="mt-3">{t("catalog.newTitle", { singular: t(config.singularKey) })}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-1">{t(config.descriptionKey)}</Typography>
         </div>
-        <Badge variant="secondary">{loading ? "加载依赖中" : config.singular}</Badge>
+        <Badge variant="secondary">{loading ? t("catalog.loadingDeps") : t(config.singularKey)}</Badge>
       </div>
 
       <Card className="p-6">
@@ -803,10 +823,10 @@ export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button buttonStyle="text" variant="secondary" onClick={() => setValues(initialFormValues(catalogKey))} disabled={saving}>
-            重置
+            {t("catalog.reset")}
           </Button>
           <Button buttonStyle="filled" variant="primary" onClick={save} disabled={saving || loading}>
-            {saving ? "创建中..." : `创建 ${config.singular}`}
+            {saving ? t("catalog.creating") : t("catalog.create", { singular: t(config.singularKey) })}
           </Button>
         </div>
       </Card>
@@ -818,6 +838,7 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
   const config = configs[catalogKey];
   const navigate = useNavigate();
   const params = useParams();
+  const { t } = useI18n();
   const [state, setState] = useState<CatalogState>(emptyState);
   const [loading, setLoading] = useState(true);
 
@@ -841,19 +862,19 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Button buttonStyle="text" variant="secondary" onClick={() => navigate(config.path)}>
-          返回列表
+          {t("catalog.backToList")}
         </Button>
-        <Badge variant="secondary">{config.singular}</Badge>
+        <Badge variant="secondary">{t(config.singularKey)}</Badge>
       </div>
       {loading && (
         <Card className="p-6">
-          <Typography variant="body2" color="textSecondary">正在加载详情...</Typography>
+          <Typography variant="body2" color="textSecondary">{t("catalog.loadingDetail")}</Typography>
         </Card>
       )}
       {!loading && !item && (
         <Card className="p-6">
-          <Typography variant="h6">未找到对象</Typography>
-          <Typography variant="body2" color="textSecondary" className="mt-1">当前对象可能已被删除或 ID 不正确。</Typography>
+          <Typography variant="h6">{t("catalog.notFound")}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-1">{t("catalog.notFoundDesc")}</Typography>
         </Card>
       )}
       {!loading && item && <DetailBody config={config} item={item} state={state} />}

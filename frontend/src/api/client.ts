@@ -1,9 +1,10 @@
 import axios from "axios";
 import { emitErrorToast } from "../ui/toastBus.ts";
+import { translate } from "../i18n/translate.ts";
 import { beginLoading, endLoading, resetLoading } from "../ui/loadingBus.ts";
 
 const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "http://localhost:8103/v1";
+export const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? "/v1";
 const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
@@ -35,7 +36,7 @@ api.interceptors.response.use(
     if (status === 0) {
       resetLoading();
     }
-    const msg = error?.response?.data?.error?.message ?? "请求失败";
+    const msg = error?.response?.data?.error?.message ?? translate("api.requestFailed");
     emitErrorToast(msg);
     return Promise.reject(error);
   }

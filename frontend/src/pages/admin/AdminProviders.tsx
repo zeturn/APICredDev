@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 type ProviderPreset = {
   provider: string;
@@ -22,6 +23,7 @@ type Provider = {
 
 const AdminProvidersPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [providerKeys, setProviderKeys] = useState<any[]>([]);
   const [providerPresets, setProviderPresets] = useState<ProviderPreset[]>([]);
@@ -81,22 +83,22 @@ const AdminProvidersPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="服务商 Key 管理" description="先创建 Key，再进入详情页配置这把 Key 可服务的模型和特殊 URL。" />
+      <AdminPageIntro title={t("providers.title")} description={t("providers.desc")} />
 
       <Card className="p-6">
-        <Typography variant="h6">新增服务商 Key</Typography>
+        <Typography variant="h6">{t("providers.add")}</Typography>
         <Typography variant="body2" color="textSecondary" className="mt-1">
-          第一步只创建 Key。保存后会进入详情页，继续配置适用模型、权重和特殊路由。
+          {t("providers.addDesc")}
         </Typography>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">
           <Grid item xs={12} md={6}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">服务商预设</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("providers.preset")}</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={selectedPreset}
               onChange={(e) => applyPreset(e.target.value)}
             >
-              <option value="">手动填写</option>
+              <option value="">{t("providers.manual")}</option>
               {providerPresets.map((item) => (
                 <option key={item.provider} value={item.provider}>
                   {item.label} ({item.provider})
@@ -108,50 +110,50 @@ const AdminProvidersPage = () => {
             {activePreset ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                 <div className="font-medium text-slate-900">{activePreset.label}</div>
-              <div className="mt-1">协议：{activePreset.protocol}</div>
-              <div className="mt-1 break-all">推荐地址：{activePreset.base_url}</div>
+              <div className="mt-1">{t("providers.protocol", { p: activePreset.protocol })}</div>
+              <div className="mt-1 break-all">{t("providers.recommendedUrl", { u: activePreset.base_url })}</div>
               <div className="mt-1">{activePreset.notes}</div>
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
-                未选择预设时，可以自行选择服务商；默认 URL 留空时会回退到服务商默认地址。
+                {t("providers.presetHint")}
               </div>
             )}
           </Grid>
           <Grid item xs={12} md={4}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">服务商</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("providers.provider")}</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={selectedProviderId}
               onChange={(e) => setSelectedProviderId(e.target.value)}
             >
-              <option value="">选择服务商</option>
+              <option value="">{t("providers.selectProvider")}</option>
               {providers.filter((item) => item.enabled).map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="默认 Base URL" placeholder="留空则使用服务商默认地址" value={keyName} onChange={(e: any) => setKeyName(e.target.value)} fullWidth />
+            <TextField label={t("providers.defaultBaseUrl")} placeholder={t("providers.defaultBaseUrlPlaceholder")} value={keyName} onChange={(e: any) => setKeyName(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="API Key" placeholder="sk-..." value={apiKey} onChange={(e: any) => setApiKey(e.target.value)} fullWidth />
+            <TextField label={t("providers.apiKey")} placeholder="sk-..." value={apiKey} onChange={(e: any) => setApiKey(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="健康状态" value={healthState} onChange={(e: any) => setHealthState(e.target.value)} fullWidth />
+            <TextField label={t("providers.healthState")} value={healthState} onChange={(e: any) => setHealthState(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Cooldown Until (ISO)" placeholder="2026-01-01T00:00:00Z" value={cooldownUntil} onChange={(e: any) => setCooldownUntil(e.target.value)} fullWidth />
+            <TextField label={t("providers.cooldownUntil")} placeholder="2026-01-01T00:00:00Z" value={cooldownUntil} onChange={(e: any) => setCooldownUntil(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-              启用
+              {t("providers.enable")}
             </label>
           </Grid>
           <Grid item xs={12} md={2}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={createProviderKey} disabled={!selectedProviderId || !apiKey}>
-              创建并配置
+              {t("providers.createConfig")}
             </Button>
           </Grid>
         </Grid>
@@ -159,7 +161,7 @@ const AdminProvidersPage = () => {
 
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
-          <Typography variant="h6">现有 Keys</Typography>
+          <Typography variant="h6">{t("providers.existing")}</Typography>
           <Badge variant="primary">{providerKeys.length}</Badge>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -170,18 +172,18 @@ const AdminProvidersPage = () => {
                   <div className="text-sm font-semibold text-slate-900">{providers.find((provider) => provider.slug === item.provider)?.name || item.provider}</div>
                   <div className="mt-1 break-all text-xs text-slate-500">{item.key_name || "-"}</div>
                 </div>
-                <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? "enabled" : "disabled"}</Badge>
+                <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? t("common.enabled") : t("common.disabled")}</Badge>
               </div>
-              <div className="mt-3 text-sm text-slate-600">{item.has_secret ? (item.secret_last4 ? `已加密保存 · ****${item.secret_last4}` : "已加密保存") : "未设置"}</div>
+              <div className="mt-3 text-sm text-slate-600">{item.has_secret ? (item.secret_last4 ? t("key.encryptedLast4", { last4: item.secret_last4 }) : t("key.encrypted")) : t("key.notSet")}</div>
               <div className="mt-3">
                 <Button buttonStyle="text" variant="secondary" onClick={() => navigate(`/admin/providers/${item.id}`)}>
-                  详情
+                  {t("providers.detail")}
                 </Button>
               </div>
             </div>
           ))}
 
-          {providerKeys.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无服务商 Key</div>}
+          {providerKeys.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">{t("providers.noKeys")}</div>}
         </div>
       </Card>
     </div>

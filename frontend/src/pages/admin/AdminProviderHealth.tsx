@@ -2,6 +2,7 @@ import { Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, Tabl
 import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 type HealthItem = {
   provider: string;
@@ -20,6 +21,7 @@ type HealthItem = {
 };
 
 const AdminProviderHealthPage = () => {
+  const { t } = useI18n();
   const [items, setItems] = useState<HealthItem[]>([]);
   const [benchmarks, setBenchmarks] = useState<any[]>([]);
   const [rotateCredentialId, setRotateCredentialId] = useState("");
@@ -55,20 +57,20 @@ const AdminProviderHealthPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="Provider Health Console" description="查看 provider/credential 健康状态、路由覆盖、并执行启停/健康检查/密钥轮换。" />
+      <AdminPageIntro title={t("health.title")} description={t("health.desc")} />
 
       <Card className="p-6">
-        <Typography variant="h6">Secret Rotation</Typography>
+        <Typography variant="h6">{t("health.secretRotation")}</Typography>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">
           <Grid item xs={12} md={4}>
-            <TextField label="Credential ID" value={rotateCredentialId} onChange={(e: any) => setRotateCredentialId(e.target.value)} fullWidth />
+            <TextField label={t("health.credentialId")} value={rotateCredentialId} onChange={(e: any) => setRotateCredentialId(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField label="New Secret" type="password" value={rotateSecret} onChange={(e: any) => setRotateSecret(e.target.value)} fullWidth />
+            <TextField label={t("health.newSecret")} type="password" value={rotateSecret} onChange={(e: any) => setRotateSecret(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={rotate} disabled={!rotateCredentialId || !rotateSecret}>
-              Rotate
+              {t("health.rotate")}
             </Button>
           </Grid>
         </Grid>
@@ -76,25 +78,25 @@ const AdminProviderHealthPage = () => {
 
       <Card className="p-6">
         <div className="flex items-center justify-between">
-          <Typography variant="h6">Provider Health</Typography>
+          <Typography variant="h6">{t("health.providerHealth")}</Typography>
           <Badge variant="primary">{items.length}</Badge>
         </div>
         <Table className="mt-4">
           <TableHead>
             <TableRow>
-              <TableCell>Provider</TableCell>
-              <TableCell>Endpoint</TableCell>
-              <TableCell>Credential</TableCell>
-              <TableCell>Health</TableCell>
-              <TableCell>Enabled</TableCell>
-              <TableCell>Cooldown</TableCell>
-              <TableCell>Last Success</TableCell>
-              <TableCell>Last Failure</TableCell>
-              <TableCell>Error</TableCell>
-              <TableCell align="right">Failures</TableCell>
-              <TableCell align="right">Routes</TableCell>
-              <TableCell>Quota</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>{t("health.colProvider")}</TableCell>
+              <TableCell>{t("health.colEndpoint")}</TableCell>
+              <TableCell>{t("health.colCredential")}</TableCell>
+              <TableCell>{t("health.colHealth")}</TableCell>
+              <TableCell>{t("health.colEnabled")}</TableCell>
+              <TableCell>{t("health.colCooldown")}</TableCell>
+              <TableCell>{t("health.colLastSuccess")}</TableCell>
+              <TableCell>{t("health.colLastFailure")}</TableCell>
+              <TableCell>{t("health.colError")}</TableCell>
+              <TableCell align="right">{t("health.colFailures")}</TableCell>
+              <TableCell align="right">{t("health.colRoutes")}</TableCell>
+              <TableCell>{t("health.colQuota")}</TableCell>
+              <TableCell>{t("health.colActions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -104,7 +106,7 @@ const AdminProviderHealthPage = () => {
                 <TableCell>{item.endpoint}</TableCell>
                 <TableCell>{item.credential_name}</TableCell>
                 <TableCell>{item.health_state}</TableCell>
-                <TableCell>{item.enabled ? "yes" : "no"}</TableCell>
+                <TableCell>{item.enabled ? t("common.yes") : t("common.no")}</TableCell>
                 <TableCell>{item.cooldown_until || "-"}</TableCell>
                 <TableCell>{item.last_success_at || "-"}</TableCell>
                 <TableCell>{item.last_failure_at || "-"}</TableCell>
@@ -112,15 +114,15 @@ const AdminProviderHealthPage = () => {
                 <TableCell align="right">{item.consecutive_failures}</TableCell>
                 <TableCell align="right">{item.routes_count}</TableCell>
                 <TableCell>
-                  m:{item.quota_status?.minute || "-"} h:{item.quota_status?.hour || "-"} d:{item.quota_status?.day || "-"}
+                  {t("health.quotaLine", { minute: item.quota_status?.minute || "-", hour: item.quota_status?.hour || "-", day: item.quota_status?.day || "-" })}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button buttonStyle="text" variant="primary" onClick={() => action(`/admin/provider-credentials/${item.credential_id}/health-check`)}>
-                      Check
+                      {t("health.check")}
                     </Button>
                     <Button buttonStyle="text" variant="secondary" onClick={() => action(`/admin/provider-credentials/${item.credential_id}/${item.enabled ? "disable" : "enable"}`)}>
-                      {item.enabled ? "Disable" : "Enable"}
+                      {item.enabled ? t("health.disable") : t("health.enable")}
                     </Button>
                   </div>
                 </TableCell>
@@ -128,7 +130,7 @@ const AdminProviderHealthPage = () => {
             ))}
             {items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={13}>No provider health data.</TableCell>
+                <TableCell colSpan={13}>{t("health.noData")}</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -137,18 +139,18 @@ const AdminProviderHealthPage = () => {
 
       <Card className="p-6">
         <div className="flex items-center justify-between">
-          <Typography variant="h6">Recent Benchmarks</Typography>
+          <Typography variant="h6">{t("health.recentBenchmarks")}</Typography>
           <Badge variant="secondary">{benchmarks.length}</Badge>
         </div>
         <Table className="mt-4">
           <TableHead>
             <TableRow>
-              <TableCell>Run</TableCell>
-              <TableCell>Provider</TableCell>
-              <TableCell>Model</TableCell>
-              <TableCell align="right">Runs</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Summary</TableCell>
+              <TableCell>{t("health.colRun")}</TableCell>
+              <TableCell>{t("health.colProvider")}</TableCell>
+              <TableCell>{t("health.colModel")}</TableCell>
+              <TableCell align="right">{t("health.colRuns")}</TableCell>
+              <TableCell>{t("health.colStatus")}</TableCell>
+              <TableCell>{t("health.colSummary")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -164,7 +166,7 @@ const AdminProviderHealthPage = () => {
             ))}
             {benchmarks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6}>No benchmark runs.</TableCell>
+                <TableCell colSpan={6}>{t("health.noBenchmarks")}</TableCell>
               </TableRow>
             )}
           </TableBody>

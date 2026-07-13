@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
+import { useI18n } from "../../i18n";
 
 type Provider = {
   id: string;
@@ -16,6 +17,7 @@ type Provider = {
 const AdminProviderKeyDetailPage = () => {
   const { providerKeyId = "" } = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [providerKey, setProviderKey] = useState<any | null>(null);
@@ -107,20 +109,20 @@ const AdminProviderKeyDetailPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="Key 详情" description="先创建 Key，再在详情页为这把 Key 配置可服务模型和特殊路由参数。" />
+      <AdminPageIntro title={t("key.title")} description={t("key.desc")} />
 
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
-          <Typography variant="h6">基础信息</Typography>
+          <Typography variant="h6">{t("key.basicInfo")}</Typography>
           <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/providers")}>
-            返回 Key 列表
+            {t("key.backToList")}
           </Button>
         </div>
         {providerKey ? (
           <Grid container spacing={2} className="mt-4">
             <Grid item xs={12} md={3}>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">服务商</div>
+                <div className="text-sm text-slate-500">{t("key.provider")}</div>
                 <div className="mt-2 flex items-center gap-3">
                   {provider?.icon_url ? (
                     <img src={provider.icon_url} alt={provider.name} className="h-8 w-8 rounded-md object-contain" />
@@ -135,79 +137,79 @@ const AdminProviderKeyDetailPage = () => {
             </Grid>
             <Grid item xs={12} md={3}>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">默认 URL</div>
+                <div className="text-sm text-slate-500">{t("key.defaultUrl")}</div>
                 <div className="mt-2 break-all font-medium text-slate-900">{providerKey.key_name}</div>
               </div>
             </Grid>
             <Grid item xs={12} md={3}>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">密钥状态</div>
-                <div className="mt-2 break-all font-medium text-slate-900">{providerKey.has_secret ? (providerKey.secret_last4 ? `已加密保存 · ****${providerKey.secret_last4}` : "已加密保存") : "未设置"}</div>
+                <div className="text-sm text-slate-500">{t("key.secretStatus")}</div>
+                <div className="mt-2 break-all font-medium text-slate-900">{providerKey.has_secret ? (providerKey.secret_last4 ? t("key.encryptedLast4", { last4: providerKey.secret_last4 }) : t("key.encrypted")) : t("key.notSet")}</div>
               </div>
             </Grid>
             <Grid item xs={12} md={3}>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">状态</div>
+                <div className="text-sm text-slate-500">{t("key.status")}</div>
                 <div className="mt-2 flex items-center gap-2">
-                  <Badge variant={providerKey.enabled ? "primary" : "warning"}>{providerKey.enabled ? "enabled" : "disabled"}</Badge>
+                  <Badge variant={providerKey.enabled ? "primary" : "warning"}>{providerKey.enabled ? t("common.enabled") : t("common.disabled")}</Badge>
                   <Badge variant="secondary">{providerKey.health_state}</Badge>
                 </div>
               </div>
             </Grid>
           </Grid>
         ) : (
-          <div className="mt-4 text-sm text-slate-500">未找到这把 Key。</div>
+          <div className="mt-4 text-sm text-slate-500">{t("key.notFound")}</div>
         )}
       </Card>
 
       <Card className="p-6">
-        <Typography variant="h6">编辑与测试</Typography>
+        <Typography variant="h6">{t("key.editTest")}</Typography>
         <Typography variant="body2" color="textSecondary" className="mt-1">
-          可以更新默认 URL、轮换 API key，并直接测试这把 key 是否对服务商生效。
+          {t("key.editTestDesc")}
         </Typography>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">
           <Grid item xs={12} md={5}>
-            <TextField label="默认 Base URL" placeholder="留空则使用服务商默认地址" value={keyBaseUrl} onChange={(e: any) => setKeyBaseUrl(e.target.value)} fullWidth />
+            <TextField label={t("key.defaultBaseUrl")} placeholder={t("key.defaultBaseUrlPlaceholder")} value={keyBaseUrl} onChange={(e: any) => setKeyBaseUrl(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={5}>
-            <TextField label="替换 API Key" placeholder="留空则不修改现有密钥" value={replacementApiKey} onChange={(e: any) => setReplacementApiKey(e.target.value)} fullWidth />
+            <TextField label={t("key.replaceApiKey")} placeholder={t("key.replaceApiKeyPlaceholder")} value={replacementApiKey} onChange={(e: any) => setReplacementApiKey(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={1}>
             <Button variant="secondary" buttonStyle="filled" fullWidth onClick={saveProviderKey} disabled={!providerKey}>
-              保存
+              {t("key.save")}
             </Button>
           </Grid>
           <Grid item xs={12} md={1}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={validateProviderKey} disabled={!providerKey}>
-              测试
+              {t("key.test")}
             </Button>
           </Grid>
         </Grid>
         {validateResult && (
           <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${validateResult.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-            <div className="font-medium">{validateResult.ok ? "Key 可用" : "Key 校验失败"}</div>
-            <div className="mt-1 break-all">Base URL: {validateResult.base_url || "-"}</div>
-            {validateResult.status_code ? <div className="mt-1">HTTP: {validateResult.status_code}</div> : null}
-            {validateResult.model_count != null ? <div className="mt-1">可见模型数: {validateResult.model_count}</div> : null}
+            <div className="font-medium">{validateResult.ok ? t("key.usable") : t("key.failed")}</div>
+            <div className="mt-1 break-all">{t("key.baseUrlLine", { u: validateResult.base_url || "-" })}</div>
+            {validateResult.status_code ? <div className="mt-1">{t("key.httpLine", { code: validateResult.status_code })}</div> : null}
+            {validateResult.model_count != null ? <div className="mt-1">{t("key.visibleCount", { n: validateResult.model_count })}</div> : null}
             {validateResult.message ? <div className="mt-1 break-all">{String(validateResult.message)}</div> : null}
           </div>
         )}
       </Card>
 
       <Card className="p-6">
-        <Typography variant="h6">新增适用模型</Typography>
+        <Typography variant="h6">{t("key.addServe")}</Typography>
         <Typography variant="body2" color="textSecondary" className="mt-1">
-          如果不填写特殊 URL，系统会依次回退到 Key 默认 URL、服务商默认地址和协议内置地址。
+          {t("key.addServeDesc")}
         </Typography>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">
           <Grid item xs={12} md={4}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">模型</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("key.model")}</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={selectedModelId}
               onChange={(e) => setSelectedModelId(e.target.value)}
             >
-              <option value="">选择模型</option>
+              <option value="">{t("key.selectModel")}</option>
               {models.map((item) => (
                 <option key={item.id} value={item.id}>{item.brand_name ? `${item.brand_name} / ${item.name}` : item.name}</option>
               ))}
@@ -215,28 +217,28 @@ const AdminProviderKeyDetailPage = () => {
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="特殊 Base URL"
-              placeholder={providerKey?.key_name || "留空则使用默认 URL"}
+              label={t("key.specialBaseUrl")}
+              placeholder={providerKey?.key_name || t("key.specialBaseUrlPlaceholder")}
               value={mappingBaseUrl}
               onChange={(e: any) => setMappingBaseUrl(e.target.value)}
               fullWidth
             />
           </Grid>
           <Grid item xs={12} md={1}>
-            <TextField label="优先级" value={mappingPriority} onChange={(e: any) => setMappingPriority(e.target.value)} fullWidth />
+            <TextField label={t("key.priority")} value={mappingPriority} onChange={(e: any) => setMappingPriority(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={1}>
-            <TextField label="权重" value={mappingWeight} onChange={(e: any) => setMappingWeight(e.target.value)} fullWidth />
+            <TextField label={t("key.weight")} value={mappingWeight} onChange={(e: any) => setMappingWeight(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={1}>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mappingEnabled} onChange={(e) => setMappingEnabled(e.target.checked)} />
-              启用
+              {t("amodels.enable")}
             </label>
           </Grid>
           <Grid item xs={12} md={1}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={createModelLink} disabled={!providerKey || !selectedModelId}>
-              新增
+              {t("amodels.addBtn")}
             </Button>
           </Grid>
         </Grid>
@@ -244,17 +246,17 @@ const AdminProviderKeyDetailPage = () => {
 
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
-          <Typography variant="h6">当前适用模型</Typography>
+          <Typography variant="h6">{t("key.currentServe")}</Typography>
           <Badge variant="primary">{modelLinks.length}</Badge>
         </div>
         <Table className="mt-4">
           <TableHead>
             <TableRow>
-              <TableCell>模型</TableCell>
-              <TableCell>Base URL</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell align="right">优先级</TableCell>
-              <TableCell align="right">权重</TableCell>
+              <TableCell>{t("key.model")}</TableCell>
+              <TableCell>{t("key.defaultUrl")}</TableCell>
+              <TableCell>{t("key.status")}</TableCell>
+              <TableCell align="right">{t("key.priority")}</TableCell>
+              <TableCell align="right">{t("key.weight")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -264,7 +266,7 @@ const AdminProviderKeyDetailPage = () => {
                 <TableRow key={item.id}>
                   <TableCell>{model ? (model.brand_name ? `${model.brand_name} / ${model.name}` : model.name) : item.model_id}</TableCell>
                   <TableCell>{item.base_url || providerKey?.key_name || provider?.default_base_url || "-"}</TableCell>
-                  <TableCell>{item.enabled ? "enabled" : "disabled"}</TableCell>
+                  <TableCell>{item.enabled ? t("common.enabled") : t("common.disabled")}</TableCell>
                   <TableCell align="right">{item.priority}</TableCell>
                   <TableCell align="right">{item.weight ?? 1}</TableCell>
                 </TableRow>
@@ -272,7 +274,7 @@ const AdminProviderKeyDetailPage = () => {
             })}
             {modelLinks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>这把 Key 还没有绑定任何模型</TableCell>
+                <TableCell colSpan={5}>{t("key.noBound")}</TableCell>
               </TableRow>
             )}
           </TableBody>

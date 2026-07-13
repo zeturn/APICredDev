@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
 import { formatPricingSummary } from "../../shared/pricing";
+import { useI18n } from "../../i18n";
 
 type Brand = {
   id: string;
@@ -13,6 +14,7 @@ type Brand = {
 };
 
 const AdminModelsPage = () => {
+  const { t } = useI18n();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [modelName, setModelName] = useState("");
@@ -82,65 +84,65 @@ const AdminModelsPage = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro title="模型管理" description="新增和查看对外可售卖的模型，以及对应计价策略。" />
+      <AdminPageIntro title={t("amodels.title")} description={t("amodels.desc")} />
       <Card className="p-6">
-        <div className="text-lg font-semibold text-slate-900">新增模型</div>
+        <div className="text-lg font-semibold text-slate-900">{t("amodels.add")}</div>
         <Grid container spacing={2} className="mt-4" alignItems="flex-end">
           <Grid item xs={12} md={3}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">品牌</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("amodels.brand")}</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={selectedBrandId}
               onChange={(e) => setSelectedBrandId(e.target.value)}
             >
-              <option value="">选择品牌</option>
+              <option value="">{t("amodels.selectBrand")}</option>
               {brands.filter((item) => item.enabled).map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
           </Grid>
           <Grid item xs={12} md={3}>
-            <TextField label="模型名" placeholder="gpt-4o-mini" value={modelName} onChange={(e: any) => setModelName(e.target.value)} fullWidth />
+            <TextField label={t("amodels.modelName")} placeholder="gpt-4o-mini" value={modelName} onChange={(e: any) => setModelName(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={3}>
-            <TextField label="模型图标 URL" placeholder="https://..." value={modelIconUrl} onChange={(e: any) => setModelIconUrl(e.target.value)} fullWidth />
+            <TextField label={t("amodels.modelIconUrl")} placeholder="https://..." value={modelIconUrl} onChange={(e: any) => setModelIconUrl(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField label="分类" placeholder="llm / image / embedding" value={modelCategory} onChange={(e: any) => setModelCategory(e.target.value)} fullWidth />
+            <TextField label={t("amodels.category")} placeholder="llm / image / embedding" value={modelCategory} onChange={(e: any) => setModelCategory(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField label="倍率" value={modelMultiplier} onChange={(e: any) => setModelMultiplier(e.target.value)} fullWidth />
+            <TextField label={t("amodels.multiplier")} value={modelMultiplier} onChange={(e: any) => setModelMultiplier(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={2}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">计费模式</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("amodels.pricingMode")}</label>
             <select
               className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
               value={pricingMode}
               onChange={(e) => setPricingMode(e.target.value)}
             >
-              <option value="token_segments">结构化 token</option>
-              <option value="simple">简单单价</option>
+              <option value="token_segments">{t("amodels.structuredToken")}</option>
+              <option value="simple">{t("amodels.simpleUnit")}</option>
             </select>
           </Grid>
           {pricingMode === "token_segments" ? (
             <>
               <Grid item xs={12} md={1}>
-                <TextField label="输入价/1M" value={inputPrice} onChange={(e: any) => setInputPrice(e.target.value)} fullWidth />
+                <TextField label={t("amodels.inputPrice")} value={inputPrice} onChange={(e: any) => setInputPrice(e.target.value)} fullWidth />
               </Grid>
               <Grid item xs={12} md={1}>
-                <TextField label="缓存输入/1M" value={cachedInputPrice} onChange={(e: any) => setCachedInputPrice(e.target.value)} fullWidth />
+                <TextField label={t("amodels.cachedInput")} value={cachedInputPrice} onChange={(e: any) => setCachedInputPrice(e.target.value)} fullWidth />
               </Grid>
               <Grid item xs={12} md={1}>
-                <TextField label="输出价/1M" value={outputPrice} onChange={(e: any) => setOutputPrice(e.target.value)} fullWidth />
+                <TextField label={t("amodels.outputPrice")} value={outputPrice} onChange={(e: any) => setOutputPrice(e.target.value)} fullWidth />
               </Grid>
             </>
           ) : (
             <>
               <Grid item xs={12} md={1}>
-                <TextField label="单价" value={modelPrice} onChange={(e: any) => setModelPrice(e.target.value)} fullWidth />
+                <TextField label={t("amodels.unitPrice")} value={modelPrice} onChange={(e: any) => setModelPrice(e.target.value)} fullWidth />
               </Grid>
               <Grid item xs={12} md={1}>
-                <label className="mb-2 block text-sm font-medium text-slate-600">计价单位</label>
+                <label className="mb-2 block text-sm font-medium text-slate-600">{t("amodels.priceUnit")}</label>
                 <select
                   className="w-full rounded-xl border border-ink-100 bg-white/80 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
                   value={modelPriceUnit}
@@ -153,25 +155,25 @@ const AdminModelsPage = () => {
             </>
           )}
           <Grid item xs={12} md={1}>
-            <label className="mb-2 block text-sm font-medium text-slate-600">计价单位</label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">{pricingMode === "token_segments" ? "按输入/输出" : "简单模式"}</div>
+            <label className="mb-2 block text-sm font-medium text-slate-600">{t("amodels.priceUnit")}</label>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">{pricingMode === "token_segments" ? t("amodels.ioHint") : t("amodels.simpleHint")}</div>
           </Grid>
           <Grid item xs={12} md={1}>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={modelEnabled} onChange={(e) => setModelEnabled(e.target.checked)} />
-              启用
+              {t("amodels.enable")}
             </label>
           </Grid>
           <Grid item xs={12} md={1}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={createModel} disabled={!modelName || !selectedBrandId}>
-              新增
+              {t("amodels.addBtn")}
             </Button>
           </Grid>
         </Grid>
       </Card>
 
       <Card className="p-6">
-        <div className="text-lg font-semibold text-slate-900">模型列表</div>
+        <div className="text-lg font-semibold text-slate-900">{t("amodels.list")}</div>
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {models.map((item) => (
             <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -190,14 +192,14 @@ const AdminModelsPage = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? "enabled" : "disabled"}</Badge>
+                  <Badge variant={item.enabled ? "primary" : "warning"}>{item.enabled ? t("common.enabled") : t("common.disabled")}</Badge>
                   <Badge variant="secondary">x{item.multiplier}</Badge>
                 </div>
               </div>
 
               <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
                 <div className="space-y-1 text-sm text-slate-700">
-                  {formatPricingSummary(item.pricing).map((line) => (
+                  {formatPricingSummary(item.pricing, t).map((line) => (
                     <div key={`${item.id}-${line}`}>{line}</div>
                   ))}
                 </div>
@@ -205,7 +207,7 @@ const AdminModelsPage = () => {
             </div>
           ))}
 
-          {models.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">暂无模型</div>}
+          {models.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">{t("amodels.noModels")}</div>}
         </div>
       </Card>
     </div>

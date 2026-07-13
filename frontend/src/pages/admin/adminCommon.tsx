@@ -1,17 +1,21 @@
 import { Typography } from "../../lib/watercolor";
 import { ReactNode } from "react";
+import { useI18n } from "../../i18n";
 
-export const AdminPageIntro = ({ title, description }: { title: string; description: string }) => (
-  <div className="space-y-1">
-    <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
-      admin
-    </Typography>
-    <Typography variant="h5">{title}</Typography>
-    <Typography variant="body2" color="textSecondary">
-      {description}
-    </Typography>
-  </div>
-);
+export const AdminPageIntro = ({ title, description }: { title: string; description: string }) => {
+  const { t } = useI18n();
+  return (
+    <div className="space-y-1">
+      <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
+        {t("admin.overline")}
+      </Typography>
+      <Typography variant="h5">{title}</Typography>
+      <Typography variant="body2" color="textSecondary">
+        {description}
+      </Typography>
+    </div>
+  );
+};
 
 export const AdminIcon = ({ icon, className }: { icon: "users" | "models" | "provider" | "usage" | "chat" | "api" | "shield" | "home" | "wallet" | "key"; className?: string }) => {
   const base = `h-5 w-5 ${className ?? ""}`;

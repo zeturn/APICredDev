@@ -1,8 +1,10 @@
 import { Alert, Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "../lib/watercolor";
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import { useI18n } from "../i18n";
 
 const TokensPage = () => {
+  const { t } = useI18n();
   const [tokens, setTokens] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState("llm");
@@ -33,23 +35,23 @@ const TokensPage = () => {
     <div className="space-y-6">
       <div className="space-y-1">
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
-          tokens
+          {t("over.tokens")}
         </Typography>
-        <Typography variant="h5">API Tokens</Typography>
+        <Typography variant="h5">{t("tokens.title")}</Typography>
         <Typography variant="body2" color="textSecondary">
-          Token 仅明文展示一次，请及时保存。
+          {t("tokens.desc")}
         </Typography>
       </div>
 
       <Card className="p-6">
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={4}>
-            <TextField label="名称" placeholder="name" value={name} onChange={(e: any) => setName(e.target.value)} fullWidth />
+            <TextField label={t("tokens.name")} placeholder={t("tokens.namePlaceholder")} value={name} onChange={(e: any) => setName(e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Scopes"
-              placeholder="scopes (comma)"
+              label={t("tokens.scopes")}
+              placeholder={t("tokens.scopesPlaceholder")}
               value={scopes}
               onChange={(e: any) => setScopes(e.target.value)}
               fullWidth
@@ -57,15 +59,15 @@ const TokensPage = () => {
           </Grid>
           <Grid item xs={12} md={2}>
             <Button variant="primary" buttonStyle="filled" fullWidth onClick={createToken}>
-              创建
+              {t("tokens.create")}
             </Button>
           </Grid>
         </Grid>
       </Card>
 
       {newToken && (
-        <Alert type="success" variant="filled" title="新 Token" showIcon>
-          新 token（仅显示一次）：<code>{newToken}</code>
+        <Alert type="success" variant="filled" title={t("tokens.new")} showIcon>
+          {t("tokens.newAlert")}<code>{newToken}</code>
         </Alert>
       )}
 
@@ -73,30 +75,30 @@ const TokensPage = () => {
         <Table striped hover>
           <TableHead>
             <TableRow>
-              <TableCell>名称</TableCell>
-              <TableCell>Scopes</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell align="right">操作</TableCell>
+              <TableCell>{t("tokens.nameCol")}</TableCell>
+              <TableCell>{t("tokens.scopesCol")}</TableCell>
+              <TableCell>{t("tokens.statusCol")}</TableCell>
+              <TableCell align="right">{t("tokens.actionCol")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {tokens.map((t) => (
-              <TableRow key={t.id} hover>
-                <TableCell>{t.name}</TableCell>
-                <TableCell>{t.scopes.join(", ")}</TableCell>
+            {tokens.map((token) => (
+              <TableRow key={token.id} hover>
+                <TableCell>{token.name}</TableCell>
+                <TableCell>{token.scopes.join(", ")}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{t.status}</Badge>
+                  <Badge variant="secondary">{token.status}</Badge>
                 </TableCell>
                 <TableCell align="right">
-                  <Button buttonStyle="text" variant="error" onClick={() => revoke(t.id)}>
-                    撤销
+                  <Button buttonStyle="text" variant="error" onClick={() => revoke(token.id)}>
+                    {t("tokens.revoke")}
                   </Button>
                 </TableCell>
               </TableRow>
             ))}
             {tokens.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4}>暂无 Token</TableCell>
+                <TableCell colSpan={4}>{t("tokens.noTokens")}</TableCell>
               </TableRow>
             )}
           </TableBody>

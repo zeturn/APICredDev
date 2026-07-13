@@ -1,70 +1,67 @@
-export const formatPricingSummary = (pricing: any): string[] => {
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+export const formatPricingSummary = (pricing: any, translate?: TranslateFn): string[] => {
+  const t = (key: string, zh: string, params?: Record<string, string | number>): string =>
+    translate ? translate(key, params) : zh;
+
   if (!pricing || typeof pricing !== "object") {
-    return ["未配置"];
+    return [t("pricing.notConfigured", "未配置")];
   }
 
   // Support for per_token and per_request from the issue description
   if (pricing.type === "per_token") {
     const lines: string[] = [];
-    if (pricing.prompt_token_price) lines.push(`Prompt: $${pricing.prompt_token_price}/1k`);
-    if (pricing.completion_token_price) lines.push(`Completion: $${pricing.completion_token_price}/1k`);
+    if (pricing.prompt_token_price) {
+      const price = `$${pricing.prompt_token_price}`;
+      lines.push(t("pricing.prompt", `Prompt: $${pricing.prompt_token_price}/1k`, { price }));
+    }
+    if (pricing.completion_token_price) {
+      const price = `$${pricing.completion_token_price}`;
+      lines.push(t("pricing.completion", `Completion: $${pricing.completion_token_price}/1k`, { price }));
+    }
     return lines;
   } else if (pricing.type === "per_request") {
-    return [`$${pricing.request_price}/req`];
+    const price = `$${pricing.request_price}`;
+    return [t("pricing.perRequest", `$${pricing.request_price}/req`, { price })];
   }
 
   if (pricing.mode === "free") {
-    return ["免费"];
+    return [t("pricing.free", "免费")];
   }
 
   if (pricing.mode === "token_segments") {
     const lines: string[] = [];
-    if (pricing.input_per_million != null) {
-      lines.push(`输入 $${pricing.input_per_million}/1M`);
-    }
-    if (pricing.cached_input_per_million != null) {
-      lines.push(`缓存输入 $${pricing.cached_input_per_million}/1M`);
-    }
-    if (pricing.output_per_million != null) {
-      lines.push(`输出 $${pricing.output_per_million}/1M`);
-    }
-    if (pricing.audio_input_per_million != null) {
-      lines.push(`音频输入 $${pricing.audio_input_per_million}/1M`);
-    }
-    if (pricing.audio_output_per_million != null) {
-      lines.push(`音频输出 $${pricing.audio_output_per_million}/1M`);
-    }
-    if (pricing.image_output_per_million != null) {
-      lines.push(`图片输出 $${pricing.image_output_per_million}/1M`);
-    }
-    if (pricing.cache_write_5m_per_million != null) {
-      lines.push(`5m 缓存写入 $${pricing.cache_write_5m_per_million}/1M`);
-    }
-    if (pricing.cache_write_1h_per_million != null) {
-      lines.push(`1h 缓存写入 $${pricing.cache_write_1h_per_million}/1M`);
-    }
-    if (pricing.priority_input_per_million != null) {
-      lines.push(`Priority 输入 $${pricing.priority_input_per_million}/1M`);
-    }
-    if (pricing.priority_output_per_million != null) {
-      lines.push(`Priority 输出 $${pricing.priority_output_per_million}/1M`);
-    }
-    if (pricing.priority_image_output_per_million != null) {
-      lines.push(`Priority 图片输出 $${pricing.priority_image_output_per_million}/1M`);
-    }
+    const add = (key: string, amount: number | null | undefined, zhTemplate: (amount: number) => string) => {
+      if (amount != null) {
+        const price = `$${amount}`;
+        lines.push(t(key, zhTemplate(amount), { price }));
+      }
+    };
+    add("pricing.input", pricing.input_per_million, (a) => `输入 $${a}/1M`);
+    add("pricing.cachedInput", pricing.cached_input_per_million, (a) => `缓存输入 $${a}/1M`);
+    add("pricing.output", pricing.output_per_million, (a) => `输出 $${a}/1M`);
+    add("pricing.audioInput", pricing.audio_input_per_million, (a) => `音频输入 $${a}/1M`);
+    add("pricing.audioOutput", pricing.audio_output_per_million, (a) => `音频输出 $${a}/1M`);
+    add("pricing.imageOutput", pricing.image_output_per_million, (a) => `图片输出 $${a}/1M`);
+    add("pricing.cacheWrite5m", pricing.cache_write_5m_per_million, (a) => `5m 缓存写入 $${a}/1M`);
+    add("pricing.cacheWrite1h", pricing.cache_write_1h_per_million, (a) => `1h 缓存写入 $${a}/1M`);
+    add("pricing.priorityInput", pricing.priority_input_per_million, (a) => `Priority 输入 $${a}/1M`);
+    add("pricing.priorityOutput", pricing.priority_output_per_million, (a) => `Priority 输出 $${a}/1M`);
+    add("pricing.priorityImageOutput", pricing.priority_image_output_per_million, (a) => `Priority 图片输出 $${a}/1M`);
     if (pricing.image_prices && typeof pricing.image_prices === "object") {
       for (const [quality, price] of Object.entries(pricing.image_prices)) {
-        lines.push(`${quality} 图 $${price}/张`);
+        lines.push(t("pricing.imageQuality", `${quality} 图 $${price}/张`, { quality, price: `$${price}` }));
       }
     }
     if (Array.isArray(pricing.tiers) && pricing.tiers.length) {
-      lines.push(`分段计费 ${pricing.tiers.length} 档`);
+      lines.push(t("pricing.tierCount", `分段计费 ${pricing.tiers.length} 档`, { count: pricing.tiers.length }));
     }
-    return lines.length ? lines : ["结构化 token 计费"];
+    return lines.length ? lines : [t("pricing.structured", "结构化 token 计费")];
   }
 
   if (pricing.unit && pricing.price != null) {
-    return [`$${pricing.price}/${pricing.unit}`];
+    const price = `$${pricing.price}`;
+    return [t("pricing.unitPrice", `$${pricing.price}/${pricing.unit}`, { price, unit: pricing.unit })];
   }
 
   return [JSON.stringify(pricing)];
