@@ -60,11 +60,17 @@ export const Button = ({
         ? "border-slate-700 bg-slate-800 text-white hover:bg-slate-900"
         : "border-slate-300 text-slate-700 hover:bg-slate-100"
       : variant === "error"
-        ? "border-slate-300 text-slate-700 hover:bg-slate-100"
+        ? buttonStyle === "filled"
+          ? "border-red-600 bg-red-600 text-white hover:bg-red-700"
+          : "border-red-300 text-red-700 hover:bg-red-50"
         : variant === "warning"
-          ? "border-slate-300 text-slate-700 hover:bg-slate-100"
-          : "border-slate-300 text-slate-700 hover:bg-slate-100";
-  const surface = buttonStyle === "text" ? "border-transparent bg-transparent" : "bg-white";
+          ? buttonStyle === "filled"
+            ? "border-amber-500 bg-amber-500 text-white hover:bg-amber-600"
+            : "border-amber-300 text-amber-700 hover:bg-amber-50"
+          : buttonStyle === "filled"
+            ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+            : "border-slate-300 text-slate-700 hover:bg-slate-100";
+  const surface = buttonStyle === "text" ? "border-transparent bg-transparent" : "";
   return (
     <button
       className={cx(
