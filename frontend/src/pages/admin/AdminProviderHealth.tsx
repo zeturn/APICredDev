@@ -1,5 +1,6 @@
 import { Badge, Button, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
 import { useI18n } from "../../i18n";
@@ -22,6 +23,7 @@ type HealthItem = {
 
 const AdminProviderHealthPage = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [items, setItems] = useState<HealthItem[]>([]);
   const [benchmarks, setBenchmarks] = useState<any[]>([]);
   const [rotateCredentialId, setRotateCredentialId] = useState("");
@@ -58,6 +60,31 @@ const AdminProviderHealthPage = () => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title={t("health.title")} description={t("health.desc")} />
+
+      <Card className="p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Typography variant="h6">{t("health.manageObjects")}</Typography>
+            <Typography variant="body2" color="textSecondary" className="mt-1">
+              {t("health.manageObjectsDesc")}
+            </Typography>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button buttonStyle="filled" variant="primary" onClick={() => navigate("/admin/provider-credentials/new")}>
+              {t("health.newCredential")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/provider-endpoints/new")}>
+              {t("health.newEndpoint")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/providers/new")}>
+              {t("health.newProvider")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/model-routes/new")}>
+              {t("health.newRoute")}
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-6">
         <Typography variant="h6">{t("health.secretRotation")}</Typography>

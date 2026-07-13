@@ -864,7 +864,12 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
         <Button buttonStyle="text" variant="secondary" onClick={() => navigate(config.path)}>
           {t("catalog.backToList")}
         </Button>
-        <Badge variant="secondary">{t(config.singularKey)}</Badge>
+        <div className="flex items-center gap-2">
+          <Button buttonStyle="filled" variant="primary" onClick={() => navigate(`${config.path}/new`)}>
+            {t("catalog.new", { singular: t(config.singularKey) })}
+          </Button>
+          <Badge variant="secondary">{t(config.singularKey)}</Badge>
+        </div>
       </div>
       {loading && (
         <Card className="p-6">

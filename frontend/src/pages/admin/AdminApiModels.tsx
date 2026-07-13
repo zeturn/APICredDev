@@ -1,5 +1,6 @@
-import { Badge, Card, Grid, TextField, Typography } from "../../lib/watercolor";
+import { Badge, Button, Card, Grid, TextField, Typography } from "../../lib/watercolor";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminIcon, AdminPageIntro } from "./adminCommon";
 import { useI18n } from "../../i18n";
@@ -29,6 +30,7 @@ type ApiSupportItem = {
 
 const AdminApiModelsPage = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [items, setItems] = useState<ApiSupportItem[]>([]);
   const [keyword, setKeyword] = useState("");
 
@@ -69,6 +71,29 @@ const AdminApiModelsPage = () => {
       <AdminPageIntro title={t("apimodels.title")} description={t("apimodels.desc")} />
 
       <Card className="p-6">
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Typography variant="h6">{t("apimodels.manageObjects")}</Typography>
+            <Typography variant="body2" color="textSecondary" className="mt-1">
+              {t("apimodels.manageObjectsDesc")}
+            </Typography>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button buttonStyle="filled" variant="primary" onClick={() => navigate("/admin/model-routes/new")}>
+              {t("apimodels.newRoute")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/provider-credentials/new")}>
+              {t("apimodels.newCredential")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/upstream-models/new")}>
+              {t("apimodels.newUpstream")}
+            </Button>
+            <Button buttonStyle="text" variant="secondary" onClick={() => navigate("/admin/public-models/new")}>
+              {t("apimodels.newPublic")}
+            </Button>
+          </div>
+        </div>
+
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={8}>
             <TextField
