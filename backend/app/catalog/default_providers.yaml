@@ -24,6 +24,31 @@ brands:
     icon_slug: brave
     icon_url: https://brave.com/static-assets/images/brave-logo-sans-text.svg
     enabled: true
+  - name: DeepSeek
+    slug: deepseek
+    icon_slug: deepseek
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/deepseek.svg
+    enabled: true
+  - name: Mistral
+    slug: mistral
+    icon_slug: mistral
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/mistral.svg
+    enabled: true
+  - name: Qwen
+    slug: qwen
+    icon_slug: qwen
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/qwen.svg
+    enabled: true
+  - name: Meta
+    slug: meta
+    icon_slug: meta
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/meta.svg
+    enabled: true
+  - name: xAI
+    slug: xai
+    icon_slug: xai
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/xai.svg
+    enabled: true
 
 providers:
   - name: OpenAI
@@ -50,6 +75,31 @@ providers:
     slug: brave-search
     icon_slug: brave
     icon_url: https://brave.com/static-assets/images/brave-logo-sans-text.svg
+    enabled: true
+  - name: DeepSeek
+    slug: deepseek
+    icon_slug: deepseek
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/deepseek.svg
+    enabled: true
+  - name: Mistral
+    slug: mistral
+    icon_slug: mistral
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/mistral.svg
+    enabled: true
+  - name: Qwen
+    slug: qwen
+    icon_slug: qwen
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/qwen.svg
+    enabled: true
+  - name: Meta
+    slug: meta
+    icon_slug: meta
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/meta.svg
+    enabled: true
+  - name: xAI
+    slug: xai
+    icon_slug: xai
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/xai.svg
     enabled: true
 
 provider_endpoints:
@@ -81,6 +131,36 @@ provider_endpoints:
     slug: web
     display_name: Brave Web Search
     base_url: https://api.search.brave.com/res/v1
+    enabled: true
+    health_state: healthy
+  - provider: deepseek
+    slug: default
+    display_name: DeepSeek Default
+    base_url: https://api.deepseek.com
+    enabled: true
+    health_state: healthy
+  - provider: mistral
+    slug: default
+    display_name: Mistral Default
+    base_url: https://api.mistral.ai
+    enabled: true
+    health_state: healthy
+  - provider: qwen
+    slug: default
+    display_name: Qwen Default
+    base_url: https://dashscope.aliyuncs.com/compatible-mode
+    enabled: true
+    health_state: healthy
+  - provider: meta
+    slug: default
+    display_name: Meta Llama Default
+    base_url: https://api.llama-api.com
+    enabled: true
+    health_state: healthy
+  - provider: xai
+    slug: default
+    display_name: xAI Default
+    base_url: https://api.x.ai
     enabled: true
     health_state: healthy
 

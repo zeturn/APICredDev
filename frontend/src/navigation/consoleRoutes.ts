@@ -1,7 +1,7 @@
 export type ConsoleRoute = {
   path: string;
   label: string;
-  labelKey: string;
+  i18nKey?: string;
   mode: "user" | "admin";
   description: string;
   apiPath: string;
@@ -9,31 +9,32 @@ export type ConsoleRoute = {
 };
 
 export const userConsoleRoutes: ConsoleRoute[] = [
-  { path: "/workspace/dashboard", label: "用户总览", labelKey: "nav.userDashboard", mode: "user", description: "余额、模型与使用额度概览", apiPath: "/billing/summary" },
-  { path: "/workspace/usage", label: "用量分析", labelKey: "nav.userUsage", mode: "user", description: "最近调用记录与按模型消费", apiPath: "/billing/usage" },
-  { path: "/workspace/tokens", label: "API Tokens", labelKey: "nav.userTokens", mode: "user", description: "管理访问令牌与范围", apiPath: "/tokens" },
-  { path: "/workspace/models", label: "模型目录", labelKey: "nav.userModels", mode: "user", description: "可用模型与定价能力", apiPath: "/models" },
-  { path: "/workspace/topup", label: "充值中心", labelKey: "nav.userTopup", mode: "user", description: "卡密兑换与账本变更", apiPath: "/billing/ledger" },
-  { path: "/workspace/profile", label: "个人信息", labelKey: "nav.userProfile", mode: "user", description: "查看当前登录账号信息", apiPath: "/auth/me" },
+  { path: "/workspace/dashboard", label: "用户总览", mode: "user", description: "余额、模型与使用额度概览", apiPath: "/billing/summary" },
+  { path: "/workspace/usage", label: "用量分析", mode: "user", description: "最近调用记录与按模型消费", apiPath: "/billing/usage" },
+  { path: "/workspace/tokens", label: "API Tokens", mode: "user", description: "管理访问令牌与范围", apiPath: "/tokens" },
+  { path: "/workspace/models", label: "模型目录", mode: "user", description: "可用模型与定价能力", apiPath: "/models" },
+  { path: "/workspace/topup", label: "充值中心", mode: "user", description: "卡密兑换与账本变更", apiPath: "/billing/ledger" },
+  { path: "/workspace/profile", label: "个人信息", mode: "user", description: "查看当前登录账号信息", apiPath: "/auth/me" },
 ];
 
 export const adminConsoleRoutes: ConsoleRoute[] = [
-  { path: "/admin/overview", label: "总览", labelKey: "nav.adminOverview", mode: "admin", description: "全站用户、模型、额度总览", apiPath: "/admin/dashboard" },
-  { path: "/admin/users", label: "用户管理", labelKey: "nav.adminUsers", mode: "admin", description: "查看用户与启停账号", apiPath: "/admin/users" },
-  { path: "/admin/brands", label: "品牌", labelKey: "nav.adminBrands", mode: "admin", description: "模型品牌目录", apiPath: "/admin/brands" },
-  { path: "/admin/public-models", label: "Public Models", labelKey: "nav.adminPublicModels", mode: "admin", description: "用户可见模型产品目录", apiPath: "/admin/public-models" },
-  { path: "/admin/upstream-models", label: "Upstream Models", labelKey: "nav.adminUpstreamModels", mode: "admin", description: "真实上游模型目录", apiPath: "/admin/upstream-models" },
-  { path: "/admin/providers", label: "Providers", labelKey: "nav.adminProviders", mode: "admin", description: "上游供应商目录", apiPath: "/admin/providers" },
-  { path: "/admin/provider-endpoints", label: "Endpoints", labelKey: "nav.adminEndpoints", mode: "admin", description: "供应商上游入口", apiPath: "/admin/provider-endpoints" },
-  { path: "/admin/provider-credentials", label: "Credentials", labelKey: "nav.adminCredentials", mode: "admin", description: "上游密钥与健康状态", apiPath: "/admin/provider-credentials" },
-  { path: "/admin/model-routes", label: "Routes", labelKey: "nav.adminRoutes", mode: "admin", description: "模型路由策略", apiPath: "/admin/model-routes" },
-  { path: "/admin/api-models", label: "API 模型支持", labelKey: "nav.adminApiModels", mode: "admin", description: "查看任意 API 支持模型", apiPath: "/admin/api-supported-models" },
-  { path: "/admin/usage", label: "使用统计", labelKey: "nav.adminUsage", mode: "admin", description: "全站调用记录与消费汇总", apiPath: "/admin/usage-summary" },
-  { path: "/admin/provider-health", label: "Provider Health", labelKey: "nav.adminProviderHealth", mode: "admin", description: "Provider/credential 健康运营控制台", apiPath: "/admin/provider-health" },
-  { path: "/admin/usage-dashboard", label: "Usage Dashboard", labelKey: "nav.adminUsageDashboard", mode: "admin", description: "多维 usage/cost/quota 分析", apiPath: "/admin/usage/summary" },
+  { path: "/admin/overview", label: "总览", i18nKey: "nav.overview", mode: "admin", description: "全站用户、模型、额度总览", apiPath: "/admin/dashboard" },
+  { path: "/admin/users", label: "用户管理", i18nKey: "nav.users", mode: "admin", description: "查看用户与启停账号", apiPath: "/admin/users" },
+  { path: "/admin/brands", label: "品牌", i18nKey: "nav.brands", mode: "admin", description: "模型品牌目录", apiPath: "/admin/brands" },
+  { path: "/admin/public-models", label: "Public Models", i18nKey: "nav.publicModels", mode: "admin", description: "用户可见模型产品目录", apiPath: "/admin/public-models" },
+  { path: "/admin/upstream-models", label: "Upstream Models", i18nKey: "nav.upstreamModels", mode: "admin", description: "真实上游模型目录", apiPath: "/admin/upstream-models" },
+  { path: "/admin/providers", label: "Providers", i18nKey: "nav.providers", mode: "admin", description: "上游供应商目录", apiPath: "/admin/providers" },
+  { path: "/admin/provider-endpoints", label: "Endpoints", i18nKey: "nav.endpoints", mode: "admin", description: "供应商上游入口", apiPath: "/admin/provider-endpoints" },
+  { path: "/admin/provider-credentials", label: "Credentials", i18nKey: "nav.credentials", mode: "admin", description: "上游密钥与健康状态", apiPath: "/admin/provider-credentials" },
+  { path: "/admin/model-routes", label: "Routes", i18nKey: "nav.routes", mode: "admin", description: "模型路由策略", apiPath: "/admin/model-routes" },
+  { path: "/admin/api-models", label: "API 模型支持", i18nKey: "nav.apiModels", mode: "admin", description: "查看任意 API 支持模型", apiPath: "/admin/api-supported-models" },
+  { path: "/admin/usage", label: "使用统计", i18nKey: "nav.usage", mode: "admin", description: "全站调用记录与消费汇总", apiPath: "/admin/usage-summary" },
+  { path: "/admin/provider-health", label: "Provider Health", i18nKey: "nav.providerHealth", mode: "admin", description: "Provider/credential 健康运营控制台", apiPath: "/admin/provider-health" },
+  { path: "/admin/usage-dashboard", label: "Usage Dashboard", i18nKey: "nav.usageDashboard", mode: "admin", description: "多维 usage/cost/quota 分析", apiPath: "/admin/usage/summary" },
 ];
 
 export const allConsoleRoutes: ConsoleRoute[] = [...userConsoleRoutes, ...adminConsoleRoutes];
 
 export const findConsoleRoute = (path: string): ConsoleRoute | undefined =>
   allConsoleRoutes.find((route) => route.path === path);
+
