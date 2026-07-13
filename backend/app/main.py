@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
         cannot be bypassed by ``app.dependency_overrides``.  The downstream
         ``require_admin_access`` dependency still validates the actual token.
         """
-        if request.url.path.startswith("/graphql"):
+        if request.url.path.startswith("/graphql") or request.url.path.startswith("/v1/graphql"):
             has_admin = request.headers.get("x-admin-authorization")
             has_auth = request.headers.get("authorization")
             if not has_admin and not has_auth:
@@ -154,7 +154,7 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
-    app.include_router(tableGraphql.router, prefix="/graphql")
+    app.include_router(tableGraphql.router, prefix="/v1/graphql")
 
     return app
 

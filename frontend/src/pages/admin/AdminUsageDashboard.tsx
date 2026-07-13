@@ -1,6 +1,6 @@
 import { Badge, Card, Grid, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "../../lib/watercolor";
 import { useEffect, useState } from "react";
-import adminApi, { apiBaseUrl } from "../../api/adminClient";
+import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
 import { useI18n } from "../../i18n";
 
@@ -15,7 +15,7 @@ const AdminUsageDashboardPage = () => {
 
   useEffect(() => {
     const load = async () => {
-      const graphqlUrl = apiBaseUrl.replace(/\/v1\/?$/, '') + "/graphql";
+      const graphqlUrl = "/graphql";
       const query = `
         query {
           adminDashboardData {
