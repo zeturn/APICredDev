@@ -14,6 +14,11 @@ brands:
     icon_slug: anthropic
     icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg
     enabled: true
+  - name: DeepSeek
+    slug: deepseek
+    icon_slug: deepseek
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/deepseek.svg
+    enabled: true
   - name: Unknown
     slug: unknown
     icon_slug:
@@ -65,6 +70,11 @@ providers:
     slug: anthropic
     icon_slug: anthropic
     icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg
+    enabled: true
+  - name: DeepSeek
+    slug: deepseek
+    icon_slug: deepseek
+    icon_url: https://unpkg.com/@lobehub/icons-static-svg@latest/icons/deepseek.svg
     enabled: true
   - name: OpenRouter
     slug: openrouter
@@ -119,6 +129,12 @@ provider_endpoints:
     slug: default
     display_name: Anthropic Default
     base_url: https://api.anthropic.com
+    enabled: true
+    health_state: healthy
+  - provider: deepseek
+    slug: default
+    display_name: DeepSeek Default
+    base_url: https://api.deepseek.com
     enabled: true
     health_state: healthy
   - provider: openrouter
