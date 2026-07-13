@@ -53,7 +53,7 @@ export const zh: Dict = {
   "login.desc": "APICred 已禁用本地账号注册和密码登录，请使用 BasaltPass 单点登录。",
   "login.button": "使用 BasaltPass 登录",
 
-  "layout.userTitle": "用户工作台",
+  "layout.userTitle": "用户终端",
   "layout.userDesc": "日常调用、Token 与余额管理。",
   "layout.adminTitle": "管理控制台",
   "layout.adminDesc": "模型目录、上游路由与密钥配置。",
@@ -520,7 +520,7 @@ export const en: Dict = {
   "login.desc": "Local sign-up and password login are disabled in APICred. Please use BasaltPass SSO.",
   "login.button": "Sign in with BasaltPass",
 
-  "layout.userTitle": "User Console",
+  "layout.userTitle": "User Terminal",
   "layout.userDesc": "Daily API calls, tokens and balance.",
   "layout.adminTitle": "Admin Console",
   "layout.adminDesc": "Model catalog, upstream routing and credentials.",

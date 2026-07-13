@@ -1,13 +1,16 @@
-import { Button, Card, List, ListItem, Typography } from "../lib/watercolor";
+import { Button, List, ListItem, Typography } from "../lib/watercolor";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { userConsoleRoutes } from "../navigation/consoleRoutes";
 import { AdminIcon } from "../pages/admin/adminCommon";
+import { useI18n } from "../i18n";
+import LanguageSwitcher from "../i18n/LanguageSwitcher";
 import api from "../api/client";
 
 const UserLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: item.label }));
+  const { t } = useI18n();
+  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: t(item.labelKey) }));
   const iconByPath: Record<string, "home" | "usage" | "key" | "models" | "wallet"> = {
     "/workspace/dashboard": "home",
     "/workspace/usage": "usage",
@@ -30,14 +33,17 @@ const UserLayout = () => {
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
         <aside className="sticky top-4 h-fit w-64 shrink-0 self-start">
           <div className="px-2 py-4">
-            <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
-              apicred
-            </Typography>
+            <div className="flex items-center justify-between gap-2">
+              <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
+                {t("over.apicred")}
+              </Typography>
+              <LanguageSwitcher />
+            </div>
             <Typography variant="h6" className="mt-2 px-3">
-              用户终端
+              {t("layout.userTitle")}
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              日常调用、Token 与余额管理。
+              {t("layout.userDesc")}
             </Typography>
 
             <List className="mt-4 space-y-1">
@@ -61,13 +67,13 @@ const UserLayout = () => {
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")}>
                 <span className="inline-flex items-center gap-2">
                   <AdminIcon icon="shield" className="h-4 w-4" />
-                  进入管理后台
+                  {t("layout.enterAdmin")}
                 </span>
               </Button>
               <Button buttonStyle="text" variant="error" fullWidth onClick={logout}>
                 <span className="inline-flex items-center gap-2">
                   <AdminIcon icon="provider" className="h-4 w-4" />
-                  退出登录
+                  {t("layout.logout")}
                 </span>
               </Button>
             </div>
