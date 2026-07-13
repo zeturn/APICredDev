@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Typography } from "../../lib/watercolor";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import { AdminPageIntro } from "./adminCommon";
 import { formatPricingSummary } from "../../shared/pricing";
@@ -30,6 +30,18 @@ type CatalogConfig = {
   meta: (item: CatalogItem, state: CatalogState, t: TranslateFn) => Array<[string, string]>;
 };
 
+type CatalogAction = {
+  labelKey: string;
+  path: string;
+  primary?: boolean;
+};
+
+type FlowStep = {
+  key: CatalogKey;
+  labelKey: string;
+  descKey: string;
+};
+
 type CreateField = {
   name: string;
   labelKey: string;
@@ -56,6 +68,66 @@ const emptyState: CatalogState = {
 const catalogKeys = Object.keys(emptyState) as CatalogKey[];
 
 const byId = (items: CatalogItem[], id: string | null | undefined) => items.find((item) => item.id === id);
+
+const catalogLabelKey = (key: CatalogKey) => configs[key].singularKey;
+
+const setupFlow: FlowStep[] = [
+  { key: "providers", labelKey: "catalog.flow.provider", descKey: "catalog.flow.providerDesc" },
+  { key: "provider-endpoints", labelKey: "catalog.flow.endpoint", descKey: "catalog.flow.endpointDesc" },
+  { key: "provider-credentials", labelKey: "catalog.flow.credential", descKey: "catalog.flow.credentialDesc" },
+  { key: "upstream-models", labelKey: "catalog.flow.upstream", descKey: "catalog.flow.upstreamDesc" },
+];
+
+const productFlow: FlowStep[] = [
+  { key: "brands", labelKey: "catalog.flow.brand", descKey: "catalog.flow.brandDesc" },
+  { key: "public-models", labelKey: "catalog.flow.public", descKey: "catalog.flow.publicDesc" },
+  { key: "model-routes", labelKey: "catalog.flow.route", descKey: "catalog.flow.routeDesc" },
+];
+
+const flowForCatalog = (catalogKey: CatalogKey): FlowStep[] =>
+  setupFlow.some((step) => step.key === catalogKey) ? setupFlow : productFlow;
+
+const countForStep = (state: CatalogState, key: CatalogKey) => state[key]?.length ?? 0;
+
+const dependencyMessages = (catalogKey: CatalogKey, state: CatalogState, t: TranslateFn): string[] => {
+  const messages: string[] = [];
+  if (catalogKey === "provider-endpoints" && state.providers.length === 0) messages.push(t("catalog.dep.providerRequired"));
+  if (catalogKey === "provider-credentials" && state["provider-endpoints"].length === 0) messages.push(t("catalog.dep.endpointRequired"));
+  if (catalogKey === "upstream-models" && state.providers.length === 0) messages.push(t("catalog.dep.providerRequired"));
+  if (catalogKey === "public-models" && state.brands.length === 0) messages.push(t("catalog.dep.brandSuggested"));
+  if (catalogKey === "model-routes") {
+    if (state["public-models"].length === 0) messages.push(t("catalog.dep.publicRequired"));
+    if (state["upstream-models"].length === 0) messages.push(t("catalog.dep.upstreamRequired"));
+  }
+  return messages;
+};
+
+const nextActionsForItem = (catalogKey: CatalogKey, item: CatalogItem, state: CatalogState): CatalogAction[] => {
+  if (catalogKey === "providers") {
+    return [
+      { labelKey: "catalog.next.addEndpoint", path: `/admin/provider-endpoints/new?provider_id=${item.id}`, primary: true },
+      { labelKey: "catalog.next.addUpstream", path: `/admin/upstream-models/new?provider_id=${item.id}` },
+    ];
+  }
+  if (catalogKey === "provider-endpoints") {
+    return [{ labelKey: "catalog.next.addCredential", path: `/admin/provider-credentials/new?provider_endpoint_id=${item.id}`, primary: true }];
+  }
+  if (catalogKey === "provider-credentials") {
+    const endpoint = byId(state["provider-endpoints"], item.provider_endpoint_id);
+    const providerId = endpoint?.provider_id;
+    return providerId ? [{ labelKey: "catalog.next.addUpstream", path: `/admin/upstream-models/new?provider_id=${providerId}`, primary: true }] : [];
+  }
+  if (catalogKey === "brands") {
+    return [{ labelKey: "catalog.next.addPublicModel", path: `/admin/public-models/new?brand_id=${item.id}`, primary: true }];
+  }
+  if (catalogKey === "public-models") {
+    return [{ labelKey: "catalog.next.addRoute", path: `/admin/model-routes/new?public_model_id=${item.id}`, primary: true }];
+  }
+  if (catalogKey === "upstream-models") {
+    return [{ labelKey: "catalog.next.addRoute", path: `/admin/model-routes/new?upstream_model_id=${item.id}`, primary: true }];
+  }
+  return [];
+};
 
 const jsonSummary = (value: unknown) => {
   if (!value || typeof value !== "object") return "-";
@@ -442,6 +514,105 @@ const CatalogCard = ({ config, item, state }: { config: CatalogConfig; item: Cat
   );
 };
 
+const FlowPanel = ({ activeKey, state }: { activeKey: CatalogKey; state: CatalogState }) => {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const steps = flowForCatalog(activeKey);
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <Typography variant="h6">{t(steps === setupFlow ? "catalog.flow.setupTitle" : "catalog.flow.productTitle")}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-1">
+            {t(steps === setupFlow ? "catalog.flow.setupDesc" : "catalog.flow.productDesc")}
+          </Typography>
+        </div>
+        <Badge variant="secondary">{t("catalog.flow.current", { item: t(catalogLabelKey(activeKey)) })}</Badge>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-4">
+        {steps.map((step, index) => {
+          const active = step.key === activeKey;
+          const count = countForStep(state, step.key);
+          return (
+            <button
+              key={step.key}
+              type="button"
+              onClick={() => navigate(configs[step.key].path)}
+              className={`min-h-[126px] border p-4 text-left transition ${
+                active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900 hover:border-slate-400"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${active ? "text-slate-200" : "text-slate-400"}`}>
+                  {t("catalog.flow.step", { n: index + 1 })}
+                </div>
+                <Badge variant={active ? "secondary" : "primary"}>{count}</Badge>
+              </div>
+              <div className="mt-3 text-sm font-semibold">{t(step.labelKey)}</div>
+              <div className={`mt-2 text-xs leading-5 ${active ? "text-slate-200" : "text-slate-500"}`}>{t(step.descKey)}</div>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+};
+
+const DependencyPanel = ({ catalogKey, state }: { catalogKey: CatalogKey; state: CatalogState }) => {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const messages = dependencyMessages(catalogKey, state, t);
+  if (!messages.length) return null;
+  const actions: CatalogAction[] = [];
+  if (catalogKey === "provider-endpoints" || catalogKey === "upstream-models") actions.push({ labelKey: "catalog.next.addProvider", path: "/admin/providers/new", primary: true });
+  if (catalogKey === "provider-credentials") actions.push({ labelKey: "catalog.next.addEndpoint", path: "/admin/provider-endpoints/new", primary: true });
+  if (catalogKey === "public-models") actions.push({ labelKey: "catalog.next.addBrand", path: "/admin/brands/new", primary: true });
+  if (catalogKey === "model-routes") {
+    if (state["public-models"].length === 0) actions.push({ labelKey: "catalog.next.addPublicModel", path: "/admin/public-models/new", primary: true });
+    if (state["upstream-models"].length === 0) actions.push({ labelKey: "catalog.next.addUpstream", path: "/admin/upstream-models/new" });
+  }
+  return (
+    <Card className="border border-amber-200 bg-amber-50 p-5">
+      <Typography variant="h6">{t("catalog.dep.title")}</Typography>
+      <div className="mt-2 space-y-1 text-sm text-amber-900">
+        {messages.map((message) => <div key={message}>{message}</div>)}
+      </div>
+      {actions.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {actions.map((action) => (
+            <Button key={action.path} buttonStyle={action.primary ? "filled" : "text"} variant={action.primary ? "primary" : "secondary"} onClick={() => navigate(action.path)}>
+              {t(action.labelKey)}
+            </Button>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+};
+
+const ActionPanel = ({ titleKey, actions }: { titleKey: string; actions: CatalogAction[] }) => {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  if (!actions.length) return null;
+  return (
+    <Card className="p-6">
+      <Typography variant="h6">{t(titleKey)}</Typography>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {actions.map((action) => (
+          <Button
+            key={action.path}
+            buttonStyle={action.primary ? "filled" : "text"}
+            variant={action.primary ? "primary" : "secondary"}
+            onClick={() => navigate(action.path)}
+          >
+            {t(action.labelKey)}
+          </Button>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
 const RelatedLinks = ({ item, state, catalogKey }: { item: CatalogItem; state: CatalogState; catalogKey: CatalogKey }) => {
   const { t } = useI18n();
   const links: Array<{ label: string; path: string; name: string }> = [];
@@ -565,6 +736,8 @@ export const CatalogListPage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
   return (
     <div className="space-y-6">
       <AdminPageIntro title={t(config.titleKey)} description={t(config.descriptionKey)} />
+      <FlowPanel activeKey={catalogKey} state={state} />
+      <DependencyPanel catalogKey={catalogKey} state={state} />
       <Card className="p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -610,6 +783,16 @@ const initialFormValues = (catalogKey: CatalogKey): Record<string, unknown> => {
     }
   }
   return values;
+};
+
+const applySearchDefaults = (values: Record<string, unknown>, searchParams: URLSearchParams): Record<string, unknown> => {
+  const next = { ...values };
+  searchParams.forEach((value, key) => {
+    if (key in next && value.trim()) {
+      next[key] = value;
+    }
+  });
+  return next;
 };
 
 const fieldClass =
@@ -758,12 +941,13 @@ const buildPayload = (catalogKey: CatalogKey, values: Record<string, unknown>, t
 export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) => {
   const config = configs[catalogKey];
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useI18n();
   const [state, setState] = useState<CatalogState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [values, setValues] = useState<Record<string, unknown>>(() => initialFormValues(catalogKey));
+  const [values, setValues] = useState<Record<string, unknown>>(() => applySearchDefaults(initialFormValues(catalogKey), searchParams));
 
   useEffect(() => {
     let active = true;
@@ -807,6 +991,9 @@ export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
         <Badge variant="secondary">{loading ? t("catalog.loadingDeps") : t(config.singularKey)}</Badge>
       </div>
 
+      <FlowPanel activeKey={catalogKey} state={state} />
+      <DependencyPanel catalogKey={catalogKey} state={state} />
+
       <Card className="p-6">
         {error ? <div className="mb-5 border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">{error}</div> : null}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -822,7 +1009,7 @@ export const CatalogCreatePage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
           ))}
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <Button buttonStyle="text" variant="secondary" onClick={() => setValues(initialFormValues(catalogKey))} disabled={saving}>
+          <Button buttonStyle="text" variant="secondary" onClick={() => setValues(applySearchDefaults(initialFormValues(catalogKey), searchParams))} disabled={saving}>
             {t("catalog.reset")}
           </Button>
           <Button buttonStyle="filled" variant="primary" onClick={save} disabled={saving || loading}>
@@ -857,6 +1044,7 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
   }, []);
 
   const item = state[catalogKey].find((entry) => entry.id === params.id);
+  const nextActions = item ? nextActionsForItem(catalogKey, item, state) : [];
 
   return (
     <div className="space-y-6">
@@ -882,7 +1070,12 @@ export const CatalogDetailPage = ({ catalogKey }: { catalogKey: CatalogKey }) =>
           <Typography variant="body2" color="textSecondary" className="mt-1">{t("catalog.notFoundDesc")}</Typography>
         </Card>
       )}
-      {!loading && item && <DetailBody config={config} item={item} state={state} />}
+      {!loading && item && (
+        <>
+          <ActionPanel titleKey="catalog.next.title" actions={nextActions} />
+          <DetailBody config={config} item={item} state={state} />
+        </>
+      )}
     </div>
   );
 };
