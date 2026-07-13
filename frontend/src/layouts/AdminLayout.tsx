@@ -61,22 +61,22 @@ const AdminLayout = () => {
           <div className="px-2 py-4">
             <div className="flex items-center justify-between">
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
-                apicred
+                {t("over.apicred")}
               </Typography>
               <Button buttonStyle="text" variant="secondary" size="small" onClick={toggleLocale} title={t("common.language")}>
                 {locale === "zh" ? "EN" : "中"}
               </Button>
             </div>
             <Typography variant="h6" className="mt-2">
-              管理控制台
+              {t("layout.adminTitle")}
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              模型目录、上游路由与密钥配置。
+              {t("layout.adminDesc")}
             </Typography>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <Typography variant="caption" color="textSecondary">
-                {adminReady ? (adminAllowed ? "已自动配置 Admin Token" : "当前账号无 Admin 权限") : "正在自动校验 Admin 权限..."}
+                {adminReady ? (adminAllowed ? t("layout.adminTokenOk") : t("layout.adminNoPerm")) : t("layout.adminChecking")}
               </Typography>
             </div>
 
@@ -99,10 +99,10 @@ const AdminLayout = () => {
 
             <div className="mt-6 space-y-2">
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/workspace/dashboard")}>
-                {t("common.backToUser")}
+                {t("layout.backToUser")}
               </Button>
               <Button buttonStyle="text" variant="error" fullWidth onClick={logout}>
-                {t("common.logout")}
+                {t("layout.logout")}
               </Button>
             </div>
             </div>

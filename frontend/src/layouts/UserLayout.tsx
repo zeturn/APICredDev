@@ -10,7 +10,7 @@ const UserLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: t(item.labelKey) }));
+  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: item.i18nKey ? t(item.i18nKey) : item.label }));
   const iconByPath: Record<string, "home" | "usage" | "key" | "models" | "wallet"> = {
     "/workspace/dashboard": "home",
     "/workspace/usage": "usage",
