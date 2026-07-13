@@ -154,6 +154,7 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(basalt.router, prefix="/v1")
+    app.include_router(tableGraphql.router, prefix="/graphql")
     app.include_router(tableGraphql.router, prefix="/v1/graphql")
 
     return app
