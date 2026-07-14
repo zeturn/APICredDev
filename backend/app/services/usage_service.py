@@ -2,7 +2,7 @@ import math
 from decimal import Decimal
 from typing import Any
 
-from app.core.credit_units import billable_credits
+from app.core.credit_units import usd_to_credit_points
 
 
 def estimate_prompt_tokens(messages: list[dict]) -> int:
@@ -53,12 +53,12 @@ def calculate_cost(
         input_price = Decimal(str((tier or pricing).get("input_per_million", 0) or 0))
         cached_input_price = Decimal(str((tier or pricing).get("cached_input_per_million", pricing.get("cached_input_per_million", input_price)) or 0))
         output_price = Decimal(str((tier or pricing).get("output_per_million", 0) or 0))
-        cost = (
+        cost_usd = (
             (Decimal(non_cached_prompt) / Decimal(1_000_000)) * input_price
             + (Decimal(cached) / Decimal(1_000_000)) * cached_input_price
             + (Decimal(completion) / Decimal(1_000_000)) * output_price
         )
-        return float(billable_credits(cost * multiplier))
+        return float(usd_to_credit_points(cost_usd * multiplier))
 
     unit = pricing.get("unit", "1k_tokens")
     price = Decimal(str(pricing.get("price", 0) or 0))
@@ -66,5 +66,5 @@ def calculate_cost(
         units = math.ceil(total_tokens / 1000)
     else:
         units = request_count
-    return float(billable_credits(Decimal(units) * price * multiplier))
+    return float(usd_to_credit_points(Decimal(units) * price * multiplier))
 

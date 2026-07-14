@@ -12,7 +12,7 @@ from app.services.billing_service import authorize_usage, settle_usage
 from app.services.quota_ledger_service import settle_quota_ledger
 
 
-async def _seed_user_wallet(db_session, *, user_id: str = "u1", balance: str = "100") -> None:
+async def _seed_user_wallet(db_session, *, user_id: str = "u1", balance: str = "1000") -> None:
     db_session.add(User(id=user_id, email=f"{user_id}@example.com", password_hash="x", status="active"))
     db_session.add(Wallet(user_id=user_id, balance_credits=Decimal(balance)))
     await db_session.commit()
@@ -28,13 +28,13 @@ async def test_reserve_then_settle(db_session):
         request_id="req1",
         model_id="m1",
         model_name="apicred-fast",
-        estimated_cost=1.2,
+        estimated_cost=120,
         meta={},
     )
-    await settle_usage(db_session, usage, 0.8, {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15})
+    await settle_usage(db_session, usage, 80, {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15})
     ledger = (await db_session.execute(select(QuotaLedgerEntry).where(QuotaLedgerEntry.request_id == "req1"))).scalar_one()
     assert ledger.status == "settled"
-    assert float(ledger.final_cost_credits or 0) == pytest.approx(0.8)
+    assert float(ledger.final_cost_credits or 0) == pytest.approx(80)
     assert ledger.total_tokens == 15
 
 
@@ -48,7 +48,7 @@ async def test_reserve_then_upstream_failure(db_session):
         request_id="req-fail",
         model_id="m1",
         model_name="apicred-fast",
-        estimated_cost=1.0,
+        estimated_cost=100,
         meta={},
     )
     await settle_usage(db_session, usage, 0, {"error": "upstream_failed"})
@@ -67,13 +67,13 @@ async def test_duplicate_settle_idempotent(db_session):
         request_id="req-dup",
         model_id="m1",
         model_name="apicred-fast",
-        estimated_cost=1.0,
+        estimated_cost=100,
         meta={},
     )
-    await settle_usage(db_session, usage, 0.5, {"total_tokens": 10})
-    await settle_usage(db_session, usage, 2.0, {"total_tokens": 999})
+    await settle_usage(db_session, usage, 50, {"total_tokens": 10})
+    await settle_usage(db_session, usage, 200, {"total_tokens": 999})
     ledger = (await db_session.execute(select(QuotaLedgerEntry).where(QuotaLedgerEntry.request_id == "req-dup"))).scalar_one()
-    assert float(ledger.final_cost_credits or 0) == pytest.approx(0.5)
+    assert float(ledger.final_cost_credits or 0) == pytest.approx(50)
     assert ledger.total_tokens == 10
 
 
@@ -87,7 +87,7 @@ async def test_rejected_quota_recorded(db_session):
         request_id="req-reject",
         model_id="m1",
         model_name="apicred-fast",
-        estimated_cost=0.1,
+        estimated_cost=10,
         meta={},
     )
     await settle_quota_ledger(db_session, request_id=usage.request_id, status="rejected", reason="quota_rejected")
@@ -105,10 +105,10 @@ async def test_service_restart_does_not_lose_ledger(db_session):
         request_id="req-restart",
         model_id="m1",
         model_name="apicred-fast",
-        estimated_cost=0.2,
+        estimated_cost=20,
         meta={},
     )
-    await settle_usage(db_session, usage, 0.2, {"total_tokens": 2})
+    await settle_usage(db_session, usage, 20, {"total_tokens": 2})
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:

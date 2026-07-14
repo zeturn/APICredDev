@@ -92,7 +92,7 @@ async def test_get_wallet_syncs_remote_balance_once(db_session, monkeypatch):
 
     wallet = await get_wallet(db_session, user.id)
 
-    assert wallet.balance_credits == Decimal("12.5")
+    assert wallet.balance_credits == Decimal("12500000")
     assert _RemoteWalletClient.wallet_calls == [
         {
             "user_id": "basalt-u-1",
@@ -114,20 +114,20 @@ async def test_authorize_and_settle_usage_adjust_remote_wallet(db_session, monke
         token_id="token-1",
         request_id="request-1",
         model_id="model-1",
-        estimated_cost=Decimal("3.5"),
+        estimated_cost=Decimal("3500000"),
         meta={"model": "m"},
     )
     wallet_after_auth = await db_session.get(Wallet, user.id)
 
-    assert wallet_after_auth.balance_credits == Decimal("16.5")
+    assert wallet_after_auth.balance_credits == Decimal("16500000")
     assert _RemoteWalletClient.adjust_calls[0]["operation"] == "decrease"
     assert _RemoteWalletClient.adjust_calls[0]["amount"] == 3_500_000
     assert _RemoteWalletClient.adjust_calls[0]["reference"] == "apicred:usage_pending:request-1"
 
-    await settle_usage(db_session, usage, Decimal("2.25"), {"total_tokens": 10})
+    await settle_usage(db_session, usage, Decimal("2250000"), {"total_tokens": 10})
     wallet_after_settle = await db_session.get(Wallet, user.id)
 
-    assert wallet_after_settle.balance_credits == Decimal("17.75")
+    assert wallet_after_settle.balance_credits == Decimal("17750000")
     assert _RemoteWalletClient.adjust_calls[1]["operation"] == "increase"
     assert _RemoteWalletClient.adjust_calls[1]["amount"] == 1_250_000
     assert _RemoteWalletClient.adjust_calls[1]["reference"] == f"apicred:usage_settle:{usage.id}"
@@ -147,7 +147,7 @@ async def test_authorize_usage_rejects_insufficient_remote_balance(db_session, m
             token_id="token-1",
             request_id="request-2",
             model_id="model-1",
-            estimated_cost=Decimal("2.01"),
+            estimated_cost=Decimal("2000001"),
             meta={},
         )
 

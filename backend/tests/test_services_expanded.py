@@ -122,17 +122,17 @@ async def test_routing_skips_disabled_and_cooldown_credentials(db_session):
 
 def test_calculate_cost_uses_public_model_pricing():
     model = PublicModel(slug="cost-model", display_name="Cost Model", category="llm", enabled=True, multiplier=2, pricing={"unit": "request", "price": 3})
-    assert calculate_cost(model, total_tokens=100, request_count=2) == 12
+    assert calculate_cost(model, total_tokens=100, request_count=2) == 12_000_000
 
 
-def test_calculate_cost_rounds_up_to_microcredit():
+def test_calculate_cost_returns_credit_points_from_usd_per_million():
     model = PublicModel(
-        slug="micro-cost-model",
-        display_name="Micro Cost Model",
+        slug="point-cost-model",
+        display_name="Point Cost Model",
         category="llm",
         enabled=True,
         multiplier=1,
         pricing={"mode": "token_segments", "input_per_million": 0.75, "output_per_million": 4.5},
     )
 
-    assert calculate_cost(model, prompt_tokens=15, completion_tokens=8) == pytest.approx(0.000048)
+    assert calculate_cost(model, prompt_tokens=15, completion_tokens=8) == 48

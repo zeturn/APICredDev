@@ -4,10 +4,10 @@ from typing import Any
 from app.core.config import settings
 
 
-MICROCREDIT_QUANT = Decimal("0.000001")
+CREDIT_POINT_QUANT = Decimal("1")
 
 
-def credit_scale() -> int:
+def credit_points_per_usd() -> int:
     return max(int(settings.basalt_credit_scale or 1), 1)
 
 
@@ -16,18 +16,24 @@ def as_decimal(value: Any) -> Decimal:
 
 
 def credits_to_microcredits(value: Any, *, rounding=ROUND_HALF_UP) -> int:
-    credits = as_decimal(value)
-    micros = (credits * Decimal(credit_scale())).quantize(Decimal("1"), rounding=rounding)
-    return int(micros)
+    points = as_decimal(value)
+    return int(points.quantize(CREDIT_POINT_QUANT, rounding=rounding))
 
 
 def microcredits_to_credits(value: Any) -> Decimal:
-    credits = as_decimal(value) / Decimal(credit_scale())
-    return credits.quantize(MICROCREDIT_QUANT)
+    return as_decimal(value).quantize(CREDIT_POINT_QUANT)
 
 
 def billable_credits(value: Any) -> Decimal:
-    micros = credits_to_microcredits(value, rounding=ROUND_CEILING)
-    if micros <= 0:
+    points = credits_to_microcredits(value, rounding=ROUND_CEILING)
+    if points <= 0:
         return Decimal("0")
-    return microcredits_to_credits(micros)
+    return microcredits_to_credits(points)
+
+
+def usd_to_credit_points(value: Any, *, rounding=ROUND_CEILING) -> Decimal:
+    usd = as_decimal(value)
+    points = (usd * Decimal(credit_points_per_usd())).quantize(CREDIT_POINT_QUANT, rounding=rounding)
+    if points <= 0:
+        return Decimal("0")
+    return points
