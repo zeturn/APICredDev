@@ -215,6 +215,7 @@ async def basalt_tenant_hint(
             "data": {
                 "tenant_code": tenant_code,
                 "tenant_id": tenant_id,
+                "app_client_id": settings.basalt_oauth_client_id,
             }
         }
     )

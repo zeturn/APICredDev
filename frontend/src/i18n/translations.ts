@@ -111,7 +111,8 @@ export const zh: Dict = {
   "tokens.noTokens": "暂无 Token",
 
   "topup.title": "充值",
-  "topup.desc": "选择使用 BasaltPass 钱包充值，或使用礼品卡兑换 API Credits。",
+  "topup.desc": "正在跳转到 BasaltPass 的 APICred 专属充值页面。",
+  "topup.redirectTitle": "前往 APICred 充值",
   "topup.cashTitle": "钱包 Top up",
   "topup.cashDesc": "进入 BasaltPass 收银台，选择充值金额和支付方式完成充值。",
   "topup.cashGo": "前往钱包 Top up",
@@ -119,7 +120,8 @@ export const zh: Dict = {
   "topup.giftDesc": "已有礼品卡或卡密时，进入 BasaltPass 兑换页把信用点充入钱包。",
   "topup.giftGo": "兑换礼品卡",
   "topup.noteTitle": "账务说明",
-  "topup.note": "充值完成后，APICred 会通过 BasaltPass 钱包读取你的可用余额。",
+  "topup.note": "你将在 BasaltPass 中为 APICred 使用的 Credit Points 充值。",
+  "topup.go": "前往 APICred 充值",
 
   "usage.title": "用量分析",
   "usage.desc": "查看最近调用记录，以及不同模型累计消耗了多少信用点。",
@@ -629,7 +631,8 @@ export const en: Dict = {
   "tokens.noTokens": "No tokens yet",
 
   "topup.title": "Top Up",
-  "topup.desc": "Choose BasaltPass wallet top-up or redeem a gift card for API Credits.",
+  "topup.desc": "Redirecting to the APICred top-up page in BasaltPass.",
+  "topup.redirectTitle": "Go to APICred top-up",
   "topup.cashTitle": "Wallet Top-up",
   "topup.cashDesc": "Open the BasaltPass checkout, choose an amount and payment method, then complete the top-up.",
   "topup.cashGo": "Go to wallet top-up",
@@ -637,7 +640,8 @@ export const en: Dict = {
   "topup.giftDesc": "If you already have a gift card code, redeem it in BasaltPass to add wallet balance.",
   "topup.giftGo": "Redeem gift card",
   "topup.noteTitle": "Billing note",
-  "topup.note": "After top-up completes, APICred reads your available balance from the BasaltPass wallet.",
+  "topup.note": "You will top up the Credit Points used by APICred in BasaltPass.",
+  "topup.go": "Go to APICred top-up",
 
   "usage.title": "Usage",
   "usage.desc": "View recent calls and credit points consumed per model.",
