@@ -111,7 +111,7 @@ export const zh: Dict = {
   "tokens.noTokens": "暂无 Token",
 
   "topup.title": "充值",
-  "topup.desc": "正在跳转到 BasaltPass 的 APICred 专属充值页面。",
+  "topup.desc": "选择通过 BasaltPass 收银台充值，或使用礼品卡兑换信用点。",
   "topup.redirectTitle": "前往 APICred 充值",
   "topup.cashTitle": "钱包 Top up",
   "topup.cashDesc": "进入 BasaltPass 收银台，选择充值金额和支付方式完成充值。",
@@ -631,7 +631,7 @@ export const en: Dict = {
   "tokens.noTokens": "No tokens yet",
 
   "topup.title": "Top Up",
-  "topup.desc": "Redirecting to the APICred top-up page in BasaltPass.",
+  "topup.desc": "Choose BasaltPass checkout or redeem a gift card to add credit points.",
   "topup.redirectTitle": "Go to APICred top-up",
   "topup.cashTitle": "Wallet Top-up",
   "topup.cashDesc": "Open the BasaltPass checkout, choose an amount and payment method, then complete the top-up.",
