@@ -6,18 +6,21 @@ import App from "./App";
 import ToastViewport from "./ui/ToastViewport";
 import GlobalLoading from "./ui/GlobalLoading";
 import { I18nProvider } from "./i18n";
+import { ThemeProvider as DarkModeProvider } from "./theme";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
-      <I18nProvider>
+      <DarkModeProvider>
+        <I18nProvider>
         <BrowserRouter>
           <GlobalLoading />
           <App />
           <ToastViewport />
         </BrowserRouter>
-      </I18nProvider>
+        </I18nProvider>
+      </DarkModeProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

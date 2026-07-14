@@ -4,6 +4,7 @@ import { userConsoleRoutes } from "../navigation/consoleRoutes";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../i18n/LanguageSwitcher";
+import ThemeToggle from "../ThemeToggle";
 import api from "../api/client";
 
 const UserLayout = () => {
@@ -37,7 +38,10 @@ const UserLayout = () => {
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
                 {t("over.apicred")}
               </Typography>
-              <LanguageSwitcher />
+              <div className="flex items-center gap-2">
+                <LanguageSwitcher />
+                <ThemeToggle />
+              </div>
             </div>
             <Typography variant="h6" className="mt-2 px-3">
               {t("layout.userTitle")}

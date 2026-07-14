@@ -5,6 +5,7 @@ import { adminConsoleRoutes } from "../navigation/consoleRoutes";
 import { clearAdminAccessToken, ensureAdminToken } from "../api/adminClient";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
+import ThemeToggle from "../ThemeToggle";
 import api from "../api/client";
 
 const AdminLayout = () => {
@@ -63,9 +64,12 @@ const AdminLayout = () => {
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
                 {t("over.apicred")}
               </Typography>
-              <Button buttonStyle="text" variant="secondary" size="small" onClick={toggleLocale} title={t("common.language")}>
-                {locale === "zh" ? "EN" : "中"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <Button buttonStyle="text" variant="secondary" size="small" onClick={toggleLocale} title={t("common.language")}>
+                  {locale === "zh" ? "EN" : "中"}
+                </Button>
+              </div>
             </div>
             <Typography variant="h6" className="mt-2">
               {t("layout.adminTitle")}
