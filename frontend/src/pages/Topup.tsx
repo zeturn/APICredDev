@@ -32,6 +32,7 @@ const TopupPage = () => {
         if (tenantCode) {
           query.set("tenant", String(tenantCode));
         }
+        query.set("return_url", `${window.location.origin}/workspace/topup`);
         const queryString = query.toString();
         if (queryString) {
           finalUrl = `${fallbackRechargeUrl}?${queryString}`;
@@ -41,7 +42,10 @@ const TopupPage = () => {
         }
       } catch {
         if (fallbackClientId) {
-          finalUrl = `${fallbackRechargeUrl}?client_id=${encodeURIComponent(String(fallbackClientId))}`;
+          const query = new URLSearchParams();
+          query.set("client_id", String(fallbackClientId));
+          query.set("return_url", `${window.location.origin}/workspace/topup`);
+          finalUrl = `${fallbackRechargeUrl}?${query.toString()}`;
         }
       }
 
