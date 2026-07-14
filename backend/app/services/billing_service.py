@@ -7,6 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.credit_units import as_decimal, billable_credits, credits_to_microcredits, microcredits_to_credits
 from app.core.time import utc_now
 from app.db.models.ledger import LedgerEntry
 from app.db.models.usage_session import UsageSession
@@ -23,18 +24,15 @@ class WalletSnapshot:
 
 
 def _as_decimal(value: object) -> Decimal:
-    return Decimal(str(value or 0))
+    return as_decimal(value)
 
 
 def _credit_to_smallest(amount_credits: Decimal) -> int:
-    scale = max(int(settings.basalt_credit_scale or 1), 1)
-    smallest = (amount_credits * Decimal(scale)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(smallest)
+    return credits_to_microcredits(amount_credits, rounding=ROUND_HALF_UP)
 
 
 def _smallest_to_credit(amount_smallest: int | float | str) -> Decimal:
-    scale = max(int(settings.basalt_credit_scale or 1), 1)
-    return _as_decimal(amount_smallest) / Decimal(scale)
+    return microcredits_to_credits(amount_smallest)
 
 
 def _is_remote_wallet_enabled(user: User | None) -> bool:
@@ -168,7 +166,7 @@ async def authorize_usage(
     request_messages: list[dict] | None = None,
     request_text: str | None = None,
 ) -> UsageSession:
-    estimated = Decimal(str(estimated_cost))
+    estimated = billable_credits(estimated_cost)
     user = await db.get(User, user_id)
     wallet = await _get_local_wallet(db, user_id)
 
@@ -253,7 +251,7 @@ async def settle_usage(
     user = await db.get(User, usage.user_id)
     wallet = await _get_local_wallet(db, usage.user_id)
 
-    final = Decimal(str(final_cost))
+    final = billable_credits(final_cost)
     estimated = Decimal(str(usage.estimated_cost_credits))
     diff = final - estimated
 

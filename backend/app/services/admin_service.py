@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.credit_units import microcredits_to_credits
 from app.db.models.brand import Brand
 from app.db.models.model_route import ModelRoute
 from app.db.models.provider import Provider
@@ -329,8 +330,7 @@ async def list_api_supported_models(db: AsyncSession) -> list[dict]:
 
 
 def _smallest_to_credit(amount_smallest: int | float | str | None) -> Decimal:
-    scale = max(int(settings.basalt_credit_scale or 1), 1)
-    return Decimal(str(amount_smallest or 0)) / Decimal(scale)
+    return microcredits_to_credits(amount_smallest or 0)
 
 
 async def sync_wallets_from_basalt(

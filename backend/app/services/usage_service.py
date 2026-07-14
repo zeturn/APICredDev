@@ -1,5 +1,8 @@
 import math
+from decimal import Decimal
 from typing import Any
+
+from app.core.credit_units import billable_credits
 
 
 def estimate_prompt_tokens(messages: list[dict]) -> int:
@@ -26,7 +29,7 @@ def calculate_cost(
     cached_input_tokens: int = 0,
 ) -> float:
     pricing = model.pricing or {}
-    multiplier = float(getattr(model, "multiplier", 1) or 1)
+    multiplier = Decimal(str(getattr(model, "multiplier", 1) or 1))
     mode = pricing.get("mode")
 
     if mode == "free":
@@ -47,21 +50,21 @@ def calculate_cost(
                 continue
             tier = item
             break
-        input_price = float((tier or pricing).get("input_per_million", 0) or 0)
-        cached_input_price = float((tier or pricing).get("cached_input_per_million", pricing.get("cached_input_per_million", input_price)) or 0)
-        output_price = float((tier or pricing).get("output_per_million", 0) or 0)
+        input_price = Decimal(str((tier or pricing).get("input_per_million", 0) or 0))
+        cached_input_price = Decimal(str((tier or pricing).get("cached_input_per_million", pricing.get("cached_input_per_million", input_price)) or 0))
+        output_price = Decimal(str((tier or pricing).get("output_per_million", 0) or 0))
         cost = (
-            (non_cached_prompt / 1_000_000) * input_price
-            + (cached / 1_000_000) * cached_input_price
-            + (completion / 1_000_000) * output_price
+            (Decimal(non_cached_prompt) / Decimal(1_000_000)) * input_price
+            + (Decimal(cached) / Decimal(1_000_000)) * cached_input_price
+            + (Decimal(completion) / Decimal(1_000_000)) * output_price
         )
-        return float(cost * multiplier)
+        return float(billable_credits(cost * multiplier))
 
     unit = pricing.get("unit", "1k_tokens")
-    price = float(pricing.get("price", 0) or 0)
+    price = Decimal(str(pricing.get("price", 0) or 0))
     if unit == "1k_tokens":
         units = math.ceil(total_tokens / 1000)
     else:
         units = request_count
-    return float(units * price * multiplier)
+    return float(billable_credits(Decimal(units) * price * multiplier))
 
