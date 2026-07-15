@@ -44,7 +44,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       title={dark ? "切换到浅色模式" : "切换到深色模式"}
       aria-label="切换深色模式"
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-100"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-100"
     >
       {dark ? <SunIcon /> : <MoonIcon />}
     </button>
