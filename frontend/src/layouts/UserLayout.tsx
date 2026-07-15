@@ -29,6 +29,8 @@ const UserLayout = () => {
     navigate("/login");
   };
 
+  const activeIndex = navItems.findIndex((item) => location.pathname === item.to);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
@@ -50,7 +52,13 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <List className="mt-4 flex-1 space-y-1 overflow-y-auto">
+            <List className="mt-4 flex-1 space-y-1 relative">
+              <div
+                className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-slate-900 rounded-r-md transition-all duration-300 ease-in-out ${
+                  activeIndex === -1 ? "opacity-0" : "opacity-100"
+                }`}
+                style={{ top: `${Math.max(0, activeIndex) * 40 + 6}px` }}
+              />
               {navItems.map((item) => (
                 <ListItem
                   key={item.to}
