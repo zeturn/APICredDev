@@ -217,6 +217,9 @@ async def chat_completions(
             meta={"model": public_model_name, "request_id": str(request_id)},
             request_messages=_messages_to_records(payload.messages),
             request_text=_messages_to_text(payload.messages),
+            principal_type=getattr(api_token, "principal_type", "user"),
+            principal_id=getattr(api_token, "principal_id", None),
+            tenant_id=getattr(api_token, "basalt_tenant_id", None),
         )
     except ValueError:
         raise AppError("insufficient_balance", "insufficient balance", request_id, 402)

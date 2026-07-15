@@ -239,3 +239,45 @@ class BasaltPassClient:
             body=payload,
         )
 
+    async def s2s_get_owner_wallet(
+        self,
+        owner_type: str,
+        owner_id: str,
+        currency: str,
+        limit: int = 20,
+        tenant_id: str | None = None,
+    ) -> Any:
+        params: dict[str, Any] = {"currency": currency, "limit": limit}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        return await self._s2s_get(
+            f"/api/v1/s2s/wallets/{owner_type}/{owner_id}",
+            query=params,
+        )
+
+    async def s2s_adjust_owner_wallet(
+        self,
+        owner_type: str,
+        owner_id: str,
+        *,
+        currency: str,
+        operation: str,
+        amount: int,
+        reference: str,
+        tenant_id: str | None = None,
+    ) -> Any:
+        params: dict[str, Any] = {}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        return await self._s2s_request(
+            method="POST",
+            upstream_path=f"/api/v1/s2s/wallets/{owner_type}/{owner_id}/adjust",
+            query=params or None,
+            body={
+                "operation": operation,
+                "amount": amount,
+                "currency": currency,
+                "reference": reference,
+            },
+        )
+

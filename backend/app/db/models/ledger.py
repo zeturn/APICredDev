@@ -12,6 +12,9 @@ class LedgerEntry(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     user_id: Mapped[str] = mapped_column(String, index=True)
+    principal_type: Mapped[str] = mapped_column(String, default="user", index=True)
+    principal_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    tenant_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     entry_type: Mapped[str] = mapped_column(String)
     amount_credits: Mapped[float] = mapped_column(Numeric(20, 6))
     status: Mapped[str] = mapped_column(String, default="pending")
