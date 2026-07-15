@@ -272,9 +272,9 @@ export const ListItem = ({
   return (
     <Tag
       className={cx(
-        "block px-3 py-2.5 !rounded-xl text-[15px] font-medium text-slate-700 transition-colors",
+        "relative block px-3 py-2 !rounded-xl text-sm font-medium text-slate-700 transition-colors",
         button && "cursor-pointer hover:!bg-slate-200/60",
-        selected && "!bg-slate-200 font-bold !text-slate-900",
+        selected && "!bg-slate-200 font-semibold !text-slate-900 before:absolute before:top-1/2 before:-translate-y-1/2 before:-left-6 md:before:-left-8 before:w-1.5 before:h-6 before:bg-slate-900 before:rounded-r-md",
         className,
       )}
       {...rest}

@@ -32,8 +32,8 @@ const UserLayout = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
-        <aside className="sticky top-4 h-fit w-64 shrink-0 self-start">
-          <div className="px-2 py-4">
+        <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 shrink-0 self-start">
+          <div className="flex h-full flex-col px-2 py-4">
             <div className="flex items-center justify-between gap-2">
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
                 {t("over.apicred")}
@@ -50,7 +50,7 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <List className="mt-4 space-y-1">
+            <List className="mt-4 flex-1 space-y-1 overflow-y-auto">
               {navItems.map((item) => (
                 <ListItem
                   key={item.to}
