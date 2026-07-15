@@ -66,8 +66,8 @@ const AdminLayout = () => {
               </Typography>
               <LanguageSwitcher />
             </div>
-            <Typography variant="h6" className="mt-2">
-              {t("layout.adminTitle")}
+            <Typography variant="h6" className="mt-2 px-3">
+              Admin Terminal
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
               {t("layout.adminDesc")}
