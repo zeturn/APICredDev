@@ -575,7 +575,7 @@ export const en: Dict = {
 
   "layout.userTitle": "User Terminal",
   "layout.userDesc": "Daily API calls, tokens and balance.",
-  "layout.adminTitle": "Admin Console",
+  "layout.adminTitle": "Admin Terminal",
   "layout.adminDesc": "Model catalog, upstream routing and credentials.",
   "layout.adminTokenOk": "Admin token auto-configured",
   "layout.adminNoPerm": "This account has no admin permission",
