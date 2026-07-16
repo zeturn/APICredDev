@@ -24,12 +24,12 @@ public_models:
   - slug: gpt-5.4-mini
     display_name: GPT 5.4 mini
     category: llm
-    pricing: {mode: token_segments, input_per_million: 0.75, cached_input_per_million: 0.08, output_per_million: 4.5}
+    pricing: {mode: token_segments, input_per_million: 0.75, cached_input_per_million: 0.075, output_per_million: 4.5}
     enabled: true
   - slug: gpt-5.4-nano
     display_name: GPT 5.4 nano
     category: llm
-    pricing: {mode: token_segments, input_per_million: 0.2, cached_input_per_million: 0.03, output_per_million: 1.25}
+    pricing: {mode: token_segments, input_per_million: 0.2, cached_input_per_million: 0.02, output_per_million: 1.25}
     enabled: true
   - slug: gpt-realtime-1.5
     display_name: GPT Realtime 1.5
@@ -141,6 +141,11 @@ public_models:
     category: llm
     pricing: {mode: token_segments, input_per_million: 3, cached_input_per_million: 0.3, output_per_million: 15, cache_write_5m_per_million: 3.75, cache_write_1h_per_million: 6}
     enabled: true
+  - slug: deepseek-v4-flash
+    display_name: DeepSeek V4 Flash
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.14, cached_input_per_million: 0.0028, output_per_million: 0.28, source: deepseek_official}
+    enabled: true
   - slug: claude-haiku-4.5
     display_name: Claude Haiku 4.5
     category: llm
@@ -156,6 +161,42 @@ public_models:
     description: Tencent HY3 via OpenRouter free tier.
     category: llm
     pricing: {mode: free, source: openrouter}
+    enabled: true
+  - slug: deepseek-chat
+    display_name: DeepSeek Chat
+    brand_slug: deepseek
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.27, cached_input_per_million: 0.07, output_per_million: 1.1}
+    enabled: true
+  - slug: deepseek-reasoner
+    display_name: DeepSeek Reasoner
+    brand_slug: deepseek
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.55, cached_input_per_million: 0.14, output_per_million: 2.19}
+    enabled: true
+  - slug: mistral-large
+    display_name: Mistral Large
+    brand_slug: mistral
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 2, output_per_million: 6}
+    enabled: true
+  - slug: qwen-max
+    display_name: Qwen Max
+    brand_slug: qwen
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 1.6, output_per_million: 6.4}
+    enabled: true
+  - slug: llama-3.1-70b
+    display_name: Llama 3.1 70B
+    brand_slug: meta
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 0.9, output_per_million: 0.9}
+    enabled: true
+  - slug: grok-2
+    display_name: Grok 2
+    brand_slug: xai
+    category: llm
+    pricing: {mode: token_segments, input_per_million: 2, output_per_million: 10}
     enabled: true
 
 upstream_models:
@@ -188,11 +229,18 @@ upstream_models:
     default_pricing: {}
     enabled: true
   - provider: anthropic
-    upstream_name: claude-sonnet-4.6
+    upstream_name: claude-sonnet-4-6
     display_name: Claude Sonnet 4.6
-    context_window: 200000
+    context_window: 1000000
     capabilities: {chat: true, streaming: true, tools: true}
     default_pricing: {}
+    enabled: true
+  - provider: deepseek
+    upstream_name: deepseek-v4-flash
+    display_name: DeepSeek V4 Flash
+    context_window: 1000000
+    capabilities: {chat: true, streaming: true, tools: true, reasoning: true}
+    default_pricing: {mode: token_segments, input_per_million: 0.14, cached_input_per_million: 0.0028, output_per_million: 0.28, source: deepseek_official}
     enabled: true
   - provider: openrouter
     upstream_name: tencent/hy3:free
@@ -200,6 +248,48 @@ upstream_models:
     context_window: 128000
     capabilities: {chat: true, streaming: true, tools: true, reasoning: true}
     default_pricing: {mode: free, source: openrouter}
+    enabled: true
+  - provider: deepseek
+    upstream_name: deepseek-chat
+    display_name: DeepSeek Chat
+    context_window: 64000
+    capabilities: {chat: true, streaming: true, tools: true}
+    default_pricing: {}
+    enabled: true
+  - provider: deepseek
+    upstream_name: deepseek-reasoner
+    display_name: DeepSeek Reasoner
+    context_window: 64000
+    capabilities: {chat: true, streaming: true, reasoning: true}
+    default_pricing: {}
+    enabled: true
+  - provider: mistral
+    upstream_name: mistral-large-latest
+    display_name: Mistral Large
+    context_window: 128000
+    capabilities: {chat: true, streaming: true, tools: true}
+    default_pricing: {}
+    enabled: true
+  - provider: qwen
+    upstream_name: qwen-max
+    display_name: Qwen Max
+    context_window: 32768
+    capabilities: {chat: true, streaming: true, tools: true}
+    default_pricing: {}
+    enabled: true
+  - provider: meta
+    upstream_name: llama-3.1-70b-instruct
+    display_name: Llama 3.1 70B
+    context_window: 128000
+    capabilities: {chat: true, streaming: true, tools: true}
+    default_pricing: {}
+    enabled: true
+  - provider: xai
+    upstream_name: grok-2
+    display_name: Grok 2
+    context_window: 131072
+    capabilities: {chat: true, streaming: true, tools: true}
+    default_pricing: {}
     enabled: true
 
 legacy_models:
@@ -259,3 +349,15 @@ legacy_models:
     brand_slug: anthropic
   - name: claude-haiku-3.5
     brand_slug: anthropic
+  - name: deepseek-chat
+    brand_slug: deepseek
+  - name: deepseek-reasoner
+    brand_slug: deepseek
+  - name: mistral-large
+    brand_slug: mistral
+  - name: qwen-max
+    brand_slug: qwen
+  - name: llama-3.1-70b
+    brand_slug: meta
+  - name: grok-2
+    brand_slug: xai

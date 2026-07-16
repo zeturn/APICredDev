@@ -11,6 +11,10 @@ class UsageSession(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid6.uuid7()))
     user_id: Mapped[str] = mapped_column(String, index=True)
+    principal_type: Mapped[str] = mapped_column(String, default="user", index=True)
+    principal_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    tenant_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    app_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     token_id: Mapped[str] = mapped_column(String, index=True)
     request_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     model_id: Mapped[str] = mapped_column(String, index=True)

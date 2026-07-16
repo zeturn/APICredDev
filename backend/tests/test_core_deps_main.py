@@ -119,6 +119,37 @@ async def test_get_bearer_token_rejects_cross_app_token_for_other_client(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_get_bearer_token_preserves_app_billing_principal(monkeypatch, db_session):
+    request = SimpleNamespace(state=SimpleNamespace(request_id=uuid4()))
+
+    class _FakeBasaltClient:
+        async def introspect_oauth_token(self, token):
+            return {
+                "active": True,
+                "client_id": "apicred-client",
+                "aud": "apicred-client",
+                "sub": "service-subject-9",
+                "username": "service-9@internal.local",
+                "tenant_id": "2",
+                "scope": "llm",
+                "subject_type": "app",
+                "app_id": "5",
+                "act": {"client_id": "source-client", "app_id": 9},
+            }
+
+    monkeypatch.setattr(deps, "BasaltPassClient", lambda: _FakeBasaltClient())
+    monkeypatch.setattr(settings, "basalt_oauth_client_id", "apicred-client")
+    monkeypatch.setattr(settings, "basalt_oauth_client_secret", "apicred-secret")
+
+    token = await get_bearer_token(request, authorization="Bearer bp_xat_app", db=db_session)
+
+    assert isinstance(token, CrossAppBearerToken)
+    assert token.principal_type == "app"
+    assert token.principal_id == "9"
+    assert token.basalt_tenant_id == "2"
+
+
+@pytest.mark.asyncio
 async def test_main_startup_runs_tables_and_admin(monkeypatch, db_session):
     calls = {
         "admin": False,

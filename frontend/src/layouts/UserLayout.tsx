@@ -4,13 +4,14 @@ import { userConsoleRoutes } from "../navigation/consoleRoutes";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../i18n/LanguageSwitcher";
+import ThemeToggle from "../ThemeToggle";
 import api from "../api/client";
 
 const UserLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: t(item.labelKey) }));
+  const navItems = userConsoleRoutes.map((item) => ({ to: item.path, label: item.i18nKey ? t(item.i18nKey) : item.label }));
   const iconByPath: Record<string, "home" | "usage" | "key" | "models" | "wallet"> = {
     "/workspace/dashboard": "home",
     "/workspace/usage": "usage",
@@ -28,16 +29,22 @@ const UserLayout = () => {
     navigate("/login");
   };
 
+  const activeIndex = navItems.findIndex((item) => location.pathname === item.to);
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6">
-        <aside className="sticky top-4 h-fit w-64 shrink-0 self-start">
-          <div className="px-2 py-4">
+    <div className="min-h-screen bg-slate-50 relative">
+      <div className="absolute top-0 bottom-0 left-0 w-[calc(16rem+1rem)] md:w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#f4f4f5] z-0" />
+      <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6 relative z-10">
+        <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 shrink-0 self-start">
+          <div className="flex h-full flex-col px-2 py-4">
             <div className="flex items-center justify-between gap-2">
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
                 {t("over.apicred")}
               </Typography>
-              <LanguageSwitcher />
+              <div className="flex items-center gap-2">
+                <LanguageSwitcher />
+                <ThemeToggle />
+              </div>
             </div>
             <Typography variant="h6" className="mt-2 px-3">
               {t("layout.userTitle")}
@@ -46,7 +53,13 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <List className="mt-4 space-y-1">
+            <List className="mt-4 flex-1 space-y-1 relative">
+              <div
+                className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-[#103222] rounded-r-md transition-all duration-300 ease-in-out ${
+                  activeIndex === -1 ? "opacity-0" : "opacity-100"
+                }`}
+                style={{ top: `${Math.max(0, activeIndex) * 40 + 6}px` }}
+              />
               {navItems.map((item) => (
                 <ListItem
                   key={item.to}

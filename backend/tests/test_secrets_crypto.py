@@ -5,6 +5,7 @@ import secrets
 
 import pytest
 
+from app.core.config import settings
 from app.core.secrets import decrypt_secret, encrypt_secret
 
 
@@ -35,7 +36,9 @@ def test_encrypt_decrypt_roundtrip_uses_v2():
     assert decrypt_secret(token) == "sk-test"
 
 
-def test_decrypt_legacy_v1_token_is_still_supported():
+def test_decrypt_legacy_v1_token_is_still_supported(monkeypatch):
+    monkeypatch.setattr(settings, "app_secret", "dev-secret")
+    monkeypatch.setattr(settings, "token_salt", "dev-token-salt")
     legacy = _legacy_encrypt("legacy-key")
     assert decrypt_secret(legacy) == "legacy-key"
 

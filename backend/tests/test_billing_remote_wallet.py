@@ -61,6 +61,33 @@ class _RemoteWalletClient:
             type(self).balance += amount
         return {"ok": True}
 
+    async def s2s_get_owner_wallet(self, owner_type: str, owner_id: str, currency: str, limit: int = 1, tenant_id: str | None = None):
+        type(self).wallet_calls.append(
+            {"owner_type": owner_type, "owner_id": owner_id, "currency": currency, "limit": limit, "tenant_id": tenant_id}
+        )
+        return {"balance": type(self).balance}
+
+    async def s2s_adjust_owner_wallet(
+        self,
+        owner_type: str,
+        owner_id: str,
+        currency: str,
+        operation: str,
+        amount: int,
+        reference: str,
+        tenant_id: str | None = None,
+    ):
+        type(self).adjust_calls.append(
+            {
+                "owner_type": owner_type, "owner_id": owner_id, "currency": currency,
+                "operation": operation, "amount": amount, "reference": reference, "tenant_id": tenant_id,
+            }
+        )
+        if operation == "decrease" and type(self).balance < amount:
+            return {"error": {"message": "insufficient balance"}}
+        type(self).balance += amount if operation == "increase" else -amount
+        return {"ok": True}
+
 
 def _enable_remote_wallet(monkeypatch, *, balance: int) -> None:
     _RemoteWalletClient.reset(balance=balance)
@@ -92,7 +119,7 @@ async def test_get_wallet_syncs_remote_balance_once(db_session, monkeypatch):
 
     wallet = await get_wallet(db_session, user.id)
 
-    assert wallet.balance_credits == Decimal("12.5")
+    assert wallet.balance_credits == Decimal("12500000")
     assert _RemoteWalletClient.wallet_calls == [
         {
             "user_id": "basalt-u-1",
@@ -114,20 +141,20 @@ async def test_authorize_and_settle_usage_adjust_remote_wallet(db_session, monke
         token_id="token-1",
         request_id="request-1",
         model_id="model-1",
-        estimated_cost=Decimal("3.5"),
+        estimated_cost=Decimal("3500000"),
         meta={"model": "m"},
     )
     wallet_after_auth = await db_session.get(Wallet, user.id)
 
-    assert wallet_after_auth.balance_credits == Decimal("16.5")
+    assert wallet_after_auth.balance_credits == Decimal("16500000")
     assert _RemoteWalletClient.adjust_calls[0]["operation"] == "decrease"
     assert _RemoteWalletClient.adjust_calls[0]["amount"] == 3_500_000
     assert _RemoteWalletClient.adjust_calls[0]["reference"] == "apicred:usage_pending:request-1"
 
-    await settle_usage(db_session, usage, Decimal("2.25"), {"total_tokens": 10})
+    await settle_usage(db_session, usage, Decimal("2250000"), {"total_tokens": 10})
     wallet_after_settle = await db_session.get(Wallet, user.id)
 
-    assert wallet_after_settle.balance_credits == Decimal("17.75")
+    assert wallet_after_settle.balance_credits == Decimal("17750000")
     assert _RemoteWalletClient.adjust_calls[1]["operation"] == "increase"
     assert _RemoteWalletClient.adjust_calls[1]["amount"] == 1_250_000
     assert _RemoteWalletClient.adjust_calls[1]["reference"] == f"apicred:usage_settle:{usage.id}"
@@ -147,8 +174,39 @@ async def test_authorize_usage_rejects_insufficient_remote_balance(db_session, m
             token_id="token-1",
             request_id="request-2",
             model_id="model-1",
-            estimated_cost=Decimal("2.01"),
+            estimated_cost=Decimal("2000001"),
             meta={},
         )
 
     assert _RemoteWalletClient.adjust_calls == []
+
+
+@pytest.mark.asyncio
+async def test_app_principal_charges_app_wallet_and_records_owner(db_session, monkeypatch):
+    _enable_remote_wallet(monkeypatch, balance=10_000_000)
+    actor = await _remote_user(db_session, email="service-actor@example.com")
+
+    usage = await authorize_usage(
+        db_session,
+        user_id=actor.id,
+        token_id="app-token-1",
+        request_id="app-request-1",
+        model_id="model-1",
+        estimated_cost=Decimal("1250000"),
+        meta={"model": "m"},
+        principal_type="app",
+        principal_id="17",
+        tenant_id="2",
+    )
+
+    assert usage.principal_type == "app"
+    assert usage.principal_id == "17"
+    assert usage.app_id == "17"
+    assert _RemoteWalletClient.wallet_calls[0]["owner_type"] == "app"
+    assert _RemoteWalletClient.wallet_calls[0]["owner_id"] == "17"
+    assert _RemoteWalletClient.adjust_calls[0]["owner_type"] == "app"
+    assert _RemoteWalletClient.adjust_calls[0]["amount"] == 1_250_000
+
+    ledger = (await db_session.execute(select(LedgerEntry).where(LedgerEntry.ref_id == usage.id))).scalar_one()
+    assert ledger.principal_type == "app"
+    assert ledger.principal_id == "17"

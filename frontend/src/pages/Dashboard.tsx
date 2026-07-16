@@ -5,6 +5,9 @@ import api from "../api/client";
 import { AdminIcon } from "./admin/adminCommon";
 import { useI18n } from "../i18n";
 import Skeleton from "../ui/Skeleton";
+import { LedgerItem, normalizeLedger } from "./dashboardData";
+
+const formatPoints = (value: unknown) => Number(value || 0).toLocaleString();
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -16,7 +19,7 @@ const DashboardPage = () => {
     available_models: 0,
   });
   const [balance, setBalance] = useState(0);
-  const [ledger, setLedger] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<LedgerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +32,7 @@ const DashboardPage = () => {
         ]);
         setSummary(summaryResp.data);
         setBalance(walletResp.data.balance_credits);
-        setLedger(ledgerResp.data.slice(0, 10));
+        setLedger(normalizeLedger(ledgerResp.data));
       } finally {
         setLoading(false);
       }
@@ -58,7 +61,7 @@ const DashboardPage = () => {
                   <AdminIcon icon="wallet" className="h-4 w-4 text-slate-500" />
                 </div>
                 <Typography variant="h3" className="mt-2">
-                  {loading ? <Skeleton className="h-10 w-24" /> : balance}
+                  {loading ? <Skeleton className="h-10 w-24" /> : formatPoints(balance)}
                 </Typography>
                   <Typography variant="caption" color="textSecondary">
                     {t("over.credits")}
@@ -75,7 +78,7 @@ const DashboardPage = () => {
                   <AdminIcon icon="usage" className="h-4 w-4 text-slate-500" />
                 </div>
                 <Typography variant="h3" className="mt-2">
-                  {loading ? <Skeleton className="h-10 w-24" /> : summary.used_credits}
+                  {loading ? <Skeleton className="h-10 w-24" /> : formatPoints(summary.used_credits)}
                 </Typography>
                 <Typography variant="caption" color="textSecondary" className="mt-3 block">
                   {loading ? <Skeleton className="h-3 w-40" /> : t("dash.usedCalls", { count: summary.usage_sessions })}
@@ -139,7 +142,7 @@ const DashboardPage = () => {
             <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-medium text-slate-900">{item.entry_type}</div>
-                <div className="text-sm font-semibold text-slate-900">{item.amount_credits}</div>
+                <div className="text-sm font-semibold text-slate-900">{formatPoints(item.amount_credits)}</div>
               </div>
               <div className="mt-1 text-xs text-slate-500">{item.created_at ? String(item.created_at).replace("T", " ").slice(0, 19) : "-"}</div>
             </div>
@@ -153,4 +156,3 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
-

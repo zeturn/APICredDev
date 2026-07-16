@@ -7,6 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.credit_units import as_decimal, billable_credits, credits_to_microcredits, microcredits_to_credits
 from app.core.time import utc_now
 from app.db.models.ledger import LedgerEntry
 from app.db.models.usage_session import UsageSession
@@ -22,28 +23,54 @@ class WalletSnapshot:
     updated_at: datetime
 
 
+@dataclass(frozen=True)
+class RemoteWalletOwner:
+    owner_type: str
+    owner_id: str
+    tenant_id: str | None
+
+
 def _as_decimal(value: object) -> Decimal:
-    return Decimal(str(value or 0))
+    return as_decimal(value)
 
 
 def _credit_to_smallest(amount_credits: Decimal) -> int:
-    scale = max(int(settings.basalt_credit_scale or 1), 1)
-    smallest = (amount_credits * Decimal(scale)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(smallest)
+    return credits_to_microcredits(amount_credits, rounding=ROUND_HALF_UP)
 
 
 def _smallest_to_credit(amount_smallest: int | float | str) -> Decimal:
-    scale = max(int(settings.basalt_credit_scale or 1), 1)
-    return _as_decimal(amount_smallest) / Decimal(scale)
+    return microcredits_to_credits(amount_smallest)
 
 
-def _is_remote_wallet_enabled(user: User | None) -> bool:
-    return bool(
-        user
-        and getattr(user, "basalt_user_id", None)
-        and settings.basalt_s2s_client_id
-        and settings.basalt_s2s_client_secret
-    )
+def _remote_wallet_owner(
+    user: User | None,
+    principal_type: str = "user",
+    principal_id: str | None = None,
+    tenant_id: str | None = None,
+) -> RemoteWalletOwner | None:
+    if not settings.basalt_s2s_client_id or not settings.basalt_s2s_client_secret:
+        return None
+    normalized_type = (principal_type or "user").strip().lower()
+    if normalized_type == "app":
+        owner_id = (principal_id or "").strip()
+        owner_tenant_id = (tenant_id or "").strip() or None
+        if owner_id and owner_tenant_id:
+            return RemoteWalletOwner("app", owner_id, owner_tenant_id)
+        return None
+    basalt_user_id = str(getattr(user, "basalt_user_id", "") or "").strip()
+    if not basalt_user_id:
+        return None
+    owner_tenant_id = (tenant_id or str(getattr(user, "basalt_tenant_id", "") or "")).strip() or None
+    return RemoteWalletOwner("user", basalt_user_id, owner_tenant_id)
+
+
+def _is_remote_wallet_enabled(
+    user: User | None,
+    principal_type: str = "user",
+    principal_id: str | None = None,
+    tenant_id: str | None = None,
+) -> bool:
+    return _remote_wallet_owner(user, principal_type, principal_id, tenant_id) is not None
 
 
 def _extract_remote_error(payload: object) -> str:
@@ -81,14 +108,23 @@ async def _get_local_wallet(db: AsyncSession, user_id: str) -> Wallet:
     return wallet
 
 
-async def _fetch_remote_credit_balance(user: User) -> Decimal:
+async def _fetch_remote_credit_balance(owner: RemoteWalletOwner) -> Decimal:
     client = BasaltPassClient()
-    payload = await client.s2s_get_user_wallet(
-        user_id=str(user.basalt_user_id),
-        currency=settings.basalt_credit_currency,
-        limit=1,
-        tenant_id=str(user.basalt_tenant_id) if user.basalt_tenant_id else None,
-    )
+    if owner.owner_type == "user":
+        payload = await client.s2s_get_user_wallet(
+            user_id=owner.owner_id,
+            currency=settings.basalt_credit_currency,
+            limit=1,
+            tenant_id=owner.tenant_id,
+        )
+    else:
+        payload = await client.s2s_get_owner_wallet(
+            owner_type=owner.owner_type,
+            owner_id=owner.owner_id,
+            currency=settings.basalt_credit_currency,
+            limit=1,
+            tenant_id=owner.tenant_id,
+        )
     if isinstance(payload, dict) and payload.get("error"):
         raise RuntimeError(_extract_remote_error(payload))
     if not isinstance(payload, dict):
@@ -96,16 +132,24 @@ async def _fetch_remote_credit_balance(user: User) -> Decimal:
     return _smallest_to_credit(payload.get("balance") or 0)
 
 
-async def _sync_local_wallet_from_remote(db: AsyncSession, user: User | None, wallet: Wallet) -> Decimal | None:
-    if not _is_remote_wallet_enabled(user):
+async def _sync_local_wallet_from_remote(
+    db: AsyncSession,
+    user: User | None,
+    wallet: Wallet,
+    principal_type: str = "user",
+    principal_id: str | None = None,
+    tenant_id: str | None = None,
+) -> Decimal | None:
+    owner = _remote_wallet_owner(user, principal_type, principal_id, tenant_id)
+    if owner is None:
         return None
-    remote_balance = await _fetch_remote_credit_balance(user)
+    remote_balance = await _fetch_remote_credit_balance(owner)
     wallet.balance_credits = remote_balance
     wallet.updated_at = utc_now()
     return remote_balance
 
 
-async def _adjust_remote_credit(user: User, delta: Decimal, reference: str) -> None:
+async def _adjust_remote_credit(owner: RemoteWalletOwner, delta: Decimal, reference: str) -> None:
     if delta == 0:
         return
 
@@ -115,14 +159,25 @@ async def _adjust_remote_credit(user: User, delta: Decimal, reference: str) -> N
 
     operation = "increase" if delta > 0 else "decrease"
     client = BasaltPassClient()
-    payload = await client.s2s_adjust_user_wallet(
-        user_id=str(user.basalt_user_id),
-        currency=settings.basalt_credit_currency,
-        operation=operation,
-        amount=amount_smallest,
-        reference=reference,
-        tenant_id=str(user.basalt_tenant_id) if user.basalt_tenant_id else None,
-    )
+    if owner.owner_type == "user":
+        payload = await client.s2s_adjust_user_wallet(
+            user_id=owner.owner_id,
+            currency=settings.basalt_credit_currency,
+            operation=operation,
+            amount=amount_smallest,
+            reference=reference,
+            tenant_id=owner.tenant_id,
+        )
+    else:
+        payload = await client.s2s_adjust_owner_wallet(
+            owner_type=owner.owner_type,
+            owner_id=owner.owner_id,
+            currency=settings.basalt_credit_currency,
+            operation=operation,
+            amount=amount_smallest,
+            reference=reference,
+            tenant_id=owner.tenant_id,
+        )
 
     if isinstance(payload, dict) and payload.get("error"):
         message = _extract_remote_error(payload)
@@ -167,17 +222,33 @@ async def authorize_usage(
     model_name: str | None = None,
     request_messages: list[dict] | None = None,
     request_text: str | None = None,
+    principal_type: str = "user",
+    principal_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> UsageSession:
-    estimated = Decimal(str(estimated_cost))
+    estimated = billable_credits(estimated_cost)
     user = await db.get(User, user_id)
     wallet = await _get_local_wallet(db, user_id)
 
-    if _is_remote_wallet_enabled(user):
-        before_balance = await _sync_local_wallet_from_remote(db, user, wallet)
+    normalized_principal_type = (principal_type or "user").strip().lower()
+    if normalized_principal_type not in {"user", "app", "tenant", "team"}:
+        raise ValueError("invalid_principal")
+    effective_principal_id = (principal_id or "").strip() or (
+        str(getattr(user, "basalt_user_id", "") or "").strip() if normalized_principal_type == "user" else ""
+    ) or user_id
+    effective_tenant_id = (tenant_id or str(getattr(user, "basalt_tenant_id", "") or "")).strip() or None
+    remote_owner = _remote_wallet_owner(user, normalized_principal_type, effective_principal_id, effective_tenant_id)
+
+    if remote_owner is not None:
+        before_balance = await _sync_local_wallet_from_remote(
+            db, user, wallet, normalized_principal_type, effective_principal_id, effective_tenant_id
+        )
         if _as_decimal(before_balance) < estimated:
             raise ValueError("insufficient_balance")
-        await _adjust_remote_credit(user, -estimated, f"apicred:usage_pending:{request_id}")
-        await _sync_local_wallet_from_remote(db, user, wallet)
+        await _adjust_remote_credit(remote_owner, -estimated, f"apicred:usage_pending:{request_id}")
+        await _sync_local_wallet_from_remote(
+            db, user, wallet, normalized_principal_type, effective_principal_id, effective_tenant_id
+        )
     else:
         result = await db.execute(
             update(Wallet)
@@ -192,6 +263,10 @@ async def authorize_usage(
     usage = UsageSession(
         id=usage_id,
         user_id=user_id,
+        principal_type=normalized_principal_type,
+        principal_id=effective_principal_id,
+        tenant_id=effective_tenant_id,
+        app_id=effective_principal_id if normalized_principal_type == "app" else None,
         token_id=token_id,
         request_id=request_id,
         model_id=model_id,
@@ -203,6 +278,9 @@ async def authorize_usage(
     )
     ledger = LedgerEntry(
         user_id=user_id,
+        principal_type=normalized_principal_type,
+        principal_id=effective_principal_id,
+        tenant_id=effective_tenant_id,
         entry_type="pending_debit",
         amount_credits=-estimated,
         status="pending",
@@ -253,18 +331,26 @@ async def settle_usage(
     user = await db.get(User, usage.user_id)
     wallet = await _get_local_wallet(db, usage.user_id)
 
-    final = Decimal(str(final_cost))
+    principal_type = str(getattr(usage, "principal_type", "user") or "user")
+    principal_id = str(getattr(usage, "principal_id", "") or "").strip() or None
+    tenant_id = str(getattr(usage, "tenant_id", "") or "").strip() or None
+    remote_owner = _remote_wallet_owner(user, principal_type, principal_id, tenant_id)
+
+    final = billable_credits(final_cost)
     estimated = Decimal(str(usage.estimated_cost_credits))
     diff = final - estimated
 
-    if _is_remote_wallet_enabled(user):
-        await _sync_local_wallet_from_remote(db, user, wallet)
+    if remote_owner is not None:
+        await _sync_local_wallet_from_remote(db, user, wallet, principal_type, principal_id, tenant_id)
 
     if diff != 0:
-        if _is_remote_wallet_enabled(user):
-            await _adjust_remote_credit(user, -diff, f"apicred:usage_settle:{usage.id}")
+        if remote_owner is not None:
+            await _adjust_remote_credit(remote_owner, -diff, f"apicred:usage_settle:{usage.id}")
         adjustment = LedgerEntry(
             user_id=usage.user_id,
+            principal_type=principal_type,
+            principal_id=principal_id,
+            tenant_id=tenant_id,
             entry_type="adjustment",
             amount_credits=-diff,
             status="settled",
@@ -272,8 +358,8 @@ async def settle_usage(
             ref_id=usage.id,
             meta={"reason": "settle_adjust"},
         )
-        if _is_remote_wallet_enabled(user):
-            await _sync_local_wallet_from_remote(db, user, wallet)
+        if remote_owner is not None:
+            await _sync_local_wallet_from_remote(db, user, wallet, principal_type, principal_id, tenant_id)
         else:
             await db.execute(
                 update(Wallet)
@@ -281,8 +367,8 @@ async def settle_usage(
                 .values(balance_credits=Wallet.balance_credits - diff, updated_at=utc_now())
             )
         db.add(adjustment)
-    elif _is_remote_wallet_enabled(user):
-        await _sync_local_wallet_from_remote(db, user, wallet)
+    elif remote_owner is not None:
+        await _sync_local_wallet_from_remote(db, user, wallet, principal_type, principal_id, tenant_id)
 
     usage.final_cost_credits = final
     usage.prompt_tokens = int((usage_meta or {}).get("prompt_tokens", 0) or 0)

@@ -60,11 +60,17 @@ export const Button = ({
         ? "border-slate-700 bg-slate-800 text-white hover:bg-slate-900"
         : "border-slate-300 text-slate-700 hover:bg-slate-100"
       : variant === "error"
-        ? "border-slate-300 text-slate-700 hover:bg-slate-100"
+        ? buttonStyle === "filled"
+          ? "border-red-600 bg-red-600 text-white hover:bg-red-700"
+          : "border-red-300 text-red-700 hover:bg-red-50"
         : variant === "warning"
-          ? "border-slate-300 text-slate-700 hover:bg-slate-100"
-          : "border-slate-300 text-slate-700 hover:bg-slate-100";
-  const surface = buttonStyle === "text" ? "border-transparent bg-transparent" : "bg-white";
+          ? buttonStyle === "filled"
+            ? "border-amber-500 bg-amber-500 text-white hover:bg-amber-600"
+            : "border-amber-300 text-amber-700 hover:bg-amber-50"
+          : buttonStyle === "filled"
+            ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+            : "border-slate-300 text-slate-700 hover:bg-slate-100";
+  const surface = buttonStyle === "text" ? "border-transparent bg-transparent" : "";
   return (
     <button
       className={cx(
@@ -266,9 +272,9 @@ export const ListItem = ({
   return (
     <Tag
       className={cx(
-        "block px-3 py-2.5 !rounded-xl text-[15px] font-medium text-slate-700 transition-colors",
+        "relative flex h-9 items-center px-3 !rounded-xl text-sm font-medium text-[#103222] transition-colors !no-underline hover:!no-underline",
         button && "cursor-pointer hover:!bg-slate-200/60",
-        selected && "!bg-slate-200 font-bold !text-slate-900",
+        selected && "!bg-slate-200 font-semibold !text-[#103222]",
         className,
       )}
       {...rest}

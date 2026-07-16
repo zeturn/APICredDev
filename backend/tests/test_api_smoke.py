@@ -104,6 +104,10 @@ async def test_api_smoke(db_session, monkeypatch):
         assert tok.status_code == 200
         raw_api_token = tok.json()["token"]
 
+        api_models = await client.get("/v1/models", headers={"Authorization": f"Bearer {raw_api_token}"})
+        assert api_models.status_code == 200
+        assert any(item["name"] == "gpt5" for item in api_models.json())
+
         usage_row = UsageSession(
             user_id=me.json()["id"],
             token_id="tok1",

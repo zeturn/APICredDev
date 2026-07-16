@@ -6,30 +6,55 @@ import { useI18n } from "../i18n";
 const TopupPage = () => {
   const { t } = useI18n();
   const basaltPassBaseUrl = (import.meta as any).env?.VITE_BASALTPASS_BASE_URL ?? "https://auth.beancs.hollowdata.com";
-  const redeemPath = "/wallet/gift-cards/redeem";
-  const baseRedeemUrl = `${basaltPassBaseUrl.replace(/\/$/, "")}${redeemPath}`;
-  const [redeemUrl, setRedeemUrl] = useState(baseRedeemUrl);
+  const fallbackClientId = (import.meta as any).env?.VITE_BASALTPASS_APP_CLIENT_ID ?? "";
+  const appRechargePath = "/apps/recharge";
+  const giftCardPath = "/wallet/gift-cards/redeem";
+  const baseAppRechargeUrl = `${basaltPassBaseUrl.replace(/\/$/, "")}${appRechargePath}`;
+  const baseGiftCardUrl = `${basaltPassBaseUrl.replace(/\/$/, "")}${giftCardPath}`;
+  const [rechargeUrl, setRechargeUrl] = useState(baseAppRechargeUrl);
+  const [giftCardUrl, setGiftCardUrl] = useState(baseGiftCardUrl);
 
-  const fallbackRedeemUrl = useMemo(() => baseRedeemUrl, [baseRedeemUrl]);
+  const fallbackRechargeUrl = useMemo(() => baseAppRechargeUrl, [baseAppRechargeUrl]);
+  const fallbackGiftCardUrl = useMemo(() => baseGiftCardUrl, [baseGiftCardUrl]);
 
   useEffect(() => {
-    const buildAndRedirect = async () => {
-      let finalUrl = fallbackRedeemUrl;
+    const buildLinks = async () => {
+      let finalUrl = fallbackRechargeUrl;
+      let finalGiftUrl = fallbackGiftCardUrl;
       try {
         const response = await api.get("/basalt/tenant-hint");
         const tenantCode = response?.data?.data?.tenant_code;
+        const appClientId = response?.data?.data?.app_client_id || fallbackClientId;
+        const query = new URLSearchParams();
+        if (appClientId) {
+          query.set("client_id", String(appClientId));
+        }
         if (tenantCode) {
-          finalUrl = `${fallbackRedeemUrl}?tenant=${encodeURIComponent(String(tenantCode))}`;
+          query.set("tenant", String(tenantCode));
+        }
+        query.set("return_url", `${window.location.origin}/workspace/topup`);
+        const queryString = query.toString();
+        if (queryString) {
+          finalUrl = `${fallbackRechargeUrl}?${queryString}`;
+        }
+        if (tenantCode) {
+          finalGiftUrl = `${fallbackGiftCardUrl}?tenant=${encodeURIComponent(String(tenantCode))}`;
         }
       } catch {
+        if (fallbackClientId) {
+          const query = new URLSearchParams();
+          query.set("client_id", String(fallbackClientId));
+          query.set("return_url", `${window.location.origin}/workspace/topup`);
+          finalUrl = `${fallbackRechargeUrl}?${query.toString()}`;
+        }
       }
 
-      setRedeemUrl(finalUrl);
-      window.location.replace(finalUrl);
+      setRechargeUrl(finalUrl);
+      setGiftCardUrl(finalGiftUrl);
     };
 
-    void buildAndRedirect();
-  }, [fallbackRedeemUrl]);
+    void buildLinks();
+  }, [fallbackClientId, fallbackGiftCardUrl, fallbackRechargeUrl]);
 
   return (
     <div className="space-y-6">
@@ -38,31 +63,37 @@ const TopupPage = () => {
           {t("over.topup")}
         </Typography>
         <Typography variant="h5">{t("topup.title")}</Typography>
-        <Typography variant="body2" color="textSecondary">
-          {t("topup.desc")}
-        </Typography>
+        <Typography variant="body2" color="textSecondary">{t("topup.desc")}</Typography>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="p-6">
+          <Typography variant="subtitle1">{t("topup.cashTitle")}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-2">{t("topup.cashDesc")}</Typography>
+          <div className="mt-4">
+            <Button variant="primary" buttonStyle="filled" onClick={() => { window.location.href = rechargeUrl; }}>
+              {t("topup.cashGo")}
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <Typography variant="subtitle1">{t("topup.giftTitle")}</Typography>
+          <Typography variant="body2" color="textSecondary" className="mt-2">{t("topup.giftDesc")}</Typography>
+          <div className="mt-4">
+            <Button variant="secondary" buttonStyle="outlined" onClick={() => { window.location.href = giftCardUrl; }}>
+              {t("topup.giftGo")}
+            </Button>
+          </div>
+        </Card>
       </div>
 
       <Card className="p-6">
-        <Typography variant="subtitle1">{t("topup.ifNot")}</Typography>
-        <Typography variant="body2" color="textSecondary" className="mt-2">
-          {t("topup.note")}
-        </Typography>
-        <div className="mt-4">
-          <Button
-            variant="primary"
-            buttonStyle="filled"
-            onClick={() => {
-              window.location.href = redeemUrl;
-            }}
-          >
-            {t("topup.go")}
-          </Button>
-        </div>
+        <Typography variant="subtitle1">{t("topup.noteTitle")}</Typography>
+        <Typography variant="body2" color="textSecondary" className="mt-2">{t("topup.note")}</Typography>
       </Card>
     </div>
   );
 };
 
 export default TopupPage;
-

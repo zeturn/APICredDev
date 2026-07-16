@@ -4,15 +4,60 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/*  Semantic color tokens (light = default, .dark = overridden)        */
+/*  The app neutralizes the colorful watercolor palette to a clean     */
+/*  slate theme via global overrides; the same approach is used here   */
+/*  so dark mode covers the entire site without per-component edits.   */
+/* ------------------------------------------------------------------ */
+:root {
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --text-strong: #334155;
+  --text-base: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --border-soft: #f1f5f9;
+  --ink-text: #333b57;
+  --ring: #cbd5e1;
+}
+
+.dark {
+  --bg-page: #0b1120;
+  --bg-surface: #1e293b;
+  --bg-subtle: #172033;
+  --bg-hover: #334155;
+  --text-strong: #cbd5e1;
+  --text-base: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --border-soft: #1e293b;
+  --ink-text: #cbd5e1;
+  --ring: #475569;
+}
+
 @layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-white text-slate-900 antialiased;
+    background-color: var(--bg-page);
+    color: var(--text-base);
     line-height: 1.45;
     letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
   }
 
   #root {
-    @apply min-h-screen bg-white;
+    background-color: var(--bg-page);
+    min-height: 100vh;
   }
 
   h1,
@@ -24,6 +69,7 @@
     letter-spacing: -0.01em;
   }
 
+  /* keep the deliberately flat, square aesthetic */
   *,
   *::before,
   *::after {
@@ -31,8 +77,27 @@
     box-shadow: none !important;
   }
 
+  /* ---- surfaces ---- */
+  .bg-white,
+  .bg-white\/70,
+  .bg-white\/80,
+  .bg-white\/95 {
+    background-color: var(--bg-surface) !important;
+  }
+
   .bg-slate-50,
-  .bg-slate-100,
+  .bg-slate-50\/80,
+  .bg-slate-100 {
+    background-color: var(--bg-subtle) !important;
+  }
+
+  .bg-slate-200,
+  .bg-slate-200\/70,
+  .bg-slate-200\/50 {
+    background-color: var(--bg-hover) !important;
+  }
+
+  /* colored soft backgrounds neutralized to the subtle surface */
   .bg-sky-50,
   .bg-sky-100,
   .bg-amber-50,
@@ -42,7 +107,23 @@
   .bg-emerald-50,
   .bg-emerald-100,
   .bg-indigo-50 {
-    background-color: #ffffff !important;
+    background-color: var(--bg-subtle) !important;
+  }
+
+  /* ---- text ---- */
+  .text-slate-900,
+  .text-slate-800 {
+    color: var(--text-base) !important;
+  }
+
+  .text-slate-700 {
+    color: var(--text-strong) !important;
+  }
+
+  .text-slate-600,
+  .text-slate-500,
+  .text-slate-400 {
+    color: var(--text-muted) !important;
   }
 
   .text-sky-700,
@@ -55,7 +136,27 @@
   .text-emerald-800,
   .text-indigo-700,
   .text-indigo-800 {
-    color: #334155 !important;
+    color: var(--text-strong) !important;
+  }
+
+  .text-ink-800 {
+    color: var(--ink-text) !important;
+  }
+
+  /* native form controls */
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #64748b;
+  }
+
+  /* ---- borders ---- */
+  .border-slate-300,
+  .border-slate-200 {
+    border-color: var(--border) !important;
+  }
+
+  .border-slate-100 {
+    border-color: var(--border-soft) !important;
   }
 
   .border-sky-100,
@@ -73,14 +174,32 @@
   .border-indigo-100,
   .border-indigo-200,
   .border-indigo-300 {
-    border-color: #cbd5e1 !important;
+    border-color: var(--border) !important;
   }
 
+  .border-ink-100 {
+    border-color: var(--border) !important;
+  }
+
+  /* ---- focus rings ---- */
+  .ring-slate-300,
+  .ring-slate-200,
+  .ring-ink-200 {
+    --tw-ring-color: var(--ring) !important;
+  }
+
+  /* ---- hover states ---- */
+  .hover\:bg-slate-100:hover,
+  .hover\:bg-slate-200\/50:hover {
+    background-color: var(--bg-hover) !important;
+  }
+
+  /* ---- gradients neutralized ---- */
   .from-sky-50,
   .to-indigo-50,
   .bg-gradient-to-br {
     background-image: none !important;
-    background-color: #ffffff !important;
+    background-color: var(--bg-subtle) !important;
   }
 }
 
@@ -94,7 +213,8 @@
   }
 
   .ui-skeleton {
-    @apply border border-slate-200 bg-slate-100;
+    border-color: var(--border-soft) !important;
+    background-color: var(--bg-subtle) !important;
     position: relative;
     overflow: hidden;
   }
@@ -104,7 +224,12 @@
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(148, 163, 184, 0.25),
+      transparent
+    );
     animation: ui-skeleton-shimmer 1.25s infinite;
   }
 
@@ -121,7 +246,7 @@
     height: 12px;
     border: 2px solid #cbd5e1;
     border-top-color: #334155;
-    border-radius: 9999px;
+    border-radius: 9999px !important;
     display: inline-block;
     animation: ui-spin 0.7s linear infinite;
   }

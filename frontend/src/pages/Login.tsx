@@ -2,6 +2,7 @@ import { Button, Card, Typography } from "../lib/watercolor";
 import { useLocation } from "react-router-dom";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../i18n/LanguageSwitcher";
+import ThemeToggle from "../ThemeToggle";
 import { apiBaseUrl } from "../api/client";
 
 const LoginPage = () => {
@@ -15,7 +16,10 @@ const LoginPage = () => {
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.35em]">
           apicred access
         </Typography>
-        <LanguageSwitcher />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
       </div>
       <Typography variant="h5" className="mt-2">
         {t("login.title")}

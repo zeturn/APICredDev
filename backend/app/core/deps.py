@@ -29,6 +29,8 @@ class CrossAppBearerToken:
     basalt_client_id: str | None = None
     basalt_tenant_id: str | None = None
     basalt_actor: Any = None
+    principal_type: str = "user"
+    principal_id: str | None = None
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -152,6 +154,18 @@ async def _get_cross_app_bearer_token(
         raise AppError("token_invalid", "cross-app token is missing user identity", request.state.request_id, 401)
 
     tenant_id = str(payload.get("tenant_id") or "").strip() or None
+
+    subject_type = str(payload.get("subject_type") or "user").strip().lower()
+    actor = payload.get("act") if isinstance(payload.get("act"), dict) else {}
+    if subject_type == "app":
+        principal_id = str(actor.get("app_id") or payload.get("app_id") or "").strip()
+        if not principal_id:
+            raise AppError("token_invalid", "cross-app token is missing app identity", request.state.request_id, 401)
+        principal_type = "app"
+    else:
+        principal_type = "user"
+        principal_id = subject
+
     user = await get_or_create_oauth_user(
         db,
         email=email,
@@ -168,6 +182,8 @@ async def _get_cross_app_bearer_token(
         basalt_client_id=client_id or None,
         basalt_tenant_id=tenant_id,
         basalt_actor=payload.get("act"),
+        principal_type=principal_type,
+        principal_id=principal_id,
     )
 
 

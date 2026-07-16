@@ -4,6 +4,9 @@ import api from "../api/client";
 import Skeleton from "../ui/Skeleton";
 import { useI18n } from "../i18n";
 
+const formatPoints = (value: unknown) => Number(value || 0).toLocaleString();
+const formatNumber = (value: unknown) => Number(value || 0).toLocaleString();
+
 const UsagePage = () => {
   const { t } = useI18n();
   const [usage, setUsage] = useState<{ recent_sessions: any[]; by_model: any[] }>({
@@ -87,8 +90,8 @@ const UsagePage = () => {
                 {!loading && usage.by_model.map((item) => (
                   <TableRow key={item.model_id}>
                     <TableCell>{item.model_name}</TableCell>
-                    <TableCell align="right">{item.requests}</TableCell>
-                    <TableCell align="right">{item.used_credits}</TableCell>
+                    <TableCell align="right">{formatNumber(item.requests)}</TableCell>
+                    <TableCell align="right">{formatPoints(item.used_credits)}</TableCell>
                   </TableRow>
                 ))}
                 {!loading && usage.by_model.length === 0 && (
@@ -130,8 +133,8 @@ const UsagePage = () => {
                   <TableRow key={item.id}>
                     <TableCell>{item.model_name}</TableCell>
                     <TableCell>{item.provider ?? "-"}</TableCell>
-                    <TableCell align="right">{item.total_tokens}</TableCell>
-                    <TableCell align="right">{item.final_cost_credits}</TableCell>
+                    <TableCell align="right">{formatNumber(item.total_tokens)}</TableCell>
+                    <TableCell align="right">{formatPoints(item.final_cost_credits)}</TableCell>
                     <TableCell align="right">{item.status}</TableCell>
                   </TableRow>
                 ))}
@@ -165,7 +168,7 @@ const UsagePage = () => {
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-slate-900">{item.model_name || t("usage.unknownModel")}</div>
                   <div className="mt-1 text-xs text-slate-500">
-                    {item.created_at ? item.created_at.replace("T", " ").slice(0, 19) : "-"} · {t("usage.tokens")} {item.total_tokens} · {t("usage.cost")} {item.final_cost_credits}
+                    {item.created_at ? item.created_at.replace("T", " ").slice(0, 19) : "-"} · {t("usage.tokens")} {formatNumber(item.total_tokens)} · {t("usage.cost")} {formatPoints(item.final_cost_credits)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

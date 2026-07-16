@@ -22,6 +22,10 @@ async def try_reserve(
     if not quota_rules or all(quota_rules.get(unit) in (None, -1) for unit in ("minute", "hour", "day", "month")):
         return True
 
+    quota_scope = str(quota_rules.get("group") or model_id or "").strip()
+    if not quota_scope:
+        quota_scope = "default"
+
     now = utc_now()
     keys = []
     limits = []
@@ -31,7 +35,7 @@ async def try_reserve(
         if limit is None:
             limit = -1
         bucket = format_bucket(now, unit)
-        keys.append(f"quota:{credential_id}:{model_id}:{unit}:{bucket}")
+        keys.append(f"quota:{credential_id}:{quota_scope}:{unit}:{bucket}")
         limits.append(int(limit))
         ttls.append(TTL_SECONDS[unit])
     args = [delta] + limits + ttls
