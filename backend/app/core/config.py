@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     basalt_max_retries: int = 2
     # Synavis Core（OCaml 计费引擎）地址，第一阶段联调用
     synavis_base_url: str = "http://localhost:10622"
+    # Synavis Core 异步消息队列地址 (Strimzi/Kafka)，第三阶段用
+    synavis_kafka_brokers: str = "localhost:9092"
     brave_search_api_key: str = ""
     brave_search_base_url: str = "https://api.search.brave.com/res/v1"
     brave_search_default_country: str = "US"
