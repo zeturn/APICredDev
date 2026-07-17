@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     basalt_default_tenant_id: str = ""
     basalt_timeout_seconds: float = 15.0
     basalt_max_retries: int = 2
+    # Synavis Core（OCaml 计费引擎）地址，第一阶段联调用
+    synavis_base_url: str = "http://localhost:10622"
     brave_search_api_key: str = ""
     brave_search_base_url: str = "https://api.search.brave.com/res/v1"
     brave_search_default_country: str = "US"

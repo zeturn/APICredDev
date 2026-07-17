@@ -15,6 +15,7 @@ from app.db.models.user import User
 from app.db.models.wallet import Wallet
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.quota_ledger_service import reserve_quota_ledger_for_usage, settle_quota_ledger
+from app.services import synavis_client as _synavis
 
 
 @dataclass
@@ -393,3 +394,28 @@ async def settle_usage(
         total_tokens=usage.total_tokens,
         metadata_patch={"usage": usage_meta or {}},
     )
+
+    # ── Synavis Core 镜像（Phase 1：火后不管，不阻塞主流程） ──────────────────────
+    # 将实际 token 消耗折算为 unit_price=1 的 microcredit 形式，方便引擎记账
+    # total_tokens 为 0 时退化为按 final_cost 换算
+    _units = usage.total_tokens or 0
+    _tenant_id = str(getattr(usage, "tenant_id", "") or "default")
+    if _units > 0:
+        # 每 token 单价（微credit），向上取整防止 0
+        _unit_price = max(1, int(float(final) * 1_000_000 / _units))
+    else:
+        # 无 token 信息时，把总费用作为 1 个单元上报
+        _units = 1
+        _unit_price = max(1, int(float(final) * 1_000_000))
+    try:
+        await _synavis.notify_usage_completed(
+            user_id=usage.user_id,
+            tenant_id=_tenant_id,
+            resource_type=f"llm_tokens:{usage.model_id or 'unknown'}",
+            usage_units=_units,
+            unit_price_microcredits=_unit_price,
+            request_id=usage.request_id,
+        )
+    except Exception:  # noqa: BLE001
+        pass  # 引擎事件镜像永远不影响主业务
+    # ─────────────────────────────────────────────────────────────────────────────
