@@ -88,6 +88,8 @@ const AdminLayout = () => {
               </Typography>
             </div>
 
+            <hr className="border-t-[2px] border-slate-200 mt-[7px] mb-[28px]" />
+
             <List className="mt-4 flex-1 space-y-1 relative">
               <div
                 className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-[#103222] rounded-r-md transition-all duration-300 ease-in-out ${
@@ -104,7 +106,7 @@ const AdminLayout = () => {
                   selected={isSelected(item.to)}
                 >
                   <span className="inline-flex items-center gap-3">
-                    <AdminIcon icon={iconByPath[item.to] ?? "shield"} className="h-5 w-5" />
+                    <AdminIcon icon={iconByPath[item.to] ?? "shield"} className={`h-5 w-5 transition-colors ${isSelected(item.to) ? "text-[#09090b]" : ""}`} />
                     {item.label}
                   </span>
                 </ListItem>

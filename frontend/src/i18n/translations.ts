@@ -37,7 +37,7 @@ export const zh: Dict = {
   "nav.adminProviderHealth": "Provider Health",
   "nav.adminUsageDashboard": "Usage Dashboard",
 
-  "over.apicred": "apicred",
+  "over.apicred": "MoPorta",
   "over.admin": "admin",
   "over.overview": "总览",
   "over.ledger": "账本",
@@ -557,7 +557,7 @@ export const en: Dict = {
   "nav.adminProviderHealth": "Provider Health",
   "nav.adminUsageDashboard": "Usage Dashboard",
 
-  "over.apicred": "apicred",
+  "over.apicred": "MoPorta",
   "over.admin": "admin",
   "over.overview": "Overview",
   "over.ledger": "Ledger",
