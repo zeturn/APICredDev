@@ -1,5 +1,7 @@
 import { Button, List, ListItem, Typography } from "../lib/watercolor";
+import { Suspense } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import LoadingScreen from "../pages/LoadingScreen";
 import { userConsoleRoutes } from "../navigation/consoleRoutes";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
@@ -93,7 +95,9 @@ const UserLayout = () => {
             </div>
         </aside>
         <main className="min-w-0 flex-1">
-          <Outlet />
+          <Suspense fallback={<LoadingScreen />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { Alert, Button, Card, List, ListItem, Typography } from "../lib/watercolor";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import LoadingScreen from "../pages/LoadingScreen";
 import { adminConsoleRoutes } from "../navigation/consoleRoutes";
 import { clearAdminAccessToken, ensureAdminToken } from "../api/adminClient";
 import { AdminIcon } from "../pages/admin/adminCommon";
@@ -131,7 +132,11 @@ const AdminLayout = () => {
               当前账号不具备管理员权限，无法访问管理控制台。
             </Alert>
           )}
-          {adminReady && adminAllowed && <Outlet />}
+          {adminReady && adminAllowed && (
+            <Suspense fallback={<LoadingScreen />}>
+              <Outlet />
+            </Suspense>
+          )}
         </main>
       </div>
     </div>
