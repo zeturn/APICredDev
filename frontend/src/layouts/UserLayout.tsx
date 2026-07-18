@@ -55,7 +55,7 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <hr className="border-t-[3px] border-[#103222] mt-[7px] mb-[28px]" />
+            <div className="h-[3px] w-full shrink-0 bg-[#103222] mt-[7px] mb-[28px]" />
 
             <List className="mt-4 flex-1 space-y-1 relative">
               <div
@@ -81,15 +81,15 @@ const UserLayout = () => {
             </List>
 
             <div className="mt-6 space-y-2">
-              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")}>
-                <span className="inline-flex items-center gap-2">
-                  <AdminIcon icon="shield" className="h-4 w-4" />
+              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")} className="!justify-start !text-[#103222] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
+                <span className="inline-flex items-center gap-3">
+                  <AdminIcon icon="shield" className="h-5 w-5" />
                   {t("layout.enterAdmin")}
                 </span>
               </Button>
-              <Button buttonStyle="text" variant="error" fullWidth onClick={logout}>
-                <span className="inline-flex items-center gap-2">
-                  <AdminIcon icon="provider" className="h-4 w-4" />
+              <Button buttonStyle="text" variant="error" fullWidth onClick={logout} className="!justify-start !px-3 !rounded-xl">
+                <span className="inline-flex items-center gap-3">
+                  <AdminIcon icon="provider" className="h-5 w-5" />
                   {t("layout.logout")}
                 </span>
               </Button>
