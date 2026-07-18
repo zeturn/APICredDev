@@ -273,7 +273,7 @@ export const ListItem = ({
     <Tag
       className={cx(
         "relative flex h-9 items-center px-3 !rounded-xl text-sm font-medium text-[#103222] transition-colors !no-underline hover:!no-underline",
-        button && "cursor-pointer hover:!bg-[#e9e9ebb5]",
+        button && "cursor-pointer hover:!bg-[#e9e9ebb5] hover:!text-[#350180]",
         className,
       )}
       {...rest}

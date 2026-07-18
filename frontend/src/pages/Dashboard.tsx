@@ -127,28 +127,46 @@ const DashboardPage = () => {
           </div>
           <Badge variant="secondary">append-only</Badge>
         </div>
-        <div className="mt-4 space-y-2">
-          {loading && Array.from({ length: 5 }).map((_, idx) => (
-            <div key={`sk-${idx}`} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Skeleton className="h-3 w-36" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-              <Skeleton className="mt-2 h-3 w-32" />
-            </div>
-          ))}
-
-          {!loading && ledger.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-medium text-slate-900">{item.entry_type}</div>
-                <div className="text-sm font-semibold text-slate-900">{formatPoints(item.amount_credits)}</div>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">{item.created_at ? String(item.created_at).replace("T", " ").slice(0, 19) : "-"}</div>
-            </div>
-          ))}
-
-          {!loading && ledger.length === 0 && <div className="text-sm text-slate-500">{t("dash.noLedger")}</div>}
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                <th className="pb-3 pr-4 font-medium">Order number</th>
+                <th className="pb-3 px-4 font-medium">Purchase date</th>
+                <th className="pb-3 px-4 font-medium">Customer</th>
+                <th className="pb-3 px-4 font-medium">Event</th>
+                <th className="pb-3 pl-4 text-right font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && Array.from({ length: 5 }).map((_, idx) => (
+                <tr key={`sk-${idx}`} className="border-b border-slate-100 dark:border-slate-800/50 last:border-none">
+                  <td className="py-4 pr-4"><Skeleton className="h-4 w-24" /></td>
+                  <td className="py-4 px-4"><Skeleton className="h-4 w-32" /></td>
+                  <td className="py-4 px-4"><Skeleton className="h-4 w-24" /></td>
+                  <td className="py-4 px-4"><Skeleton className="h-4 w-32" /></td>
+                  <td className="py-4 pl-4"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                </tr>
+              ))}
+              {!loading && ledger.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800/50 last:border-none hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                  <td className="py-4 pr-4 text-slate-600 dark:text-slate-300 font-medium">{item.id.slice(0, 8)}</td>
+                  <td className="py-4 px-4 text-slate-500 dark:text-slate-400">{item.created_at ? String(item.created_at).replace("T", " ").slice(0, 19) : "-"}</td>
+                  <td className="py-4 px-4 text-slate-900 dark:text-slate-200 font-medium">{user?.name || user?.email || "-"}</td>
+                  <td className="py-4 px-4">
+                    <span className="inline-flex items-center gap-2">
+                       <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                         <AdminIcon icon="wallet" className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                       </div>
+                       <span className="text-slate-900 dark:text-slate-200 font-medium">{item.entry_type}</span>
+                    </span>
+                  </td>
+                  <td className="py-4 pl-4 text-right text-slate-900 dark:text-slate-200 font-semibold">{formatPoints(item.amount_credits)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!loading && ledger.length === 0 && <div className="text-sm text-slate-500 text-center py-8">{t("dash.noLedger")}</div>}
         </div>
       </Card>
     </div>

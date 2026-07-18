@@ -34,7 +34,7 @@ const UserLayout = () => {
   const activeIndex = navItems.findIndex((item) => location.pathname === item.to);
 
   return (
-    <div className="min-h-screen bg-slate-50 relative">
+    <div className="min-h-screen bg-white dark:bg-[#09090b] relative">
       <div className="absolute top-0 bottom-0 left-0 w-[calc(16rem+1rem)] md:w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#f4f4f5] z-0" />
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6 relative z-10">
         <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 shrink-0 self-start">
@@ -55,7 +55,7 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <hr className="border-t-[2px] border-slate-200 mt-[7px] mb-[28px]" />
+            <hr className="border-t-[3px] border-[#103222] mt-[7px] mb-[28px]" />
 
             <List className="mt-4 flex-1 space-y-1 relative">
               <div
