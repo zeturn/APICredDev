@@ -26,11 +26,11 @@
 
 .dark {
   --bg-page: #082D4F;
-  --bg-surface: #1e293b;
-  --bg-subtle: #172033;
-  --bg-hover: #334155;
+  --bg-surface: transparent;
+  --bg-subtle: transparent;
+  --bg-hover: #164270;
   --text-strong: #cbd5e1;
-  --text-base: #e2e8f0;
+  --text-base: #F0F4F8;
   --text-muted: #94a3b8;
   --border: #334155;
   --border-soft: #1e293b;
@@ -314,4 +314,23 @@
   100% {
     left: 100%;
   }
+}
+
+/* Explicit high-priority transparent overrides for cards, tables, inputs */
+.wc-card,
+.wc-soft,
+.dark .wc-card,
+.dark .wc-soft,
+.dark table,
+.dark thead,
+.dark tbody,
+.dark tr,
+.dark th,
+.dark td,
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
