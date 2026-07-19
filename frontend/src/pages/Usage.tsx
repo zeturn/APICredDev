@@ -63,7 +63,7 @@ const UsagePage = () => {
           {t("usage.desc")}
         </Typography>
       </div>
-      <div className="h-[8px] w-full shrink-0 bg-[#103222] dark:bg-[#F0F4F8] mt-[7px] mb-[28px]" />
+      <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>

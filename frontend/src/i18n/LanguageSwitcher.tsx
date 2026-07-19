@@ -4,10 +4,10 @@ export default function LanguageSwitcher() {
   const { locale, setLocale } = useI18n();
 
   return (
-    <div className="group relative w-full">
-      <div className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-[#103222] dark:text-slate-200 group-hover:text-[#350180] dark:group-hover:text-white rounded-xl transition-colors pointer-events-none">
-        <span className="inline-flex items-center gap-3">
-          <svg className="h-[20px] w-[20px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <div className="group relative w-fit">
+      <div className="flex items-center justify-between gap-2 px-2.5 py-1 text-xs font-medium text-[#103222] dark:text-[#F0F4F8] group-hover:bg-[#e9e9ebb5] group-hover:text-[#350180] rounded-lg transition-colors pointer-events-none">
+        <span className="inline-flex items-center gap-2 shrink-0">
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m5 8 6 6" />
             <path d="m4 14 6-6 2-3" />
             <path d="M2 5h12" />
@@ -15,9 +15,9 @@ export default function LanguageSwitcher() {
             <path d="m22 22-5-10-5 10" />
             <path d="M14 18h6" />
           </svg>
-          {locale === "zh" ? "简体中文" : "English"}
+          <span>{locale === "zh" ? "简体中文" : "English"}</span>
         </span>
-        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </div>

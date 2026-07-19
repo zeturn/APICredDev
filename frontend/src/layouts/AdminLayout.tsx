@@ -60,8 +60,8 @@ const AdminLayout = () => {
   const activeIndex = navItems.findIndex((item) => isSelected(item.to));
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#09090b] relative">
-      <div className="absolute top-0 bottom-0 left-0 w-[calc(16rem+1rem)] md:w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#f4f4f5] z-0" />
+    <div className="min-h-screen bg-white dark:bg-[#082D4F] relative">
+      <div className="absolute top-0 bottom-0 left-0 w-[calc(16rem+1rem)] md:w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#225288] z-0" />
       <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6 relative z-10">
         <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 shrink-0 self-start">
           <div className="flex h-full flex-col px-2 py-4">
@@ -72,24 +72,24 @@ const AdminLayout = () => {
               <div className="flex items-center gap-2">
               </div>
             </div>
-            <Typography variant="h6" className="mt-2 px-3">
+            <Typography variant="h6" className="mt-2 px-3 text-[#103222] dark:text-[#F0F4F8]">
               Admin Terminal
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
               {t("layout.adminDesc")}
             </Typography>
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 dark:bg-slate-800 p-3">
               <Typography variant="caption" color="textSecondary">
                 {adminReady ? (adminAllowed ? t("layout.adminTokenOk") : t("layout.adminNoPerm")) : t("layout.adminChecking")}
               </Typography>
             </div>
 
-            <div className="h-[3px] w-full shrink-0 bg-[#103222] dark:bg-[#F0F4F8] mt-[7px] mb-[28px]" />
+            <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
             <List className="mt-4 space-y-1 relative">
               <div
-                className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-[#103222] rounded-r-md transition-all duration-300 ease-in-out ${
+                className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-[#103222] dark:bg-[#F0F4F8] rounded-r-md transition-all duration-300 ease-in-out ${
                   activeIndex === -1 ? "opacity-0" : "opacity-100"
                 }`}
                 style={{ top: `${Math.max(0, activeIndex) * 40 + 6}px` }}
@@ -118,7 +118,7 @@ const AdminLayout = () => {
             <div className="flex-1" />
 
             <div className="mt-6 space-y-2">
-              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/workspace/dashboard")} className="!justify-start !text-[#103222] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
+              <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/workspace/dashboard")} className="!justify-start !text-[#103222] dark:!text-[#F0F4F8] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
                 <span className="inline-flex items-center gap-3">
                   <AdminIcon icon="home" className="h-5 w-5" />
                   {t("layout.backToUser")}
