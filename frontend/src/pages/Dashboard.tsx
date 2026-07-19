@@ -46,9 +46,9 @@ const DashboardPage = () => {
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
           {t("over.overview")}
         </Typography>
-        <Typography variant="h5">{t("dash.title")}</Typography>
+        <Typography variant="h5" className="text-[#103222] dark:text-[#F0F4F8]">{t("dash.title")}</Typography>
       </div>
-      <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
+      <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>

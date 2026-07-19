@@ -58,12 +58,12 @@ const UsagePage = () => {
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
           {t("over.usage")}
         </Typography>
-        <Typography variant="h5">{t("usage.title")}</Typography>
+        <Typography variant="h5" className="text-[#103222] dark:text-[#F0F4F8]">{t("usage.title")}</Typography>
         <Typography variant="body2" color="textSecondary">
           {t("usage.desc")}
         </Typography>
       </div>
-      <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
+      <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>

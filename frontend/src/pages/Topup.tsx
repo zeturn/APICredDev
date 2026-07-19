@@ -62,10 +62,10 @@ const TopupPage = () => {
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
           {t("over.topup")}
         </Typography>
-        <Typography variant="h5">{t("topup.title")}</Typography>
+        <Typography variant="h5" className="text-[#103222] dark:text-[#F0F4F8]">{t("topup.title")}</Typography>
         <Typography variant="body2" color="textSecondary">{t("topup.desc")}</Typography>
       </div>
-      <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
+      <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="p-6">

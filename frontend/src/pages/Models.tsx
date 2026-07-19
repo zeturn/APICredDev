@@ -44,12 +44,12 @@ const ModelsPage = () => {
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
           {t("over.models")}
         </Typography>
-        <Typography variant="h5">{t("models.title")}</Typography>
+        <Typography variant="h5" className="text-[#103222] dark:text-[#F0F4F8]">{t("models.title")}</Typography>
         <Typography variant="body2" color="textSecondary">
           {t("models.desc")}
         </Typography>
       </div>
-      <div className="w-full shrink-0 border-t-[5px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
+      <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
