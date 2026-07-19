@@ -51,9 +51,9 @@ const GlobalLoading = () => {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[1100]">
       <div className="ui-loading-bar" />
-      <div className="absolute right-4 top-3 flex items-center gap-2.5 border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#1e293b]/95 px-4 py-1.5 text-xs font-medium text-slate-700 dark:text-[#F0F4F8] !rounded-full shadow-sm">
-        <span className="ui-loading-spinner" aria-hidden="true" />
-        {t("loading.global")}
+      <div className="absolute right-6 top-4 flex items-center gap-2.5 border border-[#103222]/20 dark:border-[#F0F4F8]/25 bg-white/85 dark:bg-[#225288]/85 backdrop-blur-md px-3.5 py-1.5 text-xs font-medium text-[#103222] dark:text-[#F0F4F8] !rounded-full shadow-md transition-all duration-200">
+        <span className="ui-loading-spinner text-[#103222] dark:text-[#F0F4F8]" aria-hidden="true" />
+        <span className="tracking-wide">{t("loading.global")}</span>
       </div>
     </div>
   );
