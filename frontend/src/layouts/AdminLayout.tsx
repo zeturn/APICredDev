@@ -7,12 +7,13 @@ import { clearAdminAccessToken, ensureAdminToken } from "../api/adminClient";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
 import ThemeToggle from "../ThemeToggle";
+import LanguageSwitcher from "../i18n/LanguageSwitcher";
 import api from "../api/client";
 
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { t, locale, toggleLocale } = useI18n();
+  const { t } = useI18n();
   const [adminReady, setAdminReady] = useState(false);
   const [adminAllowed, setAdminAllowed] = useState(false);
   const navItems = adminConsoleRoutes.map((item) => ({ to: item.path, label: item.i18nKey ? t(item.i18nKey) : item.label }));
@@ -69,10 +70,6 @@ const AdminLayout = () => {
                 {t("over.apicred")}
               </Typography>
               <div className="flex items-center gap-2">
-                <ThemeToggle />
-                <Button buttonStyle="text" variant="secondary" size="small" onClick={toggleLocale} title={t("common.language")}>
-                  {locale === "zh" ? "EN" : "中"}
-                </Button>
               </div>
             </div>
             <Typography variant="h6" className="mt-2 px-3">
@@ -114,6 +111,8 @@ const AdminLayout = () => {
             </List>
 
             <div className="mt-6 space-y-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/workspace/dashboard")} className="!justify-start !text-[#103222] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
                 <span className="inline-flex items-center gap-3">
                   <AdminIcon icon="home" className="h-5 w-5" />

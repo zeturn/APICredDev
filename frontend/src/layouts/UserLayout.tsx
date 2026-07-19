@@ -45,7 +45,6 @@ const UserLayout = () => {
               </Typography>
               <div className="flex items-center gap-2">
                 <LanguageSwitcher />
-                <ThemeToggle />
               </div>
             </div>
             <Typography variant="h6" className="mt-2 px-3">
@@ -81,6 +80,8 @@ const UserLayout = () => {
             </List>
 
             <div className="mt-6 space-y-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/admin/overview")} className="!justify-start !text-[#103222] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
                 <span className="inline-flex items-center gap-3">
                   <AdminIcon icon="shield" className="h-5 w-5" />

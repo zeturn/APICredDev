@@ -53,7 +53,7 @@ const DashboardPage = () => {
         <Grid item xs={12} md={8}>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card className="p-6">
+              <Card className="p-6 !bg-transparent !shadow-none !border-none">
                 <div className="mb-2 flex items-center justify-between">
                   <Typography variant="body2" color="textSecondary">
                     {t("dash.balanceRemaining")}
@@ -70,7 +70,7 @@ const DashboardPage = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Card className="p-6">
+              <Card className="p-6 !bg-transparent !shadow-none !border-none">
                 <div className="mb-2 flex items-center justify-between">
                   <Typography variant="body2" color="textSecondary">
                     {t("dash.usedCredits")}
@@ -89,7 +89,7 @@ const DashboardPage = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card className="h-full p-6">
+          <Card className="h-full p-6 !bg-transparent !shadow-none !border-none">
                 <div className="mb-2 flex items-center justify-between">
                   <Typography variant="body2" color="textSecondary">
                     {t("dash.availableModels")}
@@ -114,7 +114,7 @@ const DashboardPage = () => {
         </Grid>
       </Grid>
 
-      <Card className="p-6">
+      <Card className="p-6 !bg-transparent !shadow-none !border-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.28em]">
