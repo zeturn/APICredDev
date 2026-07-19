@@ -20,19 +20,22 @@ const DashboardPage = () => {
   });
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState<LedgerItem[]>([]);
+  const [userEmail, setUserEmail] = useState("-");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [summaryResp, walletResp, ledgerResp] = await Promise.all([
+        const [summaryResp, walletResp, ledgerResp, meResp] = await Promise.all([
           api.get("/billing/summary"),
           api.get("/billing/wallet"),
           api.get("/billing/ledger"),
+          api.get("/auth/me"),
         ]);
         setSummary(summaryResp.data);
         setBalance(walletResp.data.balance_credits);
         setLedger(normalizeLedger(ledgerResp.data));
+        setUserEmail(meResp.data?.email || meResp.data?.name || "-");
       } finally {
         setLoading(false);
       }
@@ -153,7 +156,7 @@ const DashboardPage = () => {
                 <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800/50 last:border-none hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                   <td className="py-4 pr-4 text-slate-600 dark:text-slate-300 font-medium">{item.id.slice(0, 8)}</td>
                   <td className="py-4 px-4 text-slate-500 dark:text-slate-400">{item.created_at ? String(item.created_at).replace("T", " ").slice(0, 19) : "-"}</td>
-                  <td className="py-4 px-4 text-slate-900 dark:text-slate-200 font-medium">{user?.name || user?.email || "-"}</td>
+                  <td className="py-4 px-4 text-slate-900 dark:text-slate-200 font-medium">{userEmail}</td>
                   <td className="py-4 px-4">
                     <span className="inline-flex items-center gap-2">
                        <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">

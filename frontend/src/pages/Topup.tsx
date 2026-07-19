@@ -21,32 +21,30 @@ const TopupPage = () => {
     const buildLinks = async () => {
       let finalUrl = fallbackRechargeUrl;
       let finalGiftUrl = fallbackGiftCardUrl;
+      let clientId = fallbackClientId;
+      let tenantCode: string | undefined;
+
       try {
         const response = await api.get("/basalt/tenant-hint");
-        const tenantCode = response?.data?.data?.tenant_code;
-        const appClientId = response?.data?.data?.app_client_id || fallbackClientId;
-        const query = new URLSearchParams();
-        if (appClientId) {
-          query.set("client_id", String(appClientId));
-        }
-        if (tenantCode) {
-          query.set("tenant", String(tenantCode));
-        }
-        query.set("return_url", `${window.location.origin}/workspace/topup`);
-        const queryString = query.toString();
-        if (queryString) {
-          finalUrl = `${fallbackRechargeUrl}?${queryString}`;
-        }
-        if (tenantCode) {
-          finalGiftUrl = `${fallbackGiftCardUrl}?tenant=${encodeURIComponent(String(tenantCode))}`;
-        }
+        const data = response?.data?.data;
+        clientId = data?.app_client_id || fallbackClientId;
+        tenantCode = data?.tenant_code || undefined;
       } catch {
-        if (fallbackClientId) {
-          const query = new URLSearchParams();
-          query.set("client_id", String(fallbackClientId));
-          query.set("return_url", `${window.location.origin}/workspace/topup`);
-          finalUrl = `${fallbackRechargeUrl}?${query.toString()}`;
-        }
+        // tenant-hint failed; use fallback values
+      }
+
+      const query = new URLSearchParams();
+      if (clientId) {
+        query.set("client_id", String(clientId));
+      }
+      if (tenantCode) {
+        query.set("tenant", String(tenantCode));
+      }
+      query.set("return_url", `${window.location.origin}/workspace/topup`);
+      finalUrl = `${fallbackRechargeUrl}?${query.toString()}`;
+
+      if (tenantCode) {
+        finalGiftUrl = `${fallbackGiftCardUrl}?tenant=${encodeURIComponent(String(tenantCode))}`;
       }
 
       setRechargeUrl(finalUrl);
