@@ -54,6 +54,21 @@ async def require_admin_access(
     Raises ``AppError`` with status 401/403 when authentication or authorization
     fails, matching the contract of the original dependency in ``admin.py``.
     """
+    if x_admin_authorization or x_admin_token:
+        await assert_admin_access(
+            request=request,
+            authorization=authorization,
+            x_admin_authorization=x_admin_authorization,
+            x_admin_token=x_admin_token,
+            db=db,
+            client=client,
+        )
+        return
+
+    if authorization or request.cookies.get(settings.auth_cookie_name):
+        await get_current_user(request=request, authorization=authorization, db=db)
+        return
+
     await assert_admin_access(
         request=request,
         authorization=authorization,

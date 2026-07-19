@@ -12,6 +12,7 @@ from app.core.errors import AppError
 from app.db.session import SessionLocal
 from app.db.models.public_model import PublicModel
 from app.db.models.usage_session import UsageSession
+from app.api.v1.admin_auth import require_admin_access
 from app.services.admin_access import assert_admin_access
 from app.services.basaltpass_client import BasaltPassClient
 from app.services.billing_service import get_wallet, list_ledger
@@ -282,30 +283,7 @@ class Query:
         )
 
 
-async def require_graphql_access(
-    request: Request,
-    authorization: str | None = Header(default=None),
-    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
-    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    if x_admin_authorization or x_admin_token:
-        await assert_admin_access(
-            request=request,
-            authorization=authorization,
-            x_admin_authorization=x_admin_authorization,
-            x_admin_token=x_admin_token,
-            db=db,
-            client=BasaltPassClient(),
-        )
-        return
 
-    if authorization or request.cookies.get(settings.auth_cookie_name):
-        await get_current_user(request=request, authorization=authorization, db=db)
-        return
-
-    req_id = getattr(getattr(request, "state", None), "request_id", "req-0") if request else "req-0"
-    raise AppError("unauthorized", "Authentication required", req_id, 401)
 
 
 async def get_context(
@@ -350,6 +328,6 @@ schema = strawberry.Schema(query=Query)
 
 router = GraphQLRouter(
     schema=schema,
-    dependencies=[Depends(require_graphql_access)],
+    dependencies=[Depends(require_admin_access)],
     context_getter=get_context,
 )
