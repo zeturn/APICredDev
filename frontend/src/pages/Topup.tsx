@@ -22,12 +22,14 @@ const TopupPage = () => {
       let finalUrl = fallbackRechargeUrl;
       let finalGiftUrl = fallbackGiftCardUrl;
       let clientId = fallbackClientId;
+      let appId = fallbackClientId;
       let tenantCode: string | undefined;
 
       try {
         const response = await api.get("/basalt/tenant-hint");
         const data = response?.data?.data;
-        clientId = data?.app_client_id || fallbackClientId;
+        clientId = data?.app_client_id || data?.app_id || fallbackClientId;
+        appId = data?.app_id || data?.app_client_id || fallbackClientId;
         tenantCode = data?.tenant_code || undefined;
       } catch {
         // tenant-hint failed; use fallback values
@@ -36,6 +38,9 @@ const TopupPage = () => {
       const query = new URLSearchParams();
       if (clientId) {
         query.set("client_id", String(clientId));
+      }
+      if (appId) {
+        query.set("app_id", String(appId));
       }
       if (tenantCode) {
         query.set("tenant", String(tenantCode));

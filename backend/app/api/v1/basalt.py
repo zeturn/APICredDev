@@ -199,23 +199,38 @@ async def basalt_tenant_hint(
     if not getattr(user, "basalt_user_id", None):
         raise AppError("basalt_identity_missing", "current user is not linked to BasaltPass", request.state.request_id, 400)
 
-    try:
-        s2s_me = await client.s2s_get_me()
-    except ValueError as exc:
-        raise AppError("s2s_config_missing", str(exc), request.state.request_id, 500)
-
     tenant_code = None
     tenant_id = None
-    if isinstance(s2s_me, dict):
-        tenant_code = (s2s_me.get("tenant_code") or "").strip() or None
-        tenant_id = s2s_me.get("tenant_id")
+    s2s_client_id = None
+    s2s_app_id = None
+
+    try:
+        s2s_me = await client.s2s_get_me()
+        if isinstance(s2s_me, dict):
+            me_dict = s2s_me.get("data") if isinstance(s2s_me.get("data"), dict) else s2s_me
+            tenant_code = (me_dict.get("tenant_code") or "").strip() or None
+            tenant_id = me_dict.get("tenant_id")
+            s2s_client_id = me_dict.get("client_id") or me_dict.get("app_client_id")
+            s2s_app_id = me_dict.get("app_id") or me_dict.get("id")
+    except Exception:
+        pass
+
+    app_client_id = (
+        s2s_client_id
+        or settings.basalt_oauth_client_id
+        or settings.basalt_s2s_client_id
+        or s2s_app_id
+        or ""
+    )
+    app_id = s2s_app_id or app_client_id
 
     return JSONResponse(
         content={
             "data": {
                 "tenant_code": tenant_code,
                 "tenant_id": tenant_id,
-                "app_client_id": settings.basalt_oauth_client_id,
+                "app_client_id": app_client_id,
+                "app_id": app_id,
             }
         }
     )
