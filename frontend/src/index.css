@@ -205,7 +205,10 @@
 
 @layer components {
   .wc-card {
-    @apply border border-slate-300 bg-white;
+    @apply border border-slate-300;
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .transparent-card,
@@ -220,7 +223,10 @@
   }
 
   .wc-soft {
-    @apply border border-slate-300 bg-white;
+    @apply border border-slate-300;
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .ui-skeleton {
