@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     auth_cookie_samesite: str = "lax"
 
     database_url: str = "postgresql+asyncpg://apicred:apicred@localhost:5403/apicred"
+    db_pool_size: int = Field(20, validation_alias=AliasChoices("DB_POOL_SIZE", "APICRED_DB_POOL_SIZE"))
+    db_max_overflow: int = Field(10, validation_alias=AliasChoices("DB_MAX_OVERFLOW", "APICRED_DB_MAX_OVERFLOW"))
+    db_pool_recycle: int = Field(1800, validation_alias=AliasChoices("DB_POOL_RECYCLE", "APICRED_DB_POOL_RECYCLE"))
+    db_pool_timeout: int = Field(30, validation_alias=AliasChoices("DB_POOL_TIMEOUT", "APICRED_DB_POOL_TIMEOUT"))
+    db_pool_pre_ping: bool = Field(True, validation_alias=AliasChoices("DB_POOL_PRE_PING", "APICRED_DB_POOL_PRE_PING"))
     redis_url: str = "redis://localhost:6303/0"
 
     admin_jwt_audience: str = "apicred-admin"

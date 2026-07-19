@@ -54,15 +54,15 @@ const ModelsPage = () => {
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-600">{t("models.search")}</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-400">{t("models.search")}</label>
             <input
-              className="w-full rounded-xl border border-ink-100 bg-white/70 px-3 py-3 text-sm text-ink-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-ink-200"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-3 py-3 text-sm text-slate-800 dark:text-slate-100 shadow-inner focus:outline-none focus:ring-2 focus:ring-slate-400"
               placeholder={t("models.searchPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/40 p-4">
             <Typography variant="body2" color="textSecondary">{t("models.visibleModels")}</Typography>
             <Typography variant="h3" className="mt-1">{filteredModels.length}</Typography>
           </div>

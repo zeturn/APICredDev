@@ -147,7 +147,7 @@ export const zh: Dict = {
 
   "loading.screen": "正在加载，请稍候...",
   "loading.global": "加载中...",
-  "loading.appName": "API Cred",
+  "loading.appName": "MoPorta API Service",
 
   "admin.overline": "admin",
 
@@ -667,7 +667,7 @@ export const en: Dict = {
 
   "loading.screen": "Loading, please wait...",
   "loading.global": "Loading...",
-  "loading.appName": "API Cred",
+  "loading.appName": "MoPorta API Service",
 
   "admin.overline": "admin",
 
