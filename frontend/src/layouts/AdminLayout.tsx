@@ -87,7 +87,7 @@ const AdminLayout = () => {
 
             <div className="h-[3px] w-full shrink-0 bg-[#103222] mt-[7px] mb-[28px]" />
 
-            <List className="mt-4 flex-1 space-y-1 relative">
+            <List className="mt-4 space-y-1 relative">
               <div
                 className={`absolute left-[-24px] md:left-[-32px] w-1.5 h-6 bg-[#103222] rounded-r-md transition-all duration-300 ease-in-out ${
                   activeIndex === -1 ? "opacity-0" : "opacity-100"
@@ -110,9 +110,14 @@ const AdminLayout = () => {
               ))}
             </List>
 
-            <div className="mt-6 space-y-2">
+            <div className="mt-1 space-y-1">
               <ThemeToggle />
               <LanguageSwitcher />
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="mt-6 space-y-2">
               <Button buttonStyle="text" variant="secondary" fullWidth onClick={() => navigate("/workspace/dashboard")} className="!justify-start !text-[#103222] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl">
                 <span className="inline-flex items-center gap-3">
                   <AdminIcon icon="home" className="h-5 w-5" />

@@ -208,6 +208,17 @@
     @apply border border-slate-300 bg-white;
   }
 
+  .transparent-card,
+  .dark .transparent-card,
+  .wc-card.transparent-card,
+  .dark .wc-card.transparent-card {
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-color: transparent !important;
+  }
+
   .wc-soft {
     @apply border border-slate-300 bg-white;
   }
