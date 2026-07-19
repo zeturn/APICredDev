@@ -2,7 +2,7 @@ import { Button, List, ListItem, Typography } from "../lib/watercolor";
 import { Suspense } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import LoadingScreen from "../pages/LoadingScreen";
-import { userConsoleRoutes } from "../navigation/consoleRoutes";
+import { userConsoleRoutes, preloadRouteModule } from "../navigation/consoleRoutes";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../i18n/LanguageSwitcher";
@@ -69,6 +69,7 @@ const UserLayout = () => {
                   component={NavLink}
                   to={item.to}
                   selected={location.pathname === item.to}
+                  onMouseEnter={() => preloadRouteModule(item.to)}
                 >
                   <span className="inline-flex items-center gap-3">
                     <AdminIcon icon={iconByPath[item.to] ?? "home"} className={`h-5 w-5 transition-colors ${location.pathname === item.to ? "text-[#09090b]" : ""}`} />

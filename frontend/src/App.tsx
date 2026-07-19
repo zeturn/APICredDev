@@ -5,6 +5,7 @@ import UserLayout from "./layouts/UserLayout";
 import RequireAuth from "./routes/RequireAuth";
 import { lazy, Suspense } from "react";
 import LoadingScreen from "./pages/LoadingScreen";
+import ErrorBoundary from "./shared/ErrorBoundary";
 
 const LoginPage = lazy(() => import("./pages/Login"));
 const DashboardPage = lazy(() => import("./pages/Dashboard"));
@@ -44,7 +45,8 @@ const AdminUpstreamModelsPage = lazy(() => import("./pages/admin/AdminCatalogPag
 
 const App = () => {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
@@ -104,6 +106,7 @@ const App = () => {
         <Route path="*" element={<Navigate to="/workspace/dashboard" replace />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 };
 

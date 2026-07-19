@@ -38,3 +38,29 @@ export const allConsoleRoutes: ConsoleRoute[] = [...userConsoleRoutes, ...adminC
 export const findConsoleRoute = (path: string): ConsoleRoute | undefined =>
   allConsoleRoutes.find((route) => route.path === path);
 
+export const preloadRouteModule = (path: string) => {
+  switch (path) {
+    case "/workspace/dashboard": import("../pages/Dashboard"); break;
+    case "/workspace/usage": import("../pages/Usage"); break;
+    case "/workspace/tokens": import("../pages/Tokens"); break;
+    case "/workspace/models": import("../pages/Models"); break;
+    case "/workspace/topup": import("../pages/Topup"); break;
+    case "/workspace/profile": import("../pages/Profile"); break;
+
+    case "/admin/overview": import("../pages/admin/AdminOverview"); break;
+    case "/admin/users": import("../pages/admin/AdminUsers"); break;
+    case "/admin/brands":
+    case "/admin/public-models":
+    case "/admin/upstream-models":
+    case "/admin/providers":
+    case "/admin/provider-endpoints":
+    case "/admin/provider-credentials":
+    case "/admin/model-routes":
+      import("../pages/admin/AdminCatalogPages"); break;
+    case "/admin/api-models": import("../pages/admin/AdminApiModels"); break;
+    case "/admin/usage": import("../pages/admin/AdminUsage"); break;
+    case "/admin/provider-health": import("../pages/admin/AdminProviderHealth"); break;
+    case "/admin/usage-dashboard": import("../pages/admin/AdminUsageDashboard"); break;
+  }
+};
+

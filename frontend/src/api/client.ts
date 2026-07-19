@@ -26,10 +26,18 @@ api.interceptors.response.use(
     endLoading();
     return resp;
   },
-  (error) => {
-    endLoading();
+  async (error) => {
+    const config = error?.config;
     const status = Number(error?.response?.status ?? 0);
-    const reqUrl = String(error?.config?.url ?? "");
+
+    if (config && !config._isRetry && [502, 503, 504].includes(status)) {
+      config._isRetry = true;
+      await new Promise((res) => setTimeout(res, 500));
+      return api(config);
+    }
+
+    endLoading();
+    const reqUrl = String(config?.url ?? "");
     if (status === 401 && reqUrl.includes("/auth/me")) {
       return Promise.reject(error);
     }

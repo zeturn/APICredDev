@@ -2,7 +2,7 @@ import { Alert, Button, Card, List, ListItem, Typography } from "../lib/watercol
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import LoadingScreen from "../pages/LoadingScreen";
-import { adminConsoleRoutes } from "../navigation/consoleRoutes";
+import { adminConsoleRoutes, preloadRouteModule } from "../navigation/consoleRoutes";
 import { clearAdminAccessToken, ensureAdminToken } from "../api/adminClient";
 import { AdminIcon } from "../pages/admin/adminCommon";
 import { useI18n } from "../i18n";
@@ -101,6 +101,7 @@ const AdminLayout = () => {
                   component={NavLink}
                   to={item.to}
                   selected={isSelected(item.to)}
+                  onMouseEnter={() => preloadRouteModule(item.to)}
                 >
                   <span className="inline-flex items-center gap-3">
                     <AdminIcon icon={iconByPath[item.to] ?? "shield"} className={`h-5 w-5 transition-colors ${isSelected(item.to) ? "text-[#09090b]" : ""}`} />

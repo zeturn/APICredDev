@@ -87,8 +87,16 @@ adminApi.interceptors.request.use(async (config) => {
 
 adminApi.interceptors.response.use(
   (resp) => resp,
-  (error) => {
+  async (error) => {
+    const config = error?.config;
     const status = Number(error?.response?.status ?? 0);
+
+    if (config && !config._isRetry && [502, 503, 504].includes(status)) {
+      config._isRetry = true;
+      await new Promise((res) => setTimeout(res, 500));
+      return adminApi(config);
+    }
+
     if (status === 401) {
       clearAdminAccessToken();
     }
