@@ -9,7 +9,7 @@ export const AdminPageIntro = ({ title, description }: { title: string; descript
       <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.3em]">
         {t("admin.overline")}
       </Typography>
-      <Typography variant="h5">{title}</Typography>
+      <Typography variant="h5" className="text-[#103222] dark:text-[#F0F4F8]">{title}</Typography>
       <Typography variant="body2" color="textSecondary">
         {description}
       </Typography>

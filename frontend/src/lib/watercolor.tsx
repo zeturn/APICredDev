@@ -19,7 +19,7 @@ const COLOR_CLASS: Record<string, string> = {
 const TYPOGRAPHY_CLASS: Record<string, string> = {
   overline: "text-[11px] font-semibold uppercase tracking-[0.22em]",
   h3: "text-[30px] font-semibold",
-  h5: "text-[26px] font-semibold",
+  h5: "text-[26px] font-semibold text-[#103222] dark:text-[#F0F4F8]",
   h6: "text-[18px] font-semibold",
   subtitle1: "text-base font-semibold",
   subtitle2: "text-sm font-semibold",
