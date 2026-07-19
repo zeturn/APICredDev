@@ -196,10 +196,7 @@ async def basalt_tenant_hint(
     client: BasaltPassClient = Depends(get_basalt_client),
     user=Depends(get_current_user),
 ) -> JSONResponse:
-    if not getattr(user, "basalt_user_id", None):
-        raise AppError("basalt_identity_missing", "current user is not linked to BasaltPass", request.state.request_id, 400)
-
-    tenant_code = None
+    tenant_code = str(getattr(user, "basalt_tenant_id", "") or "").strip() or None
     tenant_id = None
     s2s_client_id = None
     s2s_app_id = None

@@ -59,6 +59,27 @@ const TopupPage = () => {
     void buildLinks();
   }, [fallbackClientId, fallbackGiftCardUrl, fallbackRechargeUrl]);
 
+  const handleGoToRecharge = async () => {
+    let url = rechargeUrl;
+    if (!url.includes("client_id=") && !url.includes("app_id=")) {
+      try {
+        const response = await api.get("/basalt/tenant-hint");
+        const data = response?.data?.data;
+        const cid = data?.app_client_id || data?.app_id || fallbackClientId;
+        const aid = data?.app_id || data?.app_client_id || fallbackClientId;
+        const tcode = data?.tenant_code;
+        const query = new URLSearchParams();
+        if (cid) query.set("client_id", String(cid));
+        if (aid) query.set("app_id", String(aid));
+        if (tcode) query.set("tenant", String(tcode));
+        query.set("return_url", `${window.location.origin}/workspace/topup`);
+        url = `${fallbackRechargeUrl}?${query.toString()}`;
+      } catch {
+      }
+    }
+    window.location.href = url;
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -75,7 +96,7 @@ const TopupPage = () => {
           <Typography variant="subtitle1">{t("topup.cashTitle")}</Typography>
           <Typography variant="body2" color="textSecondary" className="mt-2">{t("topup.cashDesc")}</Typography>
           <div className="mt-4">
-            <Button variant="primary" buttonStyle="filled" onClick={() => { window.location.href = rechargeUrl; }}>
+            <Button variant="primary" buttonStyle="filled" onClick={handleGoToRecharge}>
               {t("topup.cashGo")}
             </Button>
           </div>
