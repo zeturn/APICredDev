@@ -51,7 +51,7 @@ const GlobalLoading = () => {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[1100]">
       <div className="ui-loading-bar" />
-      <div className="absolute right-4 top-3 flex items-center gap-2 border border-slate-300 bg-white/95 px-3 py-1.5 text-xs text-slate-700">
+      <div className="absolute right-4 top-3 flex items-center gap-2.5 border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#1e293b]/95 px-4 py-1.5 text-xs font-medium text-slate-700 dark:text-[#F0F4F8] !rounded-full shadow-sm">
         <span className="ui-loading-spinner" aria-hidden="true" />
         {t("loading.global")}
       </div>
