@@ -1,18 +1,18 @@
 import { useTheme } from "./theme";
 import { Button } from "./lib/watercolor";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ fullWidth = false }: { fullWidth?: boolean }) {
   const { theme, toggleTheme } = useTheme();
   const dark = theme === "dark";
   return (
     <Button
       buttonStyle="text"
       variant="secondary"
-      fullWidth
+      fullWidth={fullWidth}
       onClick={toggleTheme}
       className="!justify-start !text-[#103222] dark:!text-[#F0F4F8] hover:!bg-transparent hover:!text-[#103222] dark:hover:!text-[#F0F4F8] !px-3 !rounded-xl"
     >
-      <span className="inline-flex items-center gap-3">
+      <span className="inline-flex items-center gap-3 shrink-0 whitespace-nowrap">
         <svg
           className="h-[18px] w-[32px] shrink-0"
           viewBox="0 0 32 16"

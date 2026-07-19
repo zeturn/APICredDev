@@ -12,13 +12,13 @@ const LoginPage = () => {
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-4">
         <Typography variant="overline" color="textSecondary" className="uppercase tracking-[0.35em]">
-          apicred access
+          moporta access
         </Typography>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-6 shrink-0">
           <LanguageSwitcher />
-          <ThemeToggle />
+          <ThemeToggle fullWidth={false} />
         </div>
       </div>
       <Typography variant="h5" className="mt-2">

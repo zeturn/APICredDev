@@ -4,7 +4,7 @@ export default function LanguageSwitcher() {
   const { locale, setLocale } = useI18n();
 
   return (
-    <div className="group relative w-fit">
+    <div className="group relative w-fit shrink-0">
       <div className="flex items-center justify-between gap-2 px-2.5 py-1 text-xs font-medium text-[#103222] dark:text-[#F0F4F8] rounded-lg pointer-events-none">
         <span className="inline-flex items-center gap-2 shrink-0">
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
