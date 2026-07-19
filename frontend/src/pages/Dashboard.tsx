@@ -26,6 +26,43 @@ const DashboardPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        const query = `
+          query {
+            userDashboardData {
+              summary { balanceCredits usedCredits usageSessions availableModels }
+              balanceCredits
+              ledger { id entryType amountCredits status createdAt }
+              userEmail
+            }
+          }
+        `;
+        const resp = await api.post("/v1/graphql", { query });
+        const data = resp.data?.data?.userDashboardData;
+        if (data && data.summary) {
+          setSummary({
+            balance_credits: data.summary.balanceCredits,
+            used_credits: data.summary.usedCredits,
+            usage_sessions: data.summary.usageSessions,
+            available_models: data.summary.availableModels,
+          });
+          setBalance(data.balanceCredits);
+          setLedger(
+            (data.ledger || []).map((item: any) => ({
+              id: item.id,
+              entry_type: item.entryType,
+              amount_credits: item.amountCredits,
+              created_at: item.createdAt,
+            }))
+          );
+          setUserEmail(data.userEmail || "-");
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to REST API if GraphQL fails
+      }
+
+      try {
         const [summaryResp, walletResp, ledgerResp, meResp] = await Promise.all([
           api.get("/billing/summary"),
           api.get("/billing/wallet"),

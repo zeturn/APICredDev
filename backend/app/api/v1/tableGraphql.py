@@ -1,12 +1,23 @@
 from typing import Optional
+import asyncio
 import strawberry
 from strawberry.fastapi import GraphQLRouter
-from fastapi import Depends
+from fastapi import Depends, Header, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.v1.admin_auth import require_admin_access
-from app.core.deps import get_db
+
+from app.core.config import settings
+from app.core.deps import get_db, get_current_user
+from app.core.errors import AppError
+from app.db.session import SessionLocal
+from app.db.models.public_model import PublicModel
+from app.db.models.usage_session import UsageSession
+from app.services.admin_access import assert_admin_access
+from app.services.basaltpass_client import BasaltPassClient
+from app.services.billing_service import get_wallet, list_ledger
 from app.services.dashboard_service import get_admin_usage_summary
 from app.services.usage_analytics_service import usage_summary, usage_group_by, quota_summary
+
 
 @strawberry.type
 class RecentSession:
@@ -25,6 +36,7 @@ class RecentSession:
     created_at: str
     completed_at: Optional[str] = None
 
+
 @strawberry.type
 class ModelUsageStat:
     model_id: str
@@ -32,10 +44,12 @@ class ModelUsageStat:
     requests: int
     used_credits: float
 
+
 @strawberry.type
 class AdminUsageSummary:
     recent_sessions: list[RecentSession]
     by_model: list[ModelUsageStat]
+
 
 @strawberry.type
 class UsageSummary:
@@ -50,6 +64,7 @@ class UsageSummary:
     final_cost_credits: float
     avg_latency_ms: float
 
+
 @strawberry.type
 class UsageByProvider:
     provider: str
@@ -60,6 +75,7 @@ class UsageByProvider:
     error_rate: float
     total_tokens: int
     final_cost_credits: float
+
 
 @strawberry.type
 class UsageByModel:
@@ -72,6 +88,7 @@ class UsageByModel:
     total_tokens: int
     final_cost_credits: float
 
+
 @strawberry.type
 class UsageByUser:
     user: str
@@ -82,6 +99,7 @@ class UsageByUser:
     error_rate: float
     total_tokens: int
     final_cost_credits: float
+
 
 @strawberry.type
 class UsageByError:
@@ -94,6 +112,7 @@ class UsageByError:
     total_tokens: int
     final_cost_credits: float
 
+
 @strawberry.type
 class QuotaSummary:
     entry_count: int
@@ -105,6 +124,7 @@ class QuotaSummary:
     total_tokens: int
     final_cost_credits: float
 
+
 @strawberry.type
 class AdminDashboardData:
     summary: UsageSummary
@@ -113,6 +133,32 @@ class AdminDashboardData:
     top_users: list[UsageByUser]
     errors: list[UsageByError]
     quota: QuotaSummary
+
+
+@strawberry.type
+class UserSummary:
+    balance_credits: float
+    used_credits: float
+    usage_sessions: int
+    available_models: int
+
+
+@strawberry.type
+class UserLedgerEntry:
+    id: str
+    entry_type: str
+    amount_credits: float
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+@strawberry.type
+class UserDashboardData:
+    summary: UserSummary
+    balance_credits: float
+    ledger: list[UserLedgerEntry]
+    user_email: str
+
 
 @strawberry.type
 class Query:
@@ -124,7 +170,7 @@ class Query:
     async def admin_usage_summary(self, info: strawberry.Info) -> AdminUsageSummary:
         db = info.context["db"]
         summary = await get_admin_usage_summary(db)
-        
+
         recent_sessions = [
             RecentSession(
                 id=str(s["id"]),
@@ -144,7 +190,7 @@ class Query:
             )
             for s in summary["recent_sessions"]
         ]
-        
+
         by_model = [
             ModelUsageStat(
                 model_id=str(m["model_id"]),
@@ -154,42 +200,156 @@ class Query:
             )
             for m in summary["by_model"]
         ]
-        
+
         return AdminUsageSummary(recent_sessions=recent_sessions, by_model=by_model)
 
     @strawberry.field
     async def admin_dashboard_data(self, info: strawberry.Info) -> AdminDashboardData:
-        db = info.context["db"]
-        
-        # Sequentially await to avoid asyncpg single connection concurrent issues
-        summary_data = await usage_summary(db)
-        by_provider_data = await usage_group_by(db, "provider")
-        by_model_data = await usage_group_by(db, "model")
-        top_users_data = await usage_group_by(db, "user")
-        errors_data = await usage_group_by(db, "error")
-        quota_data = await quota_summary(db)
-        
+        # Run independent analytical aggregation queries in parallel over DB pool
+        async def _run(fn, *args):
+            async with SessionLocal() as db:
+                return await fn(db, *args)
+
+        summary_data, by_provider_data, by_model_data, top_users_data, errors_data, quota_data = await asyncio.gather(
+            _run(usage_summary),
+            _run(usage_group_by, "provider"),
+            _run(usage_group_by, "model"),
+            _run(usage_group_by, "user"),
+            _run(usage_group_by, "error"),
+            _run(quota_summary),
+        )
+
         return AdminDashboardData(
             summary=UsageSummary(**summary_data),
             by_provider=[UsageByProvider(**p) for p in by_provider_data],
             by_model=[UsageByModel(**m) for m in by_model_data],
             top_users=[UsageByUser(**u) for u in top_users_data],
             errors=[UsageByError(**e) for e in errors_data],
-            quota=QuotaSummary(**quota_data)
+            quota=QuotaSummary(**quota_data),
         )
 
-async def get_context(db: AsyncSession = Depends(get_db)):
-    return {"db": db}
+    @strawberry.field
+    async def user_dashboard_data(self, info: strawberry.Info) -> UserDashboardData:
+        current_user = info.context.get("current_user")
+        request = info.context.get("request")
+        if not current_user:
+            req_id = getattr(getattr(request, "state", None), "request_id", "req-0") if request else "req-0"
+            raise AppError("unauthorized", "User authentication required", req_id, 401)
 
-# Mount at ``/v1/graphql`` so the GraphQL endpoint is scoped under the same
-# admin API base URL as every other authenticated route.  The default dependency
-# below ensures **every** query (including introspection) carries a valid
-# ``X-Admin-Authorization`` bearer token before reaching the schema — aligning
-# this router with the security policy enforced by ``router.py``.
+        user_id = current_user.id
+
+        async def _fetch_summary():
+            async with SessionLocal() as db:
+                wallet_obj = await get_wallet(db, user_id)
+                used_credits = float(
+                    (await db.execute(select(func.coalesce(func.sum(UsageSession.final_cost_credits), 0)).where(UsageSession.user_id == user_id))).scalar() or 0
+                )
+                usage_sessions = int((await db.execute(select(func.count()).select_from(UsageSession).where(UsageSession.user_id == user_id))).scalar() or 0)
+                available_models = int((await db.execute(select(func.count()).select_from(PublicModel).where(PublicModel.enabled.is_(True)))).scalar() or 0)
+                return {
+                    "balance_credits": float(wallet_obj.balance_credits),
+                    "used_credits": used_credits,
+                    "usage_sessions": usage_sessions,
+                    "available_models": available_models,
+                }
+
+        async def _fetch_ledger():
+            async with SessionLocal() as db:
+                entries = await list_ledger(db, user_id, limit=10)
+                return [
+                    UserLedgerEntry(
+                        id=e.id,
+                        entry_type=e.entry_type,
+                        amount_credits=float(e.amount_credits),
+                        status=getattr(e, "status", None),
+                        created_at=e.created_at.isoformat() if hasattr(e, "created_at") and e.created_at else None,
+                    )
+                    for e in entries
+                ]
+
+        summary_res, ledger_res = await asyncio.gather(_fetch_summary(), _fetch_ledger())
+
+        return UserDashboardData(
+            summary=UserSummary(
+                balance_credits=summary_res["balance_credits"],
+                used_credits=summary_res["used_credits"],
+                usage_sessions=summary_res["usage_sessions"],
+                available_models=summary_res["available_models"],
+            ),
+            balance_credits=summary_res["balance_credits"],
+            ledger=ledger_res,
+            user_email=getattr(current_user, "email", "") or getattr(current_user, "name", "") or "-",
+        )
+
+
+async def require_graphql_access(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if x_admin_authorization or x_admin_token:
+        await assert_admin_access(
+            request=request,
+            authorization=authorization,
+            x_admin_authorization=x_admin_authorization,
+            x_admin_token=x_admin_token,
+            db=db,
+            client=BasaltPassClient(),
+        )
+        return
+
+    if authorization or request.cookies.get(settings.auth_cookie_name):
+        await get_current_user(request=request, authorization=authorization, db=db)
+        return
+
+    req_id = getattr(getattr(request, "state", None), "request_id", "req-0") if request else "req-0"
+    raise AppError("unauthorized", "Authentication required", req_id, 401)
+
+
+async def get_context(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_admin_authorization: str | None = Header(default=None, alias="X-Admin-Authorization"),
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user = None
+    is_admin = False
+
+    if x_admin_authorization or x_admin_token:
+        try:
+            await assert_admin_access(
+                request=request,
+                authorization=authorization,
+                x_admin_authorization=x_admin_authorization,
+                x_admin_token=x_admin_token,
+                db=db,
+                client=BasaltPassClient(),
+            )
+            is_admin = True
+        except Exception:
+            pass
+
+    if authorization or request.cookies.get(settings.auth_cookie_name):
+        try:
+            current_user = await get_current_user(request=request, authorization=authorization, db=db)
+        except Exception:
+            pass
+
+    return {
+        "db": db,
+        "request": request,
+        "current_user": current_user,
+        "is_admin": is_admin,
+    }
+
+
 schema = strawberry.Schema(query=Query)
 
 router = GraphQLRouter(
     schema=schema,
-    dependencies=[Depends(require_admin_access)],
+    dependencies=[Depends(require_graphql_access)],
     context_getter=get_context,
 )
