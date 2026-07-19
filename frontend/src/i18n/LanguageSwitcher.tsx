@@ -5,7 +5,7 @@ export default function LanguageSwitcher() {
 
   return (
     <div className="group relative w-fit">
-      <div className="flex items-center justify-between gap-2 px-2.5 py-1 text-xs font-medium text-[#103222] dark:text-[#F0F4F8] group-hover:bg-[#e9e9ebb5] group-hover:text-[#350180] rounded-lg transition-colors pointer-events-none">
+      <div className="flex items-center justify-between gap-2 px-2.5 py-1 text-xs font-medium text-[#103222] dark:text-[#F0F4F8] rounded-lg pointer-events-none">
         <span className="inline-flex items-center gap-2 shrink-0">
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m5 8 6 6" />

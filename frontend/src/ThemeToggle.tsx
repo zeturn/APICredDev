@@ -10,7 +10,7 @@ export default function ThemeToggle() {
       variant="secondary"
       fullWidth
       onClick={toggleTheme}
-      className="!justify-start !text-[#103222] dark:!text-[#F0F4F8] hover:!bg-[#e9e9ebb5] hover:!text-[#350180] !px-3 !rounded-xl transition-colors"
+      className="!justify-start !text-[#103222] dark:!text-[#F0F4F8] hover:!bg-transparent hover:!text-[#103222] dark:hover:!text-[#F0F4F8] !px-3 !rounded-xl"
     >
       <span className="inline-flex items-center gap-3">
         <svg
