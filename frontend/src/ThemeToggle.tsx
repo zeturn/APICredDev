@@ -1,7 +1,5 @@
 import { useTheme } from "./theme";
-
 import { Button } from "./lib/watercolor";
-import { useTheme } from "./theme";
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
