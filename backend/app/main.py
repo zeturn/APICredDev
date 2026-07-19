@@ -126,7 +126,8 @@ def create_app() -> FastAPI:
         if request.url.path.startswith("/graphql") or request.url.path.startswith("/v1/graphql"):
             has_admin = request.headers.get("x-admin-authorization")
             has_auth = request.headers.get("authorization")
-            if not has_admin and not has_auth:
+            has_cookie = request.cookies.get(settings.auth_cookie_name)
+            if not has_admin and not has_auth and not has_cookie:
                 return JSONResponse(
                     status_code=401,
                     content={"detail": "Authentication required"},

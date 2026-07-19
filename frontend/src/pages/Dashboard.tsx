@@ -36,7 +36,7 @@ const DashboardPage = () => {
             }
           }
         `;
-        const resp = await api.post("/v1/graphql", { query });
+        const resp = await api.post("/graphql", { query });
         const data = resp.data?.data?.userDashboardData;
         if (data && data.summary) {
           setSummary({
