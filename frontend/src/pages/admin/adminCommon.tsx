@@ -13,6 +13,7 @@ export const AdminPageIntro = ({ title, description }: { title: string; descript
       <Typography variant="body2" color="textSecondary">
         {description}
       </Typography>
+      <div className="h-[8px] w-full shrink-0 bg-[#103222] dark:bg-[#F0F4F8] mt-[7px] mb-[28px]" />
     </div>
   );
 };

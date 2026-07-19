@@ -53,7 +53,7 @@ const UserLayout = () => {
               {t("layout.userDesc")}
             </Typography>
 
-            <div className="h-[3px] w-full shrink-0 bg-[#103222] mt-[7px] mb-[28px]" />
+            <div className="h-[3px] w-full shrink-0 bg-[#103222] dark:bg-[#F0F4F8] mt-[7px] mb-[28px]" />
 
             <List className="mt-4 space-y-1 relative">
               <div
