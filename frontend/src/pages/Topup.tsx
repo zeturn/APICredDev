@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 
 const TopupPage = () => {
   const { t } = useI18n();
-  const basaltPassBaseUrl = (import.meta as any).env?.VITE_BASALTPASS_BASE_URL ?? "https://auth.beancs.hollowdata.com";
+  const basaltPassBaseUrl = (import.meta as any).env?.VITE_BASALTPASS_BASE_URL ?? "https://auth.beancs.com";
   const fallbackClientId = (import.meta as any).env?.VITE_BASALTPASS_APP_CLIENT_ID ?? "";
   const appRechargePath = "/apps/recharge";
   const giftCardPath = "/wallet/gift-cards/redeem";
