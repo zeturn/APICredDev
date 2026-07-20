@@ -125,7 +125,7 @@ const AdminLayout = () => {
                   {t("layout.backToUser")}
                 </span>
               </Button>
-              <Button buttonStyle="text" variant="error" fullWidth onClick={logout} className="!justify-start !px-3 !rounded-xl">
+              <Button buttonStyle="text" variant="error" fullWidth onClick={logout} className="!justify-start dark:!text-[rgb(231,27,27)] !px-3 !rounded-xl">
                 <span className="inline-flex items-center gap-3">
                   <AdminIcon icon="provider" className="h-5 w-5" />
                   {t("layout.logout")}
