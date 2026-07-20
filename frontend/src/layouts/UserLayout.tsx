@@ -35,10 +35,10 @@ const UserLayout = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#082D4F] relative">
-      <div className="absolute top-0 bottom-0 left-0 w-[calc(16rem+1rem)] md:w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#225288] z-0" />
-      <div className="flex min-h-screen w-full gap-6 px-4 py-6 md:px-6 relative z-10">
-        <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 shrink-0 self-start">
-          <div className="flex h-full flex-col px-2 py-4">
+      <div className="hidden md:block absolute top-0 bottom-0 left-0 w-[calc(16rem+1.5rem)] bg-[#f4f4f5] dark:bg-[#225288] z-0" />
+      <div className="flex flex-col md:flex-row min-h-screen w-full gap-6 px-4 py-6 md:px-6 relative z-10">
+        <aside className="sticky top-4 max-h-[calc(100vh-2rem)] w-full md:w-64 shrink-0 self-start flex flex-col">
+          <div className="flex h-full max-h-[calc(100vh-2rem)] flex-col px-2 py-4 overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between">
               <Typography variant="subtitle2" color="textSecondary" className="uppercase tracking-[0.3em]">
                 {t("over.apicred")}
