@@ -5,7 +5,7 @@
     {
       "name": "backend",
       "beancs_project": "apicred-backend",
-      "image_repository": "registry.beancs.hollowdata.com/hollowdata/apicred-backend",
+      "image_repository": "registry.beancs.com/hollowdata/apicred-backend",
       "context": "./backend",
       "dockerfile": "./backend/Dockerfile",
       "port": 8103
@@ -13,11 +13,11 @@
     {
       "name": "frontend",
       "beancs_project": "apicred-frontend",
-      "image_repository": "registry.beancs.hollowdata.com/hollowdata/apicred-frontend",
+      "image_repository": "registry.beancs.com/hollowdata/apicred-frontend",
       "context": "./frontend",
       "dockerfile": "./frontend/Dockerfile",
       "port": 80,
-      "build_args": "VITE_API_BASE_URL=https://apicred.beancs.hollowdata.com/v1\nVITE_BASALTPASS_BASE_URL=https://auth.beancs.hollowdata.com"
+      "build_args": "VITE_API_BASE_URL=https://apicred.beancs.com/v1\nVITE_BASALTPASS_BASE_URL=https://auth.beancs.com"
     }
   ]
 }
