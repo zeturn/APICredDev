@@ -33,6 +33,7 @@ const LoginPage = () => {
           variant="secondary"
           buttonStyle="outlined"
           fullWidth
+          className="hover:!bg-[#e9e9ebb5] hover:!text-[#350180] transition-colors"
           onClick={() => {
             const nextPath = encodeURIComponent(from);
             window.location.href = `${apiBaseUrl}/auth/basalt/login?next=${nextPath}`;
