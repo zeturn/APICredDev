@@ -250,18 +250,7 @@
     animation: ui-skeleton-shimmer 1.25s infinite;
   }
 
-  .ui-loading-bar {
-    height: 3px;
-    width: 100%;
-    background: linear-gradient(90deg, #103222 0%, #350180 50%, #103222 100%);
-    background-size: 220% 100%;
-    animation: ui-loading-slide 1s linear infinite;
-  }
 
-  .dark .ui-loading-bar {
-    background: linear-gradient(90deg, #225288 0%, #F0F4F8 50%, #225288 100%);
-    background-size: 220% 100%;
-  }
 
   .ui-loading-spinner {
     width: 13px;
@@ -273,21 +262,83 @@
     animation: ui-spin 0.7s linear infinite;
   }
 
-  .ui-center-loading-track {
-    position: relative;
-    overflow: hidden;
-    height: 6px;
-  }
+}
 
-  .ui-center-loading-track::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 38%;
-    left: -40%;
-    background: #334155;
-    animation: ui-center-progress-run 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+/* Triple-ring Counter-rotating Loader (Matching 图666) */
+.ui-triple-ring-loader {
+  position: relative;
+  margin: 2.25rem auto;
+  width: 120px;
+  height: 120px;
+}
+
+.ui-triple-ring-loader .ring {
+  position: absolute;
+  border-radius: 50% !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  box-sizing: border-box !important;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* 外圈：蓝青 Teal Blue - 沉稳大气 2.4s 指数渐变缓动 */
+.ui-triple-ring-loader .ring-outer {
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  border-width: 10px !important;
+  border-top-color: #2096ba !important;
+  border-right-color: #2096ba !important;
+  border-bottom-color: #2096ba !important;
+  border-radius: 50% !important;
+  animation: ui-spin-cw 2.4s cubic-bezier(0.45, 0.0, 0.15, 1.0) infinite;
+}
+
+/* 中圈：亮薄荷绿 Mint Green - 敏捷反向 1.7s 弹性缓动 */
+.ui-triple-ring-loader .ring-middle {
+  top: 17px;
+  left: 17px;
+  width: 86px;
+  height: 86px;
+  border-width: 8px !important;
+  border-top-color: #52d8a6 !important;
+  border-left-color: #52d8a6 !important;
+  border-bottom-color: #52d8a6 !important;
+  border-radius: 50% !important;
+  animation: ui-spin-ccw 1.7s cubic-bezier(0.5, 0.0, 0.2, 1.0) infinite;
+}
+
+/* 内圈：暖金黄 Bright Yellow - 高频旋跃 1.1s 极速非线性缓动 */
+.ui-triple-ring-loader .ring-inner {
+  top: 33px;
+  left: 33px;
+  width: 54px;
+  height: 54px;
+  border-width: 7px !important;
+  border-top-color: #f6db53 !important;
+  border-right-color: #f6db53 !important;
+  border-radius: 50% !important;
+  animation: ui-spin-cw 1.1s cubic-bezier(0.4, 0.0, 0.2, 1.0) infinite;
+}
+
+@keyframes ui-spin-cw {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ui-spin-ccw {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(-360deg);
   }
 }
 
@@ -353,5 +404,20 @@
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
+}
+
+/* Mobile Touch & Viewport Optimizations (< 800px) */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents auto-zoom in iOS Safari */
+  }
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.touch-scrolling {
+  -webkit-overflow-scrolling: touch;
 }
 

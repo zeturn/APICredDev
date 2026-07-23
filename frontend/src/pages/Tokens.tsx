@@ -44,7 +44,7 @@ const TokensPage = () => {
       </div>
       <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
-      <Card className="p-6">
+      <Card className="p-4 md:p-6">
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={4}>
             <TextField label={t("tokens.name")} placeholder={t("tokens.namePlaceholder")} value={name} onChange={(e: any) => setName(e.target.value)} fullWidth />
@@ -59,7 +59,7 @@ const TokensPage = () => {
             />
           </Grid>
           <Grid item xs={12} md={2}>
-            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createToken}>
+            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createToken} className="mt-2 md:mt-0">
               {t("tokens.create")}
             </Button>
           </Grid>
@@ -67,13 +67,14 @@ const TokensPage = () => {
       </Card>
 
       {newToken && (
-        <Alert type="success" variant="filled" title={t("tokens.new")} showIcon>
-          {t("tokens.newAlert")}<code>{newToken}</code>
+        <Alert type="success" variant="filled" title={t("tokens.new")} showIcon className="break-all">
+          {t("tokens.newAlert")}<code className="break-all">{newToken}</code>
         </Alert>
       )}
 
-      <Card className="p-6">
-        <Table striped hover>
+      <Card className="p-4 md:p-6 overflow-hidden">
+        <div className="overflow-x-auto touch-scrolling">
+          <Table striped hover>
           <TableHead>
             <TableRow>
               <TableCell>{t("tokens.nameCol")}</TableCell>
@@ -88,10 +89,23 @@ const TokensPage = () => {
                 <TableCell>{token.name}</TableCell>
                 <TableCell>{token.scopes.join(", ")}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{token.status}</Badge>
+                  {String(token.status || "").toLowerCase() === "revoked" ? (
+                    <span className="inline-flex items-center rounded-xl bg-[#fde4ec] dark:bg-rose-950/50 px-3 py-1 text-xs font-semibold text-[#c2185b] dark:text-rose-400">
+                      Revoked
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-xl bg-[#e6f7e6] dark:bg-emerald-950/50 px-3 py-1 text-xs font-semibold text-[#246e20] dark:text-emerald-400">
+                      Active
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell align="right">
-                  <Button buttonStyle="text" variant="error" onClick={() => revoke(token.id)}>
+                  <Button
+                    buttonStyle="text"
+                    variant="error"
+                    disabled={String(token.status || "").toLowerCase() === "revoked"}
+                    onClick={() => revoke(token.id)}
+                  >
                     {t("tokens.revoke")}
                   </Button>
                 </TableCell>
@@ -104,6 +118,7 @@ const TokensPage = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );
