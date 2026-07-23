@@ -44,7 +44,7 @@ const TokensPage = () => {
       </div>
       <div className="w-full shrink-0 border-t-[3px] border-dashed border-[#103222] dark:border-[#F0F4F8] mt-[7px] mb-[28px]" />
 
-      <Card className="p-6">
+      <Card className="p-4 md:p-6">
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={4}>
             <TextField label={t("tokens.name")} placeholder={t("tokens.namePlaceholder")} value={name} onChange={(e: any) => setName(e.target.value)} fullWidth />
@@ -59,7 +59,7 @@ const TokensPage = () => {
             />
           </Grid>
           <Grid item xs={12} md={2}>
-            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createToken}>
+            <Button variant="primary" buttonStyle="filled" fullWidth onClick={createToken} className="mt-2 md:mt-0">
               {t("tokens.create")}
             </Button>
           </Grid>
@@ -67,13 +67,14 @@ const TokensPage = () => {
       </Card>
 
       {newToken && (
-        <Alert type="success" variant="filled" title={t("tokens.new")} showIcon>
-          {t("tokens.newAlert")}<code>{newToken}</code>
+        <Alert type="success" variant="filled" title={t("tokens.new")} showIcon className="break-all">
+          {t("tokens.newAlert")}<code className="break-all">{newToken}</code>
         </Alert>
       )}
 
-      <Card className="p-6">
-        <Table striped hover>
+      <Card className="p-4 md:p-6 overflow-hidden">
+        <div className="overflow-x-auto touch-scrolling">
+          <Table striped hover>
           <TableHead>
             <TableRow>
               <TableCell>{t("tokens.nameCol")}</TableCell>
@@ -117,6 +118,7 @@ const TokensPage = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );

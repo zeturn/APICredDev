@@ -406,3 +406,18 @@
   background: #334155;
 }
 
+/* Mobile Touch & Viewport Optimizations (< 800px) */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents auto-zoom in iOS Safari */
+  }
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.touch-scrolling {
+  -webkit-overflow-scrolling: touch;
+}
+
