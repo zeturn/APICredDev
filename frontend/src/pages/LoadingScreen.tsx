@@ -10,16 +10,10 @@ const LoadingScreen = () => {
           {t("loading.appName")}
         </Typography>
 
-        <div className="ui-nested-loader">
-          <div>
-            <div>
-              <div>
-                <div>
-                  <div></div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="ui-triple-ring-loader">
+          <div className="ring ring-outer" />
+          <div className="ring ring-middle" />
+          <div className="ring ring-inner" />
         </div>
 
         <Typography variant="caption" color="textSecondary" className="mt-1 block dark:text-slate-400">
