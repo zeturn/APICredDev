@@ -262,51 +262,64 @@
     animation: ui-spin 0.7s linear infinite;
   }
 
-  /* Triple-ring Counter-rotating Loader (Matching 图666) */
-  .ui-triple-ring-loader {
-    position: relative;
-    margin: 2.25rem auto;
-    width: 120px;
-    height: 120px;
-  }
+}
 
-  .ui-triple-ring-loader .ring {
-    position: absolute;
-    border-radius: 50%;
-    border-style: solid;
-    border-color: transparent;
-    box-sizing: border-box;
-    will-change: transform;
-  }
+/* Triple-ring Counter-rotating Loader (Matching 图666) */
+.ui-triple-ring-loader {
+  position: relative;
+  margin: 2.25rem auto;
+  width: 120px;
+  height: 120px;
+}
 
-  /* 外圈：蓝青 Teal Blue */
-  .ui-triple-ring-loader .ring-outer {
-    inset: 0;
-    border-width: 10px;
-    border-top-color: #2096ba;
-    border-right-color: #2096ba;
-    border-bottom-color: #2096ba;
-    animation: ui-spin-cw 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-  }
+.ui-triple-ring-loader .ring {
+  position: absolute;
+  border-radius: 50% !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  box-sizing: border-box !important;
+  will-change: transform;
+}
 
-  /* 中圈：亮薄荷绿 Mint Green */
-  .ui-triple-ring-loader .ring-middle {
-    inset: 17px;
-    border-width: 8px;
-    border-top-color: #52d8a6;
-    border-left-color: #52d8a6;
-    border-bottom-color: #52d8a6;
-    animation: ui-spin-ccw 2.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-  }
+/* 外圈：蓝青 Teal Blue */
+.ui-triple-ring-loader .ring-outer {
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  border-width: 10px !important;
+  border-top-color: #2096ba !important;
+  border-right-color: #2096ba !important;
+  border-bottom-color: #2096ba !important;
+  border-radius: 50% !important;
+  animation: ui-spin-cw 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
 
-  /* 内圈：暖金黄 Bright Yellow */
-  .ui-triple-ring-loader .ring-inner {
-    inset: 33px;
-    border-width: 7px;
-    border-top-color: #f6db53;
-    border-right-color: #f6db53;
-    animation: ui-spin-cw 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-  }
+/* 中圈：亮薄荷绿 Mint Green */
+.ui-triple-ring-loader .ring-middle {
+  top: 17px;
+  left: 17px;
+  width: 86px;
+  height: 86px;
+  border-width: 8px !important;
+  border-top-color: #52d8a6 !important;
+  border-left-color: #52d8a6 !important;
+  border-bottom-color: #52d8a6 !important;
+  border-radius: 50% !important;
+  animation: ui-spin-ccw 2.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+/* 内圈：暖金黄 Bright Yellow */
+.ui-triple-ring-loader .ring-inner {
+  top: 33px;
+  left: 33px;
+  width: 54px;
+  height: 54px;
+  border-width: 7px !important;
+  border-top-color: #f6db53 !important;
+  border-right-color: #f6db53 !important;
+  border-radius: 50% !important;
+  animation: ui-spin-cw 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 @keyframes ui-spin-cw {
