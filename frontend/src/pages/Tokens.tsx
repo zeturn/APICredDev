@@ -88,10 +88,23 @@ const TokensPage = () => {
                 <TableCell>{token.name}</TableCell>
                 <TableCell>{token.scopes.join(", ")}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{token.status}</Badge>
+                  {String(token.status || "").toLowerCase() === "revoked" ? (
+                    <span className="inline-flex items-center rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                      Revoked
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-xl bg-[#e6f7e6] dark:bg-emerald-950/50 px-3 py-1 text-xs font-semibold text-[#246e20] dark:text-emerald-400">
+                      Active
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell align="right">
-                  <Button buttonStyle="text" variant="error" onClick={() => revoke(token.id)}>
+                  <Button
+                    buttonStyle="text"
+                    variant="error"
+                    disabled={String(token.status || "").toLowerCase() === "revoked"}
+                    onClick={() => revoke(token.id)}
+                  >
                     {t("tokens.revoke")}
                   </Button>
                 </TableCell>
