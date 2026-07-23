@@ -89,7 +89,7 @@ const TokensPage = () => {
                 <TableCell>{token.scopes.join(", ")}</TableCell>
                 <TableCell>
                   {String(token.status || "").toLowerCase() === "revoked" ? (
-                    <span className="inline-flex items-center rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                    <span className="inline-flex items-center rounded-xl bg-[#fde4ec] dark:bg-rose-950/50 px-3 py-1 text-xs font-semibold text-[#c2185b] dark:text-rose-400">
                       Revoked
                     </span>
                   ) : (
